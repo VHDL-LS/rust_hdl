@@ -395,10 +395,7 @@ ElementResolutionResolutionIndication =
 
 ResolutionIndication =
   NameResolutionIndication
-| ParenthesizedElementResolutionResolutionIndication
-
-ParenthesizedElementResolutionResolutionIndication =
-  '(' ElementResolutionResolutionIndication ')'
+| parenthesized_element_resolution:('(' ElementResolutionResolutionIndication ')')
 
 SignalDeclaration =
   'signal'

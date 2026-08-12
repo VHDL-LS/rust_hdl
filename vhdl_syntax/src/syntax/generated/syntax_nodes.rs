@@ -12912,10 +12912,10 @@ impl ParameterSpecificationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ParenthesizedElementResolutionResolutionIndicationSyntax(pub(crate) SyntaxNode);
-impl AstNode for ParenthesizedElementResolutionResolutionIndicationSyntax {
+pub struct ParenthesizedElementResolutionSyntax(pub(crate) SyntaxNode);
+impl AstNode for ParenthesizedElementResolutionSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ParenthesizedElementResolutionResolutionIndication,
+        kind: NodeKind::ParenthesizedElementResolution,
         items: &[
             LayoutItem {
                 optional: false,
@@ -12938,13 +12938,13 @@ impl AstNode for ParenthesizedElementResolutionResolutionIndicationSyntax {
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        ParenthesizedElementResolutionResolutionIndicationSyntax(node)
+        ParenthesizedElementResolutionSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl ParenthesizedElementResolutionResolutionIndicationSyntax {
+impl ParenthesizedElementResolutionSyntax {
     pub fn left_par_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -14736,7 +14736,7 @@ impl AstNode for RecordElementResolutionSyntax {
                 name: "resolution_indication",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::NameResolutionIndication,
-                    NodeKind::ParenthesizedElementResolutionResolutionIndication,
+                    NodeKind::ParenthesizedElementResolution,
                 ]),
             },
         ],
@@ -15162,15 +15162,13 @@ impl ReportStatementSyntax {
 #[derive(Debug, Clone)]
 pub enum ResolutionIndicationSyntax {
     NameResolutionIndication(NameResolutionIndicationSyntax),
-    ParenthesizedElementResolutionResolutionIndication(
-        ParenthesizedElementResolutionResolutionIndicationSyntax,
-    ),
+    ParenthesizedElementResolution(ParenthesizedElementResolutionSyntax),
 }
 impl AstNode for ResolutionIndicationSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
         options: &[
             NodeKind::NameResolutionIndication,
-            NodeKind::ParenthesizedElementResolutionResolutionIndication,
+            NodeKind::ParenthesizedElementResolution,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -15179,9 +15177,9 @@ impl AstNode for ResolutionIndicationSyntax {
                 NameResolutionIndicationSyntax::cast_unchecked(node),
             );
         }
-        if ParenthesizedElementResolutionResolutionIndicationSyntax::can_cast(&node) {
-            return ResolutionIndicationSyntax::ParenthesizedElementResolutionResolutionIndication(
-                ParenthesizedElementResolutionResolutionIndicationSyntax::cast_unchecked(node),
+        if ParenthesizedElementResolutionSyntax::can_cast(&node) {
+            return ResolutionIndicationSyntax::ParenthesizedElementResolution(
+                ParenthesizedElementResolutionSyntax::cast_unchecked(node),
             );
         }
         unreachable!(
@@ -15192,9 +15190,7 @@ impl AstNode for ResolutionIndicationSyntax {
     fn raw(&self) -> SyntaxNode {
         match self {
             ResolutionIndicationSyntax::NameResolutionIndication(inner) => inner.raw(),
-            ResolutionIndicationSyntax::ParenthesizedElementResolutionResolutionIndication(
-                inner,
-            ) => inner.raw(),
+            ResolutionIndicationSyntax::ParenthesizedElementResolution(inner) => inner.raw(),
         }
     }
 }
@@ -15209,7 +15205,7 @@ impl AstNode for ResolutionIndicationElementResolutionSyntax {
             name: "resolution_indication",
             kind: LayoutItemKind::NodeChoice(&[
                 NodeKind::NameResolutionIndication,
-                NodeKind::ParenthesizedElementResolutionResolutionIndication,
+                NodeKind::ParenthesizedElementResolution,
             ]),
         }],
     });
@@ -18113,7 +18109,7 @@ impl AstNode for SubtypeIndicationSyntax {
                 name: "resolution_indication",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::NameResolutionIndication,
-                    NodeKind::ParenthesizedElementResolutionResolutionIndication,
+                    NodeKind::ParenthesizedElementResolution,
                 ]),
             },
             LayoutItem {

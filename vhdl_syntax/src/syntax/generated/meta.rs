@@ -238,9 +238,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::PackagePreamble => PackagePreambleSyntax::META,
         NodeKind::ParameterList => ParameterListSyntax::META,
         NodeKind::ParameterSpecification => ParameterSpecificationSyntax::META,
-        NodeKind::ParenthesizedElementResolutionResolutionIndication => {
-            ParenthesizedElementResolutionResolutionIndicationSyntax::META
-        }
+        NodeKind::ParenthesizedElementResolution => ParenthesizedElementResolutionSyntax::META,
         NodeKind::ParenthesizedExpression => ParenthesizedExpressionSyntax::META,
         NodeKind::ParenthesizedExpressionOrAggregate => {
             ParenthesizedExpressionOrAggregateSyntax::META

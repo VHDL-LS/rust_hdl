@@ -11167,17 +11167,17 @@ impl From<ParameterSpecificationBuilder> for ParameterSpecificationSyntax {
         value.build()
     }
 }
-pub struct ParenthesizedElementResolutionResolutionIndicationBuilder {
+pub struct ParenthesizedElementResolutionBuilder {
     left_par_token: Token,
     element_resolution_resolution_indication: Option<ElementResolutionResolutionIndicationSyntax>,
     right_par_token: Token,
 }
-impl Default for ParenthesizedElementResolutionResolutionIndicationBuilder {
+impl Default for ParenthesizedElementResolutionBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
-impl ParenthesizedElementResolutionResolutionIndicationBuilder {
+impl ParenthesizedElementResolutionBuilder {
     pub fn new() -> Self {
         Self {
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
@@ -11208,9 +11208,9 @@ impl ParenthesizedElementResolutionResolutionIndicationBuilder {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn build(self) -> ParenthesizedElementResolutionResolutionIndicationSyntax {
+    pub fn build(self) -> ParenthesizedElementResolutionSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ParenthesizedElementResolutionResolutionIndication);
+        builder.start_node(NodeKind::ParenthesizedElementResolution);
         builder.push(self.left_par_token);
         if let Some(n) = self.element_resolution_resolution_indication {
             builder.push_node(n.raw().green().clone());
@@ -11219,13 +11219,11 @@ impl ParenthesizedElementResolutionResolutionIndicationBuilder {
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        ParenthesizedElementResolutionResolutionIndicationSyntax::cast(node).unwrap()
+        ParenthesizedElementResolutionSyntax::cast(node).unwrap()
     }
 }
-impl From<ParenthesizedElementResolutionResolutionIndicationBuilder>
-    for ParenthesizedElementResolutionResolutionIndicationSyntax
-{
-    fn from(value: ParenthesizedElementResolutionResolutionIndicationBuilder) -> Self {
+impl From<ParenthesizedElementResolutionBuilder> for ParenthesizedElementResolutionSyntax {
+    fn from(value: ParenthesizedElementResolutionBuilder) -> Self {
         value.build()
     }
 }

@@ -5,7 +5,7 @@ expression: "to_test_text(Parser::actual_part, \"(resolve) bit_vector\")"
 ActualPart
   ActualPartSubtypeIndication
     SubtypeIndication
-      ParenthesizedElementResolutionResolutionIndication
+      ParenthesizedElementResolution
         LeftPar
         ElementResolutionResolutionIndication
           ResolutionIndicationElementResolution

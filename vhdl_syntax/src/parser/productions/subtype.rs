@@ -16,7 +16,7 @@ fn is_start_of_name(parser: &Parser) -> bool {
 impl Parser {
     fn resolution_indication(&mut self) {
         if self.next_is(LeftPar) {
-            self.start_node(ParenthesizedElementResolutionResolutionIndication);
+            self.start_node(ParenthesizedElementResolution);
             self.skip();
             self.element_resolution();
             self.expect_token(RightPar);

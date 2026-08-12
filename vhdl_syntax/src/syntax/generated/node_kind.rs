@@ -208,7 +208,7 @@ pub enum NodeKind {
     PackagePreamble,
     ParameterList,
     ParameterSpecification,
-    ParenthesizedElementResolutionResolutionIndication,
+    ParenthesizedElementResolution,
     ParenthesizedExpression,
     ParenthesizedExpressionOrAggregate,
     ParenthesizedInterfaceList,

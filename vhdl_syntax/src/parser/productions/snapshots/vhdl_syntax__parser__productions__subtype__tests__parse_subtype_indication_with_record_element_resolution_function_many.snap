@@ -3,14 +3,14 @@ source: vhdl_syntax/src/parser/productions/subtype.rs
 expression: "to_test_text(Parser::subtype_indication,\n\"(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t\")"
 ---
 SubtypeIndication
-  ParenthesizedElementResolutionResolutionIndication
+  ParenthesizedElementResolution
     LeftPar
     ElementResolutionResolutionIndication
       RecordResolutionElementResolution
         RecordResolution
           RecordElementResolution
             Identifier 'elem1'
-            ParenthesizedElementResolutionResolutionIndication
+            ParenthesizedElementResolution
               LeftPar
               ElementResolutionResolutionIndication
                 ResolutionIndicationElementResolution
@@ -29,7 +29,7 @@ SubtypeIndication
           Comma
           RecordElementResolution
             Identifier 'elem3'
-            ParenthesizedElementResolutionResolutionIndication
+            ParenthesizedElementResolution
               LeftPar
               ElementResolutionResolutionIndication
                 RecordResolutionElementResolution
