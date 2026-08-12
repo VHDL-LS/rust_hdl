@@ -209,10 +209,9 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::AccessTypeDefinition
         | NodeKind::Assertion
         | NodeKind::BindingIndication
-        | NodeKind::ComponentInstantiationItems
-        | NodeKind::ConditionalElseItem
+        | NodeKind::ElseExpression
         | NodeKind::ConditionalExpressions
-        | NodeKind::ConditionalWaveformElseItem
+        | NodeKind::ElseWaveform
         | NodeKind::ConditionalWaveforms
         | NodeKind::ConstrainedArrayDefinition
         | NodeKind::EnumerationTypeDefinition
@@ -231,7 +230,8 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::SelectedExpressions
         | NodeKind::SelectedWaveforms
         | NodeKind::TimeoutClause
-        | NodeKind::UnboundedArrayDefinition => &[SemiColon],
+        | NodeKind::UnboundedArrayDefinition
+        | NodeKind::InitialValue => &[SemiColon],
         NodeKind::AllSensitivityList
         | NodeKind::AssociationList
         | NodeKind::ElementResolutionResolutionIndication
@@ -269,14 +269,9 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::BlockConfiguration
         | NodeKind::BlockConfigurationEpilogue
         | NodeKind::BlockConfigurationItem
-        | NodeKind::BlockConfigurationItems
         | NodeKind::CaseGenerateAlternative
         | NodeKind::CaseStatementAlternative
         | NodeKind::ComponentConfiguration
-        | NodeKind::ComponentConfigurationItems
-        | NodeKind::ComponentDeclarationItems
-        | NodeKind::CompoundConfigurationSpecificationItems
-        | NodeKind::ConfigurationDeclarationItems
         | NodeKind::ElementDeclaration
         | NodeKind::IfGenerateElse
         | NodeKind::IfStatementElse
@@ -284,7 +279,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::SecondaryUnitDeclaration
         | NodeKind::UnitDeclarations => &[Keyword(Kw::End)],
         NodeKind::EntitySpecification => &[Keyword(Kw::Is)],
-        NodeKind::ForIterationScheme | NodeKind::WhileIterationScheme => &[Keyword(Kw::Loop)],
+        NodeKind::ForScheme | NodeKind::WhileScheme => &[Keyword(Kw::Loop)],
         NodeKind::GuardedSignalSpecification => &[Keyword(Kw::After)],
         NodeKind::IndexConstraint => &[Keyword(Kw::Of)],
         NodeKind::InterfacePackageDeclarationPreamble => &[Keyword(Kw::New)],
@@ -302,10 +297,10 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::NameTarget
         | NodeKind::CaseStatementPreamble => &[Keyword(Kw::End), Keyword(Kw::When)],
         NodeKind::ConditionClause => &[Keyword(Kw::For), SemiColon],
-        NodeKind::ConditionalElseWhenExpression
-        | NodeKind::ConditionalExpression
-        | NodeKind::ConditionalWaveform
-        | NodeKind::ConditionalWaveformElseWhenExpression => &[Keyword(Kw::Else), SemiColon],
+        NodeKind::ElseWhenExpression
+        | NodeKind::WhenExpression
+        | NodeKind::WhenWaveform
+        | NodeKind::ElseWhenWaveform => &[Keyword(Kw::Else), SemiColon],
         NodeKind::EntityDesignator => &[Colon, Comma],
         NodeKind::FunctionSpecification | NodeKind::ProcedureSpecification => {
             &[Keyword(Kw::Is), SemiColon]
@@ -332,14 +327,13 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::UnaffectedWaveform | NodeKind::WaveformElements => {
             &[Keyword(Kw::When), SemiColon]
         }
-        NodeKind::VerificationUnitBindingIndication | NodeKind::VerificationUnitList => {
-            &[Keyword(Kw::End), SemiColon]
-        }
+        NodeKind::VerificationUnitBinding
+        | NodeKind::VerificationUnitBindingIndication
+        | NodeKind::VerificationUnitList => &[Keyword(Kw::End), SemiColon],
         NodeKind::AssertionStatement
         | NodeKind::BlockEpilogue
         | NodeKind::BlockStatement
         | NodeKind::CaseGenerateStatement
-        | NodeKind::CaseGenerateStatementEpilogue
         | NodeKind::CaseStatement
         | NodeKind::CaseStatementEpilogue
         | NodeKind::ComponentInstantiationStatement
@@ -354,11 +348,10 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::ConditionalWaveformAssignment
         | NodeKind::ExitStatement
         | NodeKind::ForGenerateStatement
-        | NodeKind::ForGenerateStatementEpilogue
+        | NodeKind::GenerateEpilogue
         | NodeKind::GenerateStatementBody
-        | NodeKind::GenerateStatementBodyEpilogue
+        | NodeKind::GenerateBodyEpilogue
         | NodeKind::IfGenerateStatement
-        | NodeKind::IfGenerateStatementEpilogue
         | NodeKind::IfStatement
         | NodeKind::IfStatementEpilogue
         | NodeKind::LoopStatement
@@ -367,7 +360,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::NullStatement
         | NodeKind::ProcedureCallStatement
         | NodeKind::ProcessStatement
-        | NodeKind::ProcessStatementEpilogue
+        | NodeKind::ProcessEpilogue
         | NodeKind::ReportStatement
         | NodeKind::ReturnStatement
         | NodeKind::SelectedForceAssignment
@@ -385,11 +378,11 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::ComponentDeclarationPreamble => {
             &[Keyword(Kw::End), Keyword(Kw::Generic), Keyword(Kw::Port)]
         }
-        NodeKind::ComponentInstantiatedUnit
-        | NodeKind::ConfigurationInstantiatedUnit
+        NodeKind::InstantiatedComponent
+        | NodeKind::InstantiatedConfiguration
         | NodeKind::EntityConfigurationAspect
         | NodeKind::EntityEntityAspect
-        | NodeKind::EntityInstantiatedUnit
+        | NodeKind::InstantiatedEntity
         | NodeKind::EntityOpenAspect => &[Keyword(Kw::Generic), Keyword(Kw::Port), SemiColon],
         NodeKind::NameList | NodeKind::SensitivityClause => {
             &[Keyword(Kw::For), Keyword(Kw::Until), SemiColon]
@@ -402,8 +395,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             Keyword(Kw::Library),
             Keyword(Kw::Use),
         ],
-        NodeKind::ConcurrentSelectedSignalAssignmentPreamble
-        | NodeKind::SelectedAssignmentPreamble => {
+        NodeKind::SelectedAssignmentPreamble => {
             &[CharacterLiteral, Identifier, LeftPar, LtLt, StringLiteral]
         }
         NodeKind::Signature => &[Colon, Comma, Keyword(Kw::Generic), SemiColon, Tick],
@@ -533,7 +525,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::PackageBodyDeclaration
         | NodeKind::PackageDeclaration
         | NodeKind::PackageInstantiationDeclaration
-        | NodeKind::SharedVariableDeclaration
         | NodeKind::SignalDeclaration
         | NodeKind::SimpleConfigurationSpecification
         | NodeKind::SubprogramBody
@@ -621,7 +612,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         ],
         NodeKind::ArchitecturePreamble
         | NodeKind::BlockHeader
-        | NodeKind::ProcessStatementPreamble
+        | NodeKind::ProcessPreamble
         | NodeKind::SubprogramBodyPreamble => &[
             Keyword(Kw::Alias),
             Keyword(Kw::Attribute),
@@ -647,7 +638,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::PackageBodyPreamble
         | NodeKind::PackageHeader
         | NodeKind::ProtectedTypeBodyPreamble
-        | NodeKind::ProtectedTypeDeclarationPreamble => &[
+        | NodeKind::ProtectedPreamble => &[
             Keyword(Kw::Alias),
             Keyword(Kw::Attribute),
             Keyword(Kw::Component),
@@ -898,7 +889,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             SemiColon,
             StringLiteral,
         ],
-        NodeKind::EntityHeader | NodeKind::ForGenerateStatementPreamble => &[
+        NodeKind::EntityHeader | NodeKind::ForGeneratePreamble => &[
             CharacterLiteral,
             Identifier,
             Keyword(Kw::Alias),

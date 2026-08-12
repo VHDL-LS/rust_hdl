@@ -6,51 +6,63 @@
 /// Parsing of object declarations (LRM §6.4.2)
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
+use crate::syntax::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
-use crate::tokens::TokenKind::*;
+use crate::tokens::TokenKind::{self, *};
+
+#[derive(Eq, PartialEq)]
+enum Object {
+    Constant,
+    Signal,
+    Variable, // also includes shared variable
+}
+
+impl Object {
+    pub fn kind(&self) -> NodeKind {
+        match self {
+            Object::Constant => ConstantDeclaration,
+            Object::Signal => SignalDeclaration,
+            Object::Variable => VariableDeclaration,
+        }
+    }
+
+    pub fn initial_token(&self) -> TokenKind {
+        match self {
+            Object::Constant => Keyword(Kw::Constant),
+            Object::Signal => Keyword(Kw::Signal),
+            Object::Variable => Keyword(Kw::Variable),
+        }
+    }
+}
 
 impl Parser {
     pub fn constant_declaration(&mut self) {
-        self.start_node(ConstantDeclaration);
-        self.expect_token(Keyword(Kw::Constant));
-        self.identifier_list();
-        self.expect_token(Colon);
-        self.subtype_indication();
-        if self.opt_token(ColonEq) {
-            self.expression();
-        }
-        self.expect_token(SemiColon);
-        self.end_node();
+        self.any_object_declaration(Object::Constant);
     }
 
     pub fn signal_declaration(&mut self) {
-        self.start_node(SignalDeclaration);
-        self.expect_token(Keyword(Kw::Signal));
+        self.any_object_declaration(Object::Signal);
+    }
+
+    pub fn variable_declaration(&mut self) {
+        self.any_object_declaration(Object::Variable);
+    }
+
+    fn any_object_declaration(&mut self, object: Object) {
+        self.start_node(object.kind());
+        if object == Object::Variable {
+            self.opt_token(Keyword(Kw::Shared));
+        }
+        self.expect_token(object.initial_token());
         self.identifier_list();
         self.expect_token(Colon);
         self.subtype_indication();
         self.opt_tokens([Keyword(Kw::Register), Keyword(Kw::Bus)]);
-        if self.opt_token(ColonEq) {
+        if self.next_is(ColonEq) {
+            self.start_node(InitialValue);
+            self.skip(); // :=
             self.expression();
-        }
-        self.expect_token(SemiColon);
-        self.end_node();
-    }
-
-    pub fn variable_declaration(&mut self) {
-        let kind = if self.next_is(Keyword(Kw::Shared)) {
-            SharedVariableDeclaration
-        } else {
-            VariableDeclaration
-        };
-        self.start_node(kind);
-        self.opt_token(Keyword(Kw::Shared));
-        self.expect_token(Keyword(Kw::Variable));
-        self.identifier_list();
-        self.expect_token(Colon);
-        self.subtype_indication();
-        if self.opt_token(ColonEq) {
-            self.expression();
+            self.end_node();
         }
         self.expect_token(SemiColon);
         self.end_node();

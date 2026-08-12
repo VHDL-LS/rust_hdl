@@ -36,7 +36,7 @@ IfGenerateStatement
             Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
-      GenerateStatementBodyEpilogue
+      GenerateBodyEpilogue
         Keyword(End)
         Identifier 'alt2'
         SemiColon
@@ -47,11 +47,11 @@ IfGenerateStatement
       Colon
     Keyword(Generate)
     GenerateStatementBody
-      GenerateStatementBodyEpilogue
+      GenerateBodyEpilogue
         Keyword(End)
         Identifier 'alt4'
         SemiColon
-  IfGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

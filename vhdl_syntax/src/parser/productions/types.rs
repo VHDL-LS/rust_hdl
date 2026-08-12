@@ -53,7 +53,7 @@ impl Parser {
             self.start_node(ProtectedTypeBodyPreamble);
             self.expect_tokens([Keyword(Kw::Protected), Keyword(Kw::Body)]);
         } else {
-            self.start_node(ProtectedTypeDeclarationPreamble);
+            self.start_node(ProtectedPreamble);
             self.expect_kw(Kw::Protected);
         }
         self.end_node();

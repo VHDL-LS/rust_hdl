@@ -7,7 +7,7 @@ FullTypeDeclaration
   Identifier 'p_t'
   Keyword(Is)
   ProtectedTypeDeclaration
-    ProtectedTypeDeclarationPreamble
+    ProtectedPreamble
       Keyword(Protected)
     ProtectedTypeDeclarationEpilogue
       Keyword(End)

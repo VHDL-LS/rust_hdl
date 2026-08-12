@@ -21,23 +21,25 @@ WaveformElements
                     LiteralExpression
                       AbstractLiteral '3'
           RightPar
-    Keyword(After)
-    PhysicalLiteralExpression
-      PhysicalLiteral
-        AbstractLiteral '2'
-        Name
-          NameDesignatorPrefix
-            Identifier 'ns'
+    AfterClause
+      Keyword(After)
+      PhysicalLiteralExpression
+        PhysicalLiteral
+          AbstractLiteral '2'
+          Name
+            NameDesignatorPrefix
+              Identifier 'ns'
   Comma
   WaveformElement
     NameExpression
       Name
         NameDesignatorPrefix
           Identifier 'expr'
-    Keyword(After)
-    PhysicalLiteralExpression
-      PhysicalLiteral
-        AbstractLiteral '1'
-        Name
-          NameDesignatorPrefix
-            Identifier 'ns'
+    AfterClause
+      Keyword(After)
+      PhysicalLiteralExpression
+        PhysicalLiteral
+          AbstractLiteral '1'
+          Name
+            NameDesignatorPrefix
+              Identifier 'ns'

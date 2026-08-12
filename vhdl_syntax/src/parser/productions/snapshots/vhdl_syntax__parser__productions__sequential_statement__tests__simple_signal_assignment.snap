@@ -38,11 +38,12 @@ SimpleWaveformAssignment
                     LiteralExpression
                       AbstractLiteral '2'
             RightPar
-      Keyword(After)
-      PhysicalLiteralExpression
-        PhysicalLiteral
-          AbstractLiteral '2'
-          Name
-            NameDesignatorPrefix
-              Identifier 'ns'
+      AfterClause
+        Keyword(After)
+        PhysicalLiteralExpression
+          PhysicalLiteral
+            AbstractLiteral '2'
+            Name
+              NameDesignatorPrefix
+                Identifier 'ns'
   SemiColon

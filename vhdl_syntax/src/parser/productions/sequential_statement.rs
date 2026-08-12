@@ -52,8 +52,10 @@ impl Parser {
         self.expect_kw(Kw::Report);
         self.expression();
         if self.next_is(Keyword(Kw::Severity)) {
-            self.skip();
+            self.start_node(SeverityClause);
+            self.skip(); // Kw::Severity
             self.expression();
+            self.end_node();
         }
         self.expect_token(SemiColon);
         self.end_node();
@@ -65,8 +67,10 @@ impl Parser {
         self.expect_kw(Kw::Next);
         self.opt_identifier();
         if self.next_is(Keyword(Kw::When)) {
-            self.skip();
+            self.start_node(WhenClause);
+            self.skip(); // Kw::When
             self.expression();
+            self.end_node();
         }
         self.expect_token(SemiColon);
         self.end_node();
@@ -78,8 +82,10 @@ impl Parser {
         self.expect_kw(Kw::Exit);
         self.opt_identifier();
         if self.next_is(Keyword(Kw::When)) {
-            self.skip();
+            self.start_node(WhenClause);
+            self.skip(); // Kw::When
             self.expression();
+            self.end_node();
         }
         self.expect_token(SemiColon);
         self.end_node();
@@ -206,8 +212,10 @@ impl Parser {
             Ok((RightArrow, _))
         );
         if has_choices {
+            self.start_node(ElementChoices);
             self.choices();
             self.expect_token(RightArrow);
+            self.end_node();
         }
         self.expression();
         self.end_node();
@@ -239,12 +247,12 @@ impl Parser {
 
     fn opt_iteration_scheme(&mut self) {
         if self.next_is(Keyword(Kw::While)) {
-            self.start_node(WhileIterationScheme);
+            self.start_node(WhileScheme);
             self.skip();
             self.condition();
             self.end_node();
         } else if self.next_is(Keyword(Kw::For)) {
-            self.start_node(ForIterationScheme);
+            self.start_node(ForScheme);
             self.skip();
             self.parameter_specification();
             self.end_node();
@@ -313,13 +321,8 @@ impl Parser {
             Keyword(Kw::Null) => self.null_statement(),
             Keyword(Kw::With) => {
                 let checkpoint = self.checkpoint();
-                self.start_node(SelectedAssignmentPreamble);
                 self.opt_label();
-                self.skip();
-                self.expression();
-                self.expect_kw(Kw::Select);
-                self.opt_token(Que);
-                self.end_node();
+                self.selected_assignment_preamble();
                 self.target();
                 match self.peek_token() {
                     LTE => {
@@ -377,14 +380,14 @@ impl Parser {
                         if self.next_is(Keyword(Kw::When)) {
                             self.start_node_at(checkpoint, ConditionalVariableAssignment);
                             self.start_node_at(cond_expr_checkpoint, ConditionalExpressions);
-                            self.start_node_at(cond_expr_checkpoint, ConditionalExpression);
+                            self.start_node_at(cond_expr_checkpoint, WhenExpression);
                             self.skip();
                             self.expression();
                             self.end_node();
                             self.conditional_else(
                                 Parser::expression,
-                                ConditionalElseWhenExpression,
-                                ConditionalElseItem,
+                                ElseWhenExpression,
+                                ElseExpression,
                             );
                             self.end_node();
                         } else {
@@ -400,14 +403,14 @@ impl Parser {
                             if self.next_is(Keyword(Kw::When)) {
                                 self.start_node_at(checkpoint, ConditionalForceAssignment);
                                 self.start_node_at(cond_expr_checkpoint, ConditionalExpressions);
-                                self.start_node_at(cond_expr_checkpoint, ConditionalExpression);
+                                self.start_node_at(cond_expr_checkpoint, WhenExpression);
                                 self.skip();
                                 self.expression();
                                 self.end_node();
                                 self.conditional_else(
                                     Parser::expression,
-                                    ConditionalElseWhenExpression,
-                                    ConditionalElseItem,
+                                    ElseWhenExpression,
+                                    ElseExpression,
                                 );
                                 self.end_node();
                             } else {
@@ -425,14 +428,14 @@ impl Parser {
                             if self.next_is(Keyword(Kw::When)) {
                                 self.start_node_at(checkpoint, ConditionalWaveformAssignment);
                                 self.start_node_at(wvfm_checkpoint, ConditionalWaveforms);
-                                self.start_node_at(wvfm_checkpoint, ConditionalWaveform);
+                                self.start_node_at(wvfm_checkpoint, WhenWaveform);
                                 self.skip();
                                 self.expression();
                                 self.end_node();
                                 self.conditional_else(
                                     Parser::waveform,
-                                    ConditionalWaveformElseWhenExpression,
-                                    ConditionalWaveformElseItem,
+                                    ElseWhenWaveform,
+                                    ElseWaveform,
                                 );
                                 self.end_node();
                             } else {
@@ -839,6 +842,16 @@ with x(0) + 1 select
     }
 
     #[test]
+    fn labeled_selected_variable_assignment() {
+        insta::assert_snapshot!(stmt_to_test_text(
+            "\
+lbl: with x select
+   foo := bar when others;
+        "
+        ));
+    }
+
+    #[test]
     fn conditional_variable_assignment() {
         insta::assert_snapshot!(stmt_to_test_text(
             "\
@@ -909,6 +922,26 @@ with x(0) + 1 select
 with x(0) + 1 select
    foo(0) <= force bar(1,2) when 0|1,
                        def when others;"
+        ));
+    }
+
+    #[test]
+    fn labeled_selected_signal_assignment() {
+        insta::assert_snapshot!(stmt_to_test_text(
+            "\
+lbl: with x select
+   foo <= bar when others;
+        "
+        ));
+    }
+
+    #[test]
+    fn labeled_selected_signal_force_assignment() {
+        insta::assert_snapshot!(stmt_to_test_text(
+            "\
+lbl: with x select
+   foo <= force bar when others;
+        "
         ));
     }
 

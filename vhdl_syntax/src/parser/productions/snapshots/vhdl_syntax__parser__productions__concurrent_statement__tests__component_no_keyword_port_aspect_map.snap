@@ -6,7 +6,7 @@ ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  ComponentInstantiatedUnit
+  InstantiatedComponent
     Name
       NameDesignatorPrefix
         Identifier 'lib'
@@ -16,23 +16,23 @@ ComponentInstantiationStatement
       SelectedName
         Dot
         Identifier 'bar'
-  ComponentInstantiationItems
-    PortMapAspect
-      Keyword(Port)
-      Keyword(Map)
-      LeftPar
-      AssociationList
-        AssociationElement
+  PortMapAspect
+    Keyword(Port)
+    Keyword(Map)
+    LeftPar
+    AssociationList
+      AssociationElement
+        Formal
           FormalPart
             Name
               NameDesignatorPrefix
                 Identifier 'clk'
           RightArrow
-          ActualPart
-            ActualPartExpression
-              NameExpression
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'clk_foo'
-      RightPar
+        ActualPart
+          ActualPartExpression
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'clk_foo'
+    RightPar
   SemiColon

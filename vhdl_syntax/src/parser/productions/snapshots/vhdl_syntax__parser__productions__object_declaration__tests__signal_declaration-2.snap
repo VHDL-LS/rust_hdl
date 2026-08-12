@@ -15,7 +15,8 @@ SignalDeclaration
     Name
       NameDesignatorPrefix
         Identifier 'natural'
-  ColonEq
-  LiteralExpression
-    AbstractLiteral '1'
+  InitialValue
+    ColonEq
+    LiteralExpression
+      AbstractLiteral '1'
   SemiColon

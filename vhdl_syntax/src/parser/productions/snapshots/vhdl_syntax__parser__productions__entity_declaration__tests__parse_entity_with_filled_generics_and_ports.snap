@@ -56,8 +56,9 @@ EntityDeclaration
       PortClauseEpilogue
         RightPar
         SemiColon
-  DeclarationStatementSeparator
-    Keyword(Begin)
+  EntityStatementPart
+    DeclarationStatementSeparator
+      Keyword(Begin)
   EntityDeclarationEpilogue
     Keyword(End)
     Identifier 'my_ent'

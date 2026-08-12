@@ -4,6 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::parser::productions::declarations::is_start_of_declarative_part;
 use crate::parser::util::StallGuard;
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
@@ -13,6 +14,7 @@ use crate::tokens::TokenKind::{self, *};
 impl Parser {
     pub fn block_statement(&mut self) {
         self.start_node(BlockStatement);
+        self.label();
         self.block_preamble();
         self.block_header();
         self.declarations();
@@ -26,11 +28,10 @@ impl Parser {
 
     pub fn block_preamble(&mut self) {
         self.start_node(BlockPreamble);
-        self.opt_label();
         self.expect_kw(Kw::Block);
         if self.next_is(LeftPar) {
             self.start_node(ParenthesizedExpression);
-            self.skip();
+            self.skip(); // LeftPar
             self.expression();
             self.expect_token(RightPar);
             self.end_node();
@@ -49,20 +50,31 @@ impl Parser {
 
     pub fn block_header(&mut self) {
         self.start_node(BlockHeader);
-        self.opt_generic_clause();
-        let checkpoint = self.checkpoint();
-        if self.opt_generic_map_aspect() {
-            self.start_node_at(checkpoint, SemiColonTerminatedGenericMapAspect);
-            self.expect_token(SemiColon);
+
+        if self.next_is(Keyword(Kw::Generic)) {
+            self.start_node(GenericPart);
+            self.generic_clause();
+            if self.next_is(Keyword(Kw::Generic)) {
+                self.start_node(GenericMap);
+                self.opt_generic_map_aspect();
+                self.expect_token(SemiColon);
+                self.end_node();
+            }
             self.end_node();
         }
-        self.opt_port_clause();
-        let checkpoint = self.checkpoint();
-        if self.opt_port_map_aspect() {
-            self.start_node_at(checkpoint, SemiColonTerminatedPortMapAspect);
-            self.expect_token(SemiColon);
+
+        if self.next_is(Keyword(Kw::Port)) {
+            self.start_node(PortPart);
+            self.port_clause();
+            if self.next_is(Keyword(Kw::Port)) {
+                self.start_node(PortMap);
+                self.opt_port_map_aspect();
+                self.expect_token(SemiColon);
+                self.end_node();
+            }
             self.end_node();
         }
+
         self.end_node();
     }
 
@@ -81,21 +93,21 @@ impl Parser {
     }
 
     pub fn component_instantiated_unit(&mut self) {
-        self.start_node(ComponentInstantiatedUnit);
+        self.start_node(InstantiatedComponent);
         self.opt_token(Keyword(Kw::Component));
         self.name();
         self.end_node();
     }
 
     pub fn entity_instantiated_unit(&mut self) {
-        self.start_node(EntityInstantiatedUnit);
+        self.start_node(InstantiatedEntity);
         self.expect_kw(Kw::Entity);
         self.name();
         self.end_node();
     }
 
     pub fn configuration_instantiated_unit(&mut self) {
-        self.start_node(ConfigurationInstantiatedUnit);
+        self.start_node(InstantiatedConfiguration);
         self.expect_kw(Kw::Configuration);
         self.name();
         self.end_node();
@@ -124,7 +136,7 @@ impl Parser {
 
     pub fn component_instantiation_statement(&mut self) {
         self.start_node(ComponentInstantiationStatement);
-        self.opt_label();
+        self.label();
         self.instantiated_unit();
         self.instantiation_statement_inner();
         self.expect_token(SemiColon);
@@ -170,22 +182,18 @@ impl Parser {
                         if self.next_is(Keyword(Kw::When)) {
                             self.start_node_at(checkpoint, ConcurrentConditionalSignalAssignment);
                             self.start_node_at(waveform_checkpoint, ConditionalWaveforms);
-                            self.start_node_at(waveform_checkpoint, ConditionalWaveform);
+                            self.start_node_at(waveform_checkpoint, WhenWaveform);
                             self.skip();
                             self.expression();
                             self.end_node();
-                            self.conditional_else(
-                                Parser::waveform,
-                                ConditionalWaveformElseWhenExpression,
-                                ConditionalWaveformElseItem,
-                            );
+                            self.conditional_else(Parser::waveform, ElseWhenWaveform, ElseWaveform);
                             self.end_node();
                         } else {
                             self.start_node_at(checkpoint, ConcurrentSimpleSignalAssignment);
                         }
                     }
                     Keyword(Kw::Port | Kw::Generic) => {
-                        self.start_node_at(checkpoint2, ComponentInstantiatedUnit);
+                        self.start_node_at(checkpoint2, InstantiatedComponent);
                         self.end_node();
                         self.start_node_at(checkpoint, ComponentInstantiationStatement);
                         self.instantiation_statement_inner();
@@ -223,7 +231,9 @@ impl Parser {
 
     pub fn concurrent_selected_signal_assignment(&mut self) {
         self.start_node(ConcurrentSelectedSignalAssignment);
-        self.concurrent_selected_signal_assignment_preamble();
+        self.opt_label();
+        self.opt_token(Keyword(Kw::Postponed));
+        self.selected_assignment_preamble();
         self.target();
         self.expect_token(LTE);
         self.opt_token(Keyword(Kw::Guarded));
@@ -233,10 +243,8 @@ impl Parser {
         self.end_node();
     }
 
-    pub fn concurrent_selected_signal_assignment_preamble(&mut self) {
-        self.start_node(ConcurrentSelectedSignalAssignmentPreamble);
-        self.opt_label();
-        self.opt_token(Keyword(Kw::Postponed));
+    pub fn selected_assignment_preamble(&mut self) {
+        self.start_node(SelectedAssignmentPreamble);
         self.expect_kw(Kw::With);
         self.expression();
         self.expect_kw(Kw::Select);
@@ -277,28 +285,20 @@ impl Parser {
 
     pub fn case_generate_statement(&mut self) {
         self.start_node(CaseGenerateStatement);
+        self.label();
         self.case_generate_preamble();
         while self.next_is(Keyword(Kw::When)) {
             self.case_generate_alternative();
         }
-        self.case_generate_epliogue();
+        self.generate_epilogue();
         self.end_node();
     }
 
     pub fn case_generate_preamble(&mut self) {
-        self.start_node(CaseGenerateStatementPreamble);
-        self.opt_label();
+        self.start_node(CaseGeneratePreamble);
         self.expect_kw(Kw::Case);
         self.expression();
         self.expect_kw(Kw::Generate);
-        self.end_node();
-    }
-
-    pub fn case_generate_epliogue(&mut self) {
-        self.start_node(CaseGenerateStatementEpilogue);
-        self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Generate)]);
-        self.opt_identifier();
-        self.expect_token(SemiColon);
         self.end_node();
     }
 
@@ -314,23 +314,23 @@ impl Parser {
 
     pub fn for_generate_statement(&mut self) {
         self.start_node(ForGenerateStatement);
+        self.label();
         self.for_generate_preamble();
         self.generate_statement_body();
-        self.for_generate_epilogue();
+        self.generate_epilogue();
         self.end_node();
     }
 
     pub fn for_generate_preamble(&mut self) {
-        self.start_node(ForGenerateStatementPreamble);
-        self.opt_label();
+        self.start_node(ForGeneratePreamble);
         self.expect_kw(Kw::For);
         self.parameter_specification();
         self.expect_kw(Kw::Generate);
         self.end_node();
     }
 
-    pub fn for_generate_epilogue(&mut self) {
-        self.start_node(ForGenerateStatementEpilogue);
+    pub fn generate_epilogue(&mut self) {
+        self.start_node(GenerateEpilogue);
         self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Generate)]);
         self.opt_identifier();
         self.expect_token(SemiColon);
@@ -376,23 +376,19 @@ impl Parser {
         if self.next_is(Keyword(Kw::Else)) {
             self.if_generate_else();
         }
-        self.if_generate_statement_epilogue();
-        self.end_node();
-    }
-
-    pub fn if_generate_statement_epilogue(&mut self) {
-        self.start_node(IfGenerateStatementEpilogue);
-        self.expect_tokens([Keyword(Kw::End), Keyword(Kw::Generate)]);
-        self.opt_identifier();
-        self.expect_token(SemiColon);
+        self.generate_epilogue();
         self.end_node();
     }
 
     pub fn generate_statement_body(&mut self) {
         self.start_node(GenerateStatementBody);
-        self.opt_declarative_part();
-        if self.next_is(Keyword(Kw::Begin)) {
-            self.skip_into_node(DeclarationStatementSeparator);
+        if is_start_of_declarative_part(self.peek_token()) || self.next_is(Keyword(Kw::Begin)) {
+            self.start_node(GenerateBodyDeclarations);
+            self.declarations();
+            self.start_node(DeclarationStatementSeparator);
+            self.expect_kw(Kw::Begin);
+            self.end_node();
+            self.end_node();
         }
         self.concurrent_statements();
         if self.next_is(Keyword(Kw::End)) && !self.next_nth_is(Keyword(Kw::Generate), 1) {
@@ -402,7 +398,7 @@ impl Parser {
     }
 
     pub fn generate_statement_body_epilogue(&mut self) {
-        self.start_node(GenerateStatementBodyEpilogue);
+        self.start_node(GenerateBodyEpilogue);
         self.expect_kw(Kw::End);
         self.opt_identifier();
         self.expect_token(SemiColon);
@@ -418,27 +414,25 @@ impl Parser {
     }
 
     fn instantiation_statement_inner(&mut self) {
-        self.start_node(ComponentInstantiationItems);
         self.opt_generic_map_aspect();
         self.opt_port_map_aspect();
-        self.end_node();
     }
 
     pub fn process_statement(&mut self) {
         self.start_node(ProcessStatement);
-        self.process_statement_preamble();
+        self.opt_label();
+        self.process_preamble();
         self.declarations();
         self.start_node(DeclarationStatementSeparator);
         self.expect_kw(Kw::Begin);
         self.end_node();
         self.sequential_statements();
-        self.process_statement_epilogue();
+        self.process_epilogue();
         self.end_node();
     }
 
-    pub fn process_statement_preamble(&mut self) {
-        self.start_node(ProcessStatementPreamble);
-        self.opt_label();
+    pub fn process_preamble(&mut self) {
+        self.start_node(ProcessPreamble);
         self.opt_token(Keyword(Kw::Postponed));
         self.expect_token(Keyword(Kw::Process));
         if self.next_is(LeftPar) {
@@ -448,8 +442,8 @@ impl Parser {
         self.end_node();
     }
 
-    pub fn process_statement_epilogue(&mut self) {
-        self.start_node(ProcessStatementEpilogue);
+    pub fn process_epilogue(&mut self) {
+        self.start_node(ProcessEpilogue);
         self.expect_kw(Kw::End);
         self.opt_token(Keyword(Kw::Postponed));
         self.expect_token(Keyword(Kw::Process));
@@ -687,7 +681,7 @@ end process main;",
     #[test]
     fn concurrent_conditional_signal_assignment() {
         // The first `waveform when condition` must be wrapped in a
-        // `ConditionalWaveform` inside `ConditionalWaveforms`, like the
+        // `WhenWaveform` inside `ConditionalWaveforms`, like the
         // sequential form.
         insta::assert_snapshot!(stmt_to_test_text("foo <= a when sel else b;",));
     }

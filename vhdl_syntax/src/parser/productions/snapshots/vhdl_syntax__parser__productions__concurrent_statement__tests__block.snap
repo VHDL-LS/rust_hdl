@@ -3,10 +3,10 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nname : block\n  constant const : natural := 0;\nbegin\n  name2: foo(clk);\nend block;\",)"
 ---
 BlockStatement
+  Label
+    Identifier 'name'
+    Colon
   BlockPreamble
-    Label
-      Identifier 'name'
-      Colon
     Keyword(Block)
   Declarations
     ConstantDeclaration
@@ -18,9 +18,10 @@ BlockStatement
         Name
           NameDesignatorPrefix
             Identifier 'natural'
-      ColonEq
-      LiteralExpression
-        AbstractLiteral '0'
+      InitialValue
+        ColonEq
+        LiteralExpression
+          AbstractLiteral '0'
       SemiColon
   DeclarationStatementSeparator
     Keyword(Begin)

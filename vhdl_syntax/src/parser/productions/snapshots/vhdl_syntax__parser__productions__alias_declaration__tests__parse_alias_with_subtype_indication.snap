@@ -5,24 +5,25 @@ expression: "to_test_text(Parser::alias_declaration,\n\"alias foo : vector(0 to 
 AliasDeclaration
   Keyword(Alias)
   Identifier 'foo'
-  Colon
-  SubtypeIndication
-    Name
-      NameDesignatorPrefix
-        Identifier 'vector'
-      ParenthesizedName
-        LeftPar
-        AssociationList
-          AssociationElement
-            ActualPart
-              ActualPartExpression
-                BinaryExpression
-                  LiteralExpression
-                    AbstractLiteral '0'
-                  Keyword(To)
-                  LiteralExpression
-                    AbstractLiteral '1'
-        RightPar
+  AliasSubtype
+    Colon
+    SubtypeIndication
+      Name
+        NameDesignatorPrefix
+          Identifier 'vector'
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  BinaryExpression
+                    LiteralExpression
+                      AbstractLiteral '0'
+                    Keyword(To)
+                    LiteralExpression
+                      AbstractLiteral '1'
+          RightPar
   Keyword(Is)
   Name
     NameDesignatorPrefix

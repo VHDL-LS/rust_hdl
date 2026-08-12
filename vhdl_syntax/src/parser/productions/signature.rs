@@ -20,8 +20,11 @@ impl Parser {
             self.name_list();
         }
 
-        if self.opt_token(Keyword(Kw::Return)) {
+        if self.next_is(Keyword(Kw::Return)) {
+            self.start_node(ReturnType);
+            self.skip(); // Kw::Return
             self.name();
+            self.end_node();
         }
 
         self.expect_token(RightSquare);

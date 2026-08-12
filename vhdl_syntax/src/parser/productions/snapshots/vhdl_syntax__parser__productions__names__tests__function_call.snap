@@ -9,11 +9,12 @@ Name
     LeftPar
     AssociationList
       AssociationElement
-        FormalPart
-          Name
-            NameDesignatorPrefix
-              Identifier 'arg'
-        RightArrow
+        Formal
+          FormalPart
+            Name
+              NameDesignatorPrefix
+                Identifier 'arg'
+          RightArrow
         ActualPart
           ActualPartExpression
             LiteralExpression

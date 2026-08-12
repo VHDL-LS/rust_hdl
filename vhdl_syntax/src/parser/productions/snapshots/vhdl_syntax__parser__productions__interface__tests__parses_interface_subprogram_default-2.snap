@@ -10,6 +10,7 @@ InterfaceSubprogramDeclaration
     Name
       NameDesignatorPrefix
         Identifier 'bar'
-  Keyword(Is)
-  InterfaceSubprogramDefaultBox
-    BOX
+  SubprogramDefault
+    Keyword(Is)
+    InterfaceSubprogramDefaultBox
+      BOX

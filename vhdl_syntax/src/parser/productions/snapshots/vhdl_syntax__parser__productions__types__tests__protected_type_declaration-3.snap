@@ -7,7 +7,7 @@ FullTypeDeclaration
   Identifier 'foo'
   Keyword(Is)
   ProtectedTypeDeclaration
-    ProtectedTypeDeclarationPreamble
+    ProtectedPreamble
       Keyword(Protected)
     Declarations
       SubprogramDeclaration

@@ -14,10 +14,8 @@ impl Parser {
     pub fn component_declaration(&mut self) {
         self.start_node(ComponentDeclaration);
         self.component_declaration_preamble();
-        self.start_node(ComponentDeclarationItems);
         self.opt_generic_clause();
         self.opt_port_clause();
-        self.end_node();
         self.component_declaration_epilogue();
         self.end_node();
     }

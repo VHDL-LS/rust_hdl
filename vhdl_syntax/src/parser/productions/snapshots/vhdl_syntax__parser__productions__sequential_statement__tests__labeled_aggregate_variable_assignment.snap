@@ -16,11 +16,12 @@ SimpleVariableAssignment
               Identifier 'foo'
       Comma
       ElementAssociation
-        Choices
-          ExpressionChoice
-            LiteralExpression
-              AbstractLiteral '1'
-        RightArrow
+        ElementChoices
+          Choices
+            ExpressionChoice
+              LiteralExpression
+                AbstractLiteral '1'
+          RightArrow
         NameExpression
           Name
             NameDesignatorPrefix

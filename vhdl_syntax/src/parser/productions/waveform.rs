@@ -31,7 +31,9 @@ impl Parser {
             },
             Keyword(Kw::Reject) => {
                 self.start_node_at(checkpoint, InertialDelayMechanism);
+                self.start_node_at(checkpoint, RejectClause);
                 self.expression();
+                self.end_node();
                 self.expect_kw(Kw::Inertial);
             }
         );
@@ -69,8 +71,11 @@ impl Parser {
     pub fn waveform_element(&mut self) {
         self.start_node(WaveformElement);
         self.expression();
-        if self.opt_token(Keyword(Kw::After)) {
+        if self.next_is(Keyword(Kw::After)) {
+            self.start_node(AfterClause);
+            self.skip(); // Kw::After
             self.expression();
+            self.end_node();
         }
         self.end_node()
     }

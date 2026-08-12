@@ -10,7 +10,7 @@ use crate::syntax::NodeKind::{self, *};
 use crate::tokens::TokenKind::*;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
-fn is_start_of_declarative_part(token_kind: TokenKind) -> bool {
+pub(crate) fn is_start_of_declarative_part(token_kind: TokenKind) -> bool {
     matches!(
         token_kind,
         Keyword(
@@ -115,26 +115,21 @@ impl Parser {
         self.component_specification();
         self.end_node();
         self.binding_indication();
+        self.expect_token(SemiColon);
         if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
             self.start_node_at(checkpoint, NodeKind::CompoundConfigurationSpecification);
-            self.start_node(CompoundConfigurationSpecificationItems);
-            while self.next_is(Keyword(Kw::Use)) {
-                self.start_node(SemiColonTerminatedVerificationUnitBindingIndication);
+            while self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
+                self.start_node(VerificationUnitBinding);
                 self.verification_unit_binding_indication();
                 self.expect_token(SemiColon);
                 self.end_node();
             }
-            self.end_node();
-            self.start_node(ComponentConfigurationEpilogue);
-            self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
+            self.component_configuration_epilogue();
             self.end_node();
         } else {
             self.start_node_at(checkpoint, NodeKind::SimpleConfigurationSpecification);
-            self.expect_token(SemiColon);
             if self.next_is(Keyword(Kw::End)) {
-                self.start_node(ComponentConfigurationEpilogue);
-                self.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
-                self.end_node();
+                self.component_configuration_epilogue();
             }
             self.end_node();
         }

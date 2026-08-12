@@ -16,9 +16,11 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ActualPartExpression => ActualPartExpressionSyntax::META,
         NodeKind::ActualPartOpen => ActualPartOpenSyntax::META,
         NodeKind::ActualPartSubtypeIndication => ActualPartSubtypeIndicationSyntax::META,
+        NodeKind::AfterClause => AfterClauseSyntax::META,
         NodeKind::Aggregate => AggregateSyntax::META,
         NodeKind::AggregateTarget => AggregateTargetSyntax::META,
         NodeKind::AliasDeclaration => AliasDeclarationSyntax::META,
+        NodeKind::AliasSubtype => AliasSubtypeSyntax::META,
         NodeKind::AllSensitivityList => AllSensitivityListSyntax::META,
         NodeKind::Allocator => AllocatorSyntax::META,
         NodeKind::ArchitectureBody => ArchitectureBodySyntax::META,
@@ -32,20 +34,20 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::AttributeName => AttributeNameSyntax::META,
         NodeKind::AttributeSpecification => AttributeSpecificationSyntax::META,
         NodeKind::BinaryExpression => BinaryExpressionSyntax::META,
+        NodeKind::Binding => BindingSyntax::META,
         NodeKind::BindingIndication => BindingIndicationSyntax::META,
+        NodeKind::BindingUseClause => BindingUseClauseSyntax::META,
         NodeKind::BlockConfiguration => BlockConfigurationSyntax::META,
         NodeKind::BlockConfigurationEpilogue => BlockConfigurationEpilogueSyntax::META,
         NodeKind::BlockConfigurationItem => BlockConfigurationItemSyntax::META,
-        NodeKind::BlockConfigurationItems => BlockConfigurationItemsSyntax::META,
         NodeKind::BlockConfigurationPreamble => BlockConfigurationPreambleSyntax::META,
         NodeKind::BlockEpilogue => BlockEpilogueSyntax::META,
         NodeKind::BlockHeader => BlockHeaderSyntax::META,
         NodeKind::BlockPreamble => BlockPreambleSyntax::META,
         NodeKind::BlockStatement => BlockStatementSyntax::META,
         NodeKind::CaseGenerateAlternative => CaseGenerateAlternativeSyntax::META,
+        NodeKind::CaseGeneratePreamble => CaseGeneratePreambleSyntax::META,
         NodeKind::CaseGenerateStatement => CaseGenerateStatementSyntax::META,
-        NodeKind::CaseGenerateStatementEpilogue => CaseGenerateStatementEpilogueSyntax::META,
-        NodeKind::CaseGenerateStatementPreamble => CaseGenerateStatementPreambleSyntax::META,
         NodeKind::CaseStatement => CaseStatementSyntax::META,
         NodeKind::CaseStatementAlternative => CaseStatementAlternativeSyntax::META,
         NodeKind::CaseStatementAlternativePreamble => CaseStatementAlternativePreambleSyntax::META,
@@ -54,21 +56,14 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::Choices => ChoicesSyntax::META,
         NodeKind::ComponentConfiguration => ComponentConfigurationSyntax::META,
         NodeKind::ComponentConfigurationEpilogue => ComponentConfigurationEpilogueSyntax::META,
-        NodeKind::ComponentConfigurationItems => ComponentConfigurationItemsSyntax::META,
         NodeKind::ComponentConfigurationPreamble => ComponentConfigurationPreambleSyntax::META,
         NodeKind::ComponentDeclaration => ComponentDeclarationSyntax::META,
         NodeKind::ComponentDeclarationEpilogue => ComponentDeclarationEpilogueSyntax::META,
-        NodeKind::ComponentDeclarationItems => ComponentDeclarationItemsSyntax::META,
         NodeKind::ComponentDeclarationPreamble => ComponentDeclarationPreambleSyntax::META,
-        NodeKind::ComponentInstantiatedUnit => ComponentInstantiatedUnitSyntax::META,
-        NodeKind::ComponentInstantiationItems => ComponentInstantiationItemsSyntax::META,
         NodeKind::ComponentInstantiationStatement => ComponentInstantiationStatementSyntax::META,
         NodeKind::ComponentSpecification => ComponentSpecificationSyntax::META,
         NodeKind::CompoundConfigurationSpecification => {
             CompoundConfigurationSpecificationSyntax::META
-        }
-        NodeKind::CompoundConfigurationSpecificationItems => {
-            CompoundConfigurationSpecificationItemsSyntax::META
         }
         NodeKind::ConcurrentAssertionStatement => ConcurrentAssertionStatementSyntax::META,
         NodeKind::ConcurrentConditionalSignalAssignment => {
@@ -80,30 +75,17 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ConcurrentSelectedSignalAssignment => {
             ConcurrentSelectedSignalAssignmentSyntax::META
         }
-        NodeKind::ConcurrentSelectedSignalAssignmentPreamble => {
-            ConcurrentSelectedSignalAssignmentPreambleSyntax::META
-        }
         NodeKind::ConcurrentSimpleSignalAssignment => ConcurrentSimpleSignalAssignmentSyntax::META,
         NodeKind::ConcurrentStatements => ConcurrentStatementsSyntax::META,
         NodeKind::ConditionClause => ConditionClauseSyntax::META,
-        NodeKind::ConditionalElseItem => ConditionalElseItemSyntax::META,
-        NodeKind::ConditionalElseWhenExpression => ConditionalElseWhenExpressionSyntax::META,
-        NodeKind::ConditionalExpression => ConditionalExpressionSyntax::META,
         NodeKind::ConditionalExpressions => ConditionalExpressionsSyntax::META,
         NodeKind::ConditionalForceAssignment => ConditionalForceAssignmentSyntax::META,
         NodeKind::ConditionalVariableAssignment => ConditionalVariableAssignmentSyntax::META,
-        NodeKind::ConditionalWaveform => ConditionalWaveformSyntax::META,
         NodeKind::ConditionalWaveformAssignment => ConditionalWaveformAssignmentSyntax::META,
-        NodeKind::ConditionalWaveformElseItem => ConditionalWaveformElseItemSyntax::META,
-        NodeKind::ConditionalWaveformElseWhenExpression => {
-            ConditionalWaveformElseWhenExpressionSyntax::META
-        }
         NodeKind::ConditionalWaveforms => ConditionalWaveformsSyntax::META,
         NodeKind::ConfigurationDeclaration => ConfigurationDeclarationSyntax::META,
         NodeKind::ConfigurationDeclarationEpilogue => ConfigurationDeclarationEpilogueSyntax::META,
-        NodeKind::ConfigurationDeclarationItems => ConfigurationDeclarationItemsSyntax::META,
         NodeKind::ConfigurationDeclarationPreamble => ConfigurationDeclarationPreambleSyntax::META,
-        NodeKind::ConfigurationInstantiatedUnit => ConfigurationInstantiatedUnitSyntax::META,
         NodeKind::ConstantDeclaration => ConstantDeclarationSyntax::META,
         NodeKind::ConstrainedArrayDefinition => ConstrainedArrayDefinitionSyntax::META,
         NodeKind::ContextClause => ContextClauseSyntax::META,
@@ -117,10 +99,15 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::DesignUnit => DesignUnitSyntax::META,
         NodeKind::DisconnectionSpecification => DisconnectionSpecificationSyntax::META,
         NodeKind::ElementAssociation => ElementAssociationSyntax::META,
+        NodeKind::ElementChoices => ElementChoicesSyntax::META,
         NodeKind::ElementDeclaration => ElementDeclarationSyntax::META,
         NodeKind::ElementResolutionResolutionIndication => {
             ElementResolutionResolutionIndicationSyntax::META
         }
+        NodeKind::ElseExpression => ElseExpressionSyntax::META,
+        NodeKind::ElseWaveform => ElseWaveformSyntax::META,
+        NodeKind::ElseWhenExpression => ElseWhenExpressionSyntax::META,
+        NodeKind::ElseWhenWaveform => ElseWhenWaveformSyntax::META,
         NodeKind::EntityClassEntry => EntityClassEntrySyntax::META,
         NodeKind::EntityClassEntryList => EntityClassEntryListSyntax::META,
         NodeKind::EntityConfigurationAspect => EntityConfigurationAspectSyntax::META,
@@ -131,11 +118,11 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::EntityDesignatorList => EntityDesignatorListSyntax::META,
         NodeKind::EntityEntityAspect => EntityEntityAspectSyntax::META,
         NodeKind::EntityHeader => EntityHeaderSyntax::META,
-        NodeKind::EntityInstantiatedUnit => EntityInstantiatedUnitSyntax::META,
         NodeKind::EntityNameListAll => EntityNameListAllSyntax::META,
         NodeKind::EntityNameListOthers => EntityNameListOthersSyntax::META,
         NodeKind::EntityOpenAspect => EntityOpenAspectSyntax::META,
         NodeKind::EntitySpecification => EntitySpecificationSyntax::META,
+        NodeKind::EntityStatementPart => EntityStatementPartSyntax::META,
         NodeKind::EnumerationTypeDefinition => EnumerationTypeDefinitionSyntax::META,
         NodeKind::ExitStatement => ExitStatementSyntax::META,
         NodeKind::ExpressionChoice => ExpressionChoiceSyntax::META,
@@ -146,19 +133,23 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::FileOpenInformation => FileOpenInformationSyntax::META,
         NodeKind::FileOpenKind => FileOpenKindSyntax::META,
         NodeKind::FileTypeDefinition => FileTypeDefinitionSyntax::META,
+        NodeKind::ForGeneratePreamble => ForGeneratePreambleSyntax::META,
         NodeKind::ForGenerateStatement => ForGenerateStatementSyntax::META,
-        NodeKind::ForGenerateStatementEpilogue => ForGenerateStatementEpilogueSyntax::META,
-        NodeKind::ForGenerateStatementPreamble => ForGenerateStatementPreambleSyntax::META,
-        NodeKind::ForIterationScheme => ForIterationSchemeSyntax::META,
+        NodeKind::ForScheme => ForSchemeSyntax::META,
+        NodeKind::Formal => FormalSyntax::META,
         NodeKind::FormalPart => FormalPartSyntax::META,
         NodeKind::FullTypeDeclaration => FullTypeDeclarationSyntax::META,
         NodeKind::FunctionSpecification => FunctionSpecificationSyntax::META,
+        NodeKind::GenerateBodyDeclarations => GenerateBodyDeclarationsSyntax::META,
+        NodeKind::GenerateBodyEpilogue => GenerateBodyEpilogueSyntax::META,
+        NodeKind::GenerateEpilogue => GenerateEpilogueSyntax::META,
         NodeKind::GenerateStatementBody => GenerateStatementBodySyntax::META,
-        NodeKind::GenerateStatementBodyEpilogue => GenerateStatementBodyEpilogueSyntax::META,
         NodeKind::GenericClause => GenericClauseSyntax::META,
         NodeKind::GenericClauseEpilogue => GenericClauseEpilogueSyntax::META,
         NodeKind::GenericClausePreamble => GenericClausePreambleSyntax::META,
+        NodeKind::GenericMap => GenericMapSyntax::META,
         NodeKind::GenericMapAspect => GenericMapAspectSyntax::META,
+        NodeKind::GenericPart => GenericPartSyntax::META,
         NodeKind::GroupDeclaration => GroupDeclarationSyntax::META,
         NodeKind::GroupTemplateDeclaration => GroupTemplateDeclarationSyntax::META,
         NodeKind::GuardedSignalSpecification => GuardedSignalSpecificationSyntax::META,
@@ -167,7 +158,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::IfGenerateElsif => IfGenerateElsifSyntax::META,
         NodeKind::IfGenerateIf => IfGenerateIfSyntax::META,
         NodeKind::IfGenerateStatement => IfGenerateStatementSyntax::META,
-        NodeKind::IfGenerateStatementEpilogue => IfGenerateStatementEpilogueSyntax::META,
         NodeKind::IfStatement => IfStatementSyntax::META,
         NodeKind::IfStatementElse => IfStatementElseSyntax::META,
         NodeKind::IfStatementElsif => IfStatementElsifSyntax::META,
@@ -178,6 +168,10 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::IndexSubtypeDefinition => IndexSubtypeDefinitionSyntax::META,
         NodeKind::IndexSubtypeDefinitionList => IndexSubtypeDefinitionListSyntax::META,
         NodeKind::InertialDelayMechanism => InertialDelayMechanismSyntax::META,
+        NodeKind::InitialValue => InitialValueSyntax::META,
+        NodeKind::InstantiatedComponent => InstantiatedComponentSyntax::META,
+        NodeKind::InstantiatedConfiguration => InstantiatedConfigurationSyntax::META,
+        NodeKind::InstantiatedEntity => InstantiatedEntitySyntax::META,
         NodeKind::InstantiationListAll => InstantiationListAllSyntax::META,
         NodeKind::InstantiationListList => InstantiationListListSyntax::META,
         NodeKind::InstantiationListOthers => InstantiationListOthersSyntax::META,
@@ -240,9 +234,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::PackagePreamble => PackagePreambleSyntax::META,
         NodeKind::ParameterList => ParameterListSyntax::META,
         NodeKind::ParameterSpecification => ParameterSpecificationSyntax::META,
-        NodeKind::ParenthesizedElementResolutionResolutionIndication => {
-            ParenthesizedElementResolutionResolutionIndicationSyntax::META
-        }
+        NodeKind::ParenthesizedElementResolution => ParenthesizedElementResolutionSyntax::META,
         NodeKind::ParenthesizedExpression => ParenthesizedExpressionSyntax::META,
         NodeKind::ParenthesizedExpressionOrAggregate => {
             ParenthesizedExpressionOrAggregateSyntax::META
@@ -260,20 +252,22 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::PortClause => PortClauseSyntax::META,
         NodeKind::PortClauseEpilogue => PortClauseEpilogueSyntax::META,
         NodeKind::PortClausePreamble => PortClausePreambleSyntax::META,
+        NodeKind::PortMap => PortMapSyntax::META,
         NodeKind::PortMapAspect => PortMapAspectSyntax::META,
+        NodeKind::PortPart => PortPartSyntax::META,
         NodeKind::PrimaryUnitDeclaration => PrimaryUnitDeclarationSyntax::META,
         NodeKind::PrimaryUnitPackageDeclaration => PrimaryUnitPackageDeclarationSyntax::META,
         NodeKind::ProcedureCallStatement => ProcedureCallStatementSyntax::META,
         NodeKind::ProcedureSpecification => ProcedureSpecificationSyntax::META,
+        NodeKind::ProcessEpilogue => ProcessEpilogueSyntax::META,
+        NodeKind::ProcessPreamble => ProcessPreambleSyntax::META,
         NodeKind::ProcessStatement => ProcessStatementSyntax::META,
-        NodeKind::ProcessStatementEpilogue => ProcessStatementEpilogueSyntax::META,
-        NodeKind::ProcessStatementPreamble => ProcessStatementPreambleSyntax::META,
+        NodeKind::ProtectedPreamble => ProtectedPreambleSyntax::META,
         NodeKind::ProtectedTypeBody => ProtectedTypeBodySyntax::META,
         NodeKind::ProtectedTypeBodyEpilogue => ProtectedTypeBodyEpilogueSyntax::META,
         NodeKind::ProtectedTypeBodyPreamble => ProtectedTypeBodyPreambleSyntax::META,
         NodeKind::ProtectedTypeDeclaration => ProtectedTypeDeclarationSyntax::META,
         NodeKind::ProtectedTypeDeclarationEpilogue => ProtectedTypeDeclarationEpilogueSyntax::META,
-        NodeKind::ProtectedTypeDeclarationPreamble => ProtectedTypeDeclarationPreambleSyntax::META,
         NodeKind::QualifiedExpression => QualifiedExpressionSyntax::META,
         NodeKind::RangeConstraint => RangeConstraintSyntax::META,
         NodeKind::RecordElementDeclarations => RecordElementDeclarationsSyntax::META,
@@ -285,6 +279,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::RecordTypeDefinition => RecordTypeDefinitionSyntax::META,
         NodeKind::RecordTypeDefinitionEpilogue => RecordTypeDefinitionEpilogueSyntax::META,
         NodeKind::RecordTypeDefinitionPreamble => RecordTypeDefinitionPreambleSyntax::META,
+        NodeKind::RejectClause => RejectClauseSyntax::META,
         NodeKind::RelativePathname => RelativePathnameSyntax::META,
         NodeKind::ReportClause => ReportClauseSyntax::META,
         NodeKind::ReportStatement => ReportStatementSyntax::META,
@@ -292,6 +287,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
             ResolutionIndicationElementResolutionSyntax::META
         }
         NodeKind::ReturnStatement => ReturnStatementSyntax::META,
+        NodeKind::ReturnType => ReturnTypeSyntax::META,
         NodeKind::SecondaryUnitDeclaration => SecondaryUnitDeclarationSyntax::META,
         NodeKind::SecondaryUnitPackageBody => SecondaryUnitPackageBodySyntax::META,
         NodeKind::SelectedAssignmentPreamble => SelectedAssignmentPreambleSyntax::META,
@@ -303,21 +299,10 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::SelectedWaveformAssignment => SelectedWaveformAssignmentSyntax::META,
         NodeKind::SelectedWaveformItem => SelectedWaveformItemSyntax::META,
         NodeKind::SelectedWaveforms => SelectedWaveformsSyntax::META,
-        NodeKind::SemiColonTerminatedBindingIndication => {
-            SemiColonTerminatedBindingIndicationSyntax::META
-        }
-        NodeKind::SemiColonTerminatedGenericMapAspect => {
-            SemiColonTerminatedGenericMapAspectSyntax::META
-        }
-        NodeKind::SemiColonTerminatedPortMapAspect => SemiColonTerminatedPortMapAspectSyntax::META,
-        NodeKind::SemiColonTerminatedVerificationUnitBindingIndication => {
-            SemiColonTerminatedVerificationUnitBindingIndicationSyntax::META
-        }
         NodeKind::SensitivityClause => SensitivityClauseSyntax::META,
         NodeKind::SensitivityList => SensitivityListSyntax::META,
         NodeKind::SequentialStatements => SequentialStatementsSyntax::META,
         NodeKind::SeverityClause => SeverityClauseSyntax::META,
-        NodeKind::SharedVariableDeclaration => SharedVariableDeclarationSyntax::META,
         NodeKind::SignalDeclaration => SignalDeclarationSyntax::META,
         NodeKind::SignalListAll => SignalListAllSyntax::META,
         NodeKind::SignalListList => SignalListListSyntax::META,
@@ -332,6 +317,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::SubprogramBodyEpilogue => SubprogramBodyEpilogueSyntax::META,
         NodeKind::SubprogramBodyPreamble => SubprogramBodyPreambleSyntax::META,
         NodeKind::SubprogramDeclaration => SubprogramDeclarationSyntax::META,
+        NodeKind::SubprogramDefault => SubprogramDefaultSyntax::META,
         NodeKind::SubprogramHeader => SubprogramHeaderSyntax::META,
         NodeKind::SubprogramHeaderGenericClause => SubprogramHeaderGenericClauseSyntax::META,
         NodeKind::SubprogramInstantiationDeclaration => {
@@ -352,6 +338,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::UseClauseContextItem => UseClauseContextItemSyntax::META,
         NodeKind::UseClauseDeclaration => UseClauseDeclarationSyntax::META,
         NodeKind::VariableDeclaration => VariableDeclarationSyntax::META,
+        NodeKind::VerificationUnitBinding => VerificationUnitBindingSyntax::META,
         NodeKind::VerificationUnitBindingIndication => {
             VerificationUnitBindingIndicationSyntax::META
         }
@@ -359,6 +346,9 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::WaitStatement => WaitStatementSyntax::META,
         NodeKind::WaveformElement => WaveformElementSyntax::META,
         NodeKind::WaveformElements => WaveformElementsSyntax::META,
-        NodeKind::WhileIterationScheme => WhileIterationSchemeSyntax::META,
+        NodeKind::WhenClause => WhenClauseSyntax::META,
+        NodeKind::WhenExpression => WhenExpressionSyntax::META,
+        NodeKind::WhenWaveform => WhenWaveformSyntax::META,
+        NodeKind::WhileScheme => WhileSchemeSyntax::META,
     }
 }

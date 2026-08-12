@@ -6,9 +6,10 @@ ReportStatement
   Keyword(Report)
   LiteralExpression
     StringLiteral '"message"'
-  Keyword(Severity)
-  NameExpression
-    Name
-      NameDesignatorPrefix
-        Identifier 'error'
+  SeverityClause
+    Keyword(Severity)
+    NameExpression
+      Name
+        NameDesignatorPrefix
+          Identifier 'error'
   SemiColon

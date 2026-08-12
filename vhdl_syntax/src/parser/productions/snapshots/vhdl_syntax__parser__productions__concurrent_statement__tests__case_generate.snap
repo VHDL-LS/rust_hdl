@@ -3,10 +3,10 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen: case expr(0) + 2 generate\n  when 1 | 2 =>\n    sig <= value;\n  when others =>\n    foo(clk);\nend generate;\",)"
 ---
 CaseGenerateStatement
-  CaseGenerateStatementPreamble
-    Label
-      Identifier 'gen'
-      Colon
+  Label
+    Identifier 'gen'
+    Colon
+  CaseGeneratePreamble
     Keyword(Case)
     BinaryExpression
       NameExpression
@@ -76,7 +76,7 @@ CaseGenerateStatement
                             Identifier 'clk'
               RightPar
           SemiColon
-  CaseGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

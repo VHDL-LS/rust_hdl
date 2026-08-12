@@ -23,35 +23,29 @@ DeclarationStatementSeparator =
   'begin'
 
 BlockHeader =
-  GenericClause?
-  semi_colon_terminated_generic_map_aspect:(GenericMapAspect ';')?
-  PortClause?
-  semi_colon_terminated_port_map_aspect:(PortMapAspect ';')?
+  generic_part:(GenericClause generic_map:(GenericMapAspect ';')?)?
+  port_part:(PortClause port_map:(PortMapAspect ';')?)?
 
 BlockStatement =
-  block_preamble:(Label 'block' condition:ParenthesizedExpression? 'is'?)
-  BlockHeader?
-  Declarations?
+  Label
+  block_preamble:('block' parenthesized_expression:('(' Expression ')')? 'is'?)
+  BlockHeader
+  Declarations
   DeclarationStatementSeparator
-  ConcurrentStatements?
+  ConcurrentStatements
   block_epilogue:('end' 'block' '#identifier'? ';')
 
-ParenthesizedExpression =
-  '(' Expression ')'
-
 CaseGenerateAlternative =
-  'when' Label? Choices? '=>' GenerateStatementBody?
+  'when' Label? Choices '=>' GenerateStatementBody
 
 CaseGenerateStatement =
-  case_generate_statement_preamble:(Label 'case' Expression 'generate')
+  Label
+  case_generate_preamble:('case' Expression 'generate')
   CaseGenerateAlternative*
-  case_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
+  generate_epilogue:('end' 'generate' '#identifier'? ';')
 
 ComponentInstantiationStatement =
-  Label
-  InstantiatedUnit
-  component_instantiation_items:(GenericMapAspect? PortMapAspect?)?
-  ';'
+  Label InstantiatedUnit GenericMapAspect? PortMapAspect? ';'
 
 // A procedure with zero arguments (`proc_call: foo;`) and a component instantiation (`inst: cmp;`) without generic / port
 // maps are indistinguishable.
@@ -75,14 +69,14 @@ ConcurrentConditionalSignalAssignment =
   ';'
 
 ConcurrentSelectedSignalAssignment =
-  concurrent_selected_signal_assignment_preamble:(
-    Label? 'postponed'? 'with' Expression 'select' '?'?
-  )
+  Label?
+  'postponed'?
+  selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='
   'guarded'?
   DelayMechanism?
-  SelectedWaveforms?
+  SelectedWaveforms
   ';'
 
 ConcurrentStatement =
@@ -103,40 +97,29 @@ ConcurrentStatements =
   ConcurrentStatement*
 
 ForGenerateStatement =
-  for_generate_statement_preamble:(
-    Label? 'for' ParameterSpecification 'generate'
-  )
-  GenerateStatementBody?
-  for_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
+  Label
+  for_generate_preamble:('for' ParameterSpecification 'generate')
+  GenerateStatementBody
+  generate_epilogue:('end' 'generate' '#identifier'? ';')
 
 GenerateStatementBody =
-  Declarations?
-  DeclarationStatementSeparator?
-  ConcurrentStatements?
-  generate_statement_body_epilogue:('end' '#identifier'? ';')?
+  generate_body_declarations:(Declarations? DeclarationStatementSeparator)?
+  ConcurrentStatements
+  generate_body_epilogue:('end' '#identifier'? ';')?
 
 IfGenerateStatement =
   Label
   if_generate_if:('if' Label? Expression 'generate' GenerateStatementBody)
   if_generate_elsif:('elsif' Label? Expression 'generate' GenerateStatementBody)*
   if_generate_else:('else' Label? 'generate' GenerateStatementBody)?
-  if_generate_statement_epilogue:('end' 'generate' '#identifier'? ';')
+  generate_epilogue:('end' 'generate' '#identifier'? ';')
 
 InstantiatedUnit =
-  ComponentInstantiatedUnit
-| EntityInstantiatedUnit
-| ConfigurationInstantiatedUnit
-
-ComponentInstantiatedUnit =
-  'component'? Name
-
-// LRM has `"entity" name [ "(" identifier ")" ]`. The `(identifier)`
-// architecture-disambiguation is absorbed as a `ParenthesizedName` tail.
-EntityInstantiatedUnit =
-  'entity' Name
-
-ConfigurationInstantiatedUnit =
-  'configuration' Name
+  instantiated_component:('component'? Name)
+  // LRM has `"entity" name [ "(" identifier ")" ]`. The `(identifier)`
+  // architecture-disambiguation is absorbed as a `ParenthesizedName` tail.
+| instantiated_entity:('entity' Name)
+| instantiated_configuration:('configuration' Name)
 
 AllSensitivityList =
   'all'
@@ -148,17 +131,17 @@ ProcessSensitivityList =
   AllSensitivityList | SensitivityList
 
 ProcessStatement =
-  process_statement_preamble:(
-    Label?
+  Label?
+  process_preamble:(
     'postponed'?
     'process'
     parenthesized_process_sensitivity_list:('(' ProcessSensitivityList ')')?
     'is'?
   )
-  Declarations?
+  Declarations
   DeclarationStatementSeparator
-  SequentialStatements?
-  process_statement_epilogue:('end' 'postponed'? 'process' '#identifier'? ';')
+  SequentialStatements
+  process_epilogue:('end' 'postponed'? 'process' '#identifier'? ';')
 
 //==============================================================================
 // § 6: Declarations
@@ -185,7 +168,6 @@ Declaration =
 | ConstantDeclaration
 | SignalDeclaration
 | VariableDeclaration
-| SharedVariableDeclaration
 
 // | PslPropertyDeclaration  -- add here if PSL is supported
 // | PslSequenceDeclaration  -- add here if PSL is supported
@@ -230,13 +212,14 @@ ActualPart =
   'inertial'? ActualPartBody
 
 AliasDeclaration =
-  'alias' AliasDesignator ':'? SubtypeIndication? 'is' Name Signature? ';'
+  'alias' AliasDesignator alias_subtype:(':' SubtypeIndication)? 'is' Name Signature? ';'
 
 AliasDesignator =
   '#identifier' | '#character_literal' | '#string_literal'
 
 AssociationElement =
-  FormalPart? '=>'? ActualPart
+  formal:(FormalPart '=>')?
+  ActualPart
 
 AssociationList =
   AssociationElement* ','*
@@ -246,11 +229,17 @@ AttributeDeclaration =
 
 ComponentDeclaration =
   component_declaration_preamble:('component' name:'#identifier' 'is'?)
-  component_declaration_items:(GenericClause? PortClause?)?
+  GenericClause?
+  PortClause?
   component_declaration_epilogue:('end' 'component' '#identifier'? ';')
 
 ConstantDeclaration =
-  'constant' IdentifierList ':' SubtypeIndication ':='? Expression? ';'
+  'constant'
+  IdentifierList
+  ':'
+  SubtypeIndication
+  initial_value:(':=' Expression)?
+  ';'
 
 ResolutionIndicationElementResolution =
   ResolutionIndication
@@ -288,7 +277,7 @@ GenericClause =
   generic_clause_epilogue:(')' ';')
 
 GenericMapAspect =
-  'generic' 'map' '(' AssociationList? ')'
+  'generic' 'map' '(' AssociationList ')'
 
 // LRM has `"group" identifier ":" name "(" group_constituent_list ")" ";"`.
 // The `(group_constituent_list)` is absorbed as a `ParenthesizedName` tail on
@@ -297,7 +286,7 @@ GroupDeclaration =
   'group' '#identifier' ':' Name ';'
 
 GroupTemplateDeclaration =
-  'group' '#identifier' 'is' '(' EntityClassEntryList? ')' ';'
+  'group' '#identifier' 'is' '(' EntityClassEntryList ')' ';'
 
 InterfaceDeclaration =
   InterfaceObjectDeclaration
@@ -310,7 +299,12 @@ InterfaceFileDeclaration =
   'file' IdentifierList ':' SubtypeIndication
 
 InterfaceFunctionSpecification =
-  FunctionPurity? 'function' Designator ParameterList? 'return' Name
+  purity:('pure' | 'impure')?
+  'function'
+  Designator
+  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
+  'return'
+  Name
 
 InterfaceIncompleteTypeDeclaration =
   'type' '#identifier'
@@ -326,8 +320,7 @@ InterfaceObjectDeclaration =
   Mode?
   SubtypeIndication
   'bus'?
-  ':='?
-  Expression?
+  initial_value:(':=' Expression)?
 
 InterfaceObjectClass =
   'constant' | 'signal' | 'variable'
@@ -348,7 +341,7 @@ InterfacePackageGenericMapAspectDefault =
   'default'
 
 InterfacePackageGenericMapAspectAssociations =
-  AssociationList?
+  AssociationList
 
 InterfacePackageGenericMapAspectInner =
   InterfacePackageGenericMapAspectBox
@@ -356,10 +349,12 @@ InterfacePackageGenericMapAspectInner =
 | InterfacePackageGenericMapAspectAssociations
 
 InterfaceProcedureSpecification =
-  'procedure' Designator ParameterList?
+  'procedure'
+  Designator
+  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
 
 InterfaceSubprogramDeclaration =
-  InterfaceSubprogramSpecification 'is'? InterfaceSubprogramDefault?
+  InterfaceSubprogramSpecification subprogram_default:('is' InterfaceSubprogramDefault)?
 
 InterfaceSubprogramDefaultName =
   Name
@@ -382,7 +377,7 @@ PortClause =
   port_clause_epilogue:(')' ';')
 
 PortMapAspect =
-  'port' 'map' '(' AssociationList? ')'
+  'port' 'map' '(' AssociationList ')'
 
 RecordElementResolution =
   name:'#identifier' ResolutionIndication
@@ -399,10 +394,7 @@ ElementResolutionResolutionIndication =
 
 ResolutionIndication =
   NameResolutionIndication
-| ParenthesizedElementResolutionResolutionIndication
-
-ParenthesizedElementResolutionResolutionIndication =
-  '(' ElementResolutionResolutionIndication ')'
+| parenthesized_element_resolution:('(' ElementResolutionResolutionIndication ')')
 
 SignalDeclaration =
   'signal'
@@ -410,8 +402,7 @@ SignalDeclaration =
   ':'
   SubtypeIndication
   SignalKind?
-  ':='?
-  Expression?
+  initial_value:(':=' Expression)?
   ';'
 
 SignalKind =
@@ -437,16 +428,12 @@ TypeDefinition =
 | ProtectedTypeDefinition
 
 VariableDeclaration =
-  'variable' IdentifierList ':' SubtypeIndication ':='? Expression? ';'
-
-SharedVariableDeclaration =
-  'shared'
+  'shared'?
   'variable'
   IdentifierList
   ':'
   SubtypeIndication
-  ':='?
-  Expression?
+  initial_value:(':=' Expression)?
   ';'
 
 Declarations =
@@ -456,12 +443,10 @@ Declarations =
 // § 3: Design entities and configuration
 //==============================================================================
 ArchitectureBody =
-  architecture_preamble:(
-    'architecture' name:'#identifier' 'of' entity_name:Name 'is'
-  )
-  Declarations?
+  architecture_preamble:('architecture' name:'#identifier' 'of' entity_name:Name 'is')
+  Declarations
   DeclarationStatementSeparator
-  ConcurrentStatements?
+  ConcurrentStatements
   architecture_epilogue:('end' 'architecture'? '#identifier'? ';')
 
 BlockConfigurationItem =
@@ -472,47 +457,29 @@ ConfigurationItem =
 
 BlockConfiguration =
   block_configuration_preamble:('for' Name)
-  block_configuration_items:(UseClause* ConfigurationItem*)?
+  UseClause*
+  ConfigurationItem*
   block_configuration_epilogue:('end' 'for' ';')
 
 ComponentConfiguration =
-  ComponentConfigurationPreamble
-  component_configuration_items:(
-    SemiColonTerminatedBindingIndication?
-    SemiColonTerminatedVerificationUnitBindingIndication*
-    BlockConfiguration?
-  )?
-  ComponentConfigurationEpilogue
-
-SemiColonTerminatedBindingIndication =
-  BindingIndication ';'
-
-SemiColonTerminatedVerificationUnitBindingIndication =
-  VerificationUnitBindingIndication ';'
-
-ComponentConfigurationPreamble =
-  'for' ComponentSpecification
-
-ComponentConfigurationEpilogue =
-  'end' 'for' ';'
+  component_configuration_preamble:('for' ComponentSpecification)
+  binding:(BindingIndication ';')?
+  verification_unit_binding:(VerificationUnitBindingIndication ';')*
+  BlockConfiguration?
+  component_configuration_epilogue:('end' 'for' ';')
 
 ConfigurationDeclaration =
-  configuration_declaration_preamble:(
-    'configuration' name:'#identifier' 'of' entity_name:Name 'is'
-  )
-  configuration_declaration_items:(
-    Declarations?
-    SemiColonTerminatedVerificationUnitBindingIndication*
-    BlockConfiguration
-  )
+  configuration_declaration_preamble:('configuration' name:'#identifier' 'of' entity_name:Name 'is')
+  Declarations
+  verification_unit_binding:(VerificationUnitBindingIndication ';')*
+  BlockConfiguration
   configuration_declaration_epilogue:('end' 'configuration'? '#identifier'? ';')
 
 EntityDeclaration =
   entity_declaration_preamble:('entity' name:'#identifier' 'is')
-  EntityHeader?
-  Declarations?
-  DeclarationStatementSeparator?
-  ConcurrentStatements?
+  EntityHeader
+  Declarations
+  entity_statement_part:(DeclarationStatementSeparator ConcurrentStatements)?
   entity_declaration_epilogue:('end' 'entity'? '#identifier'? ';')
 
 EntityHeader =
@@ -526,7 +493,7 @@ ContextClause =
 
 ContextDeclaration =
   context_declaration_preamble:('context' name:'#identifier' 'is')
-  ContextClause?
+  ContextClause
   context_declaration_epilogue:('end' 'context'? '#identifier'? ';')
 
 UseClauseContextItem =
@@ -542,7 +509,7 @@ DesignFile =
   DesignUnit* '#eof'
 
 DesignUnit =
-  ContextClause? LibraryUnit
+  ContextClause LibraryUnit
 
 LibraryClause =
   'library' IdentifierList ';'
@@ -562,8 +529,8 @@ PrimaryUnit =
 | PrimaryUnitPackageDeclaration
 | PackageInstantiationDeclarationPrimaryUnit
 | ContextDeclaration
-// PslVerificationUnit -- add here if PSL is supported
 
+// PslVerificationUnit -- add here if PSL is supported
 SecondaryUnitPackageBody =
   PackageBody
 
@@ -689,7 +656,8 @@ Choices =
   Choice* '|'*
 
 ElementAssociation =
-  Choices? '=>'? Expression
+  element_choices:(Choices '=>')?
+  Expression
 
 //==============================================================================
 // § 8: Names
@@ -711,22 +679,22 @@ ExternalName =
   ExternalConstantName | ExternalSignalName | ExternalVariableName
 
 ExternalConstantName =
-  '<<' 'constant' ExternalPathName ':' SubtypeIndication '>>'
+  '<<' 'constant' ExternalPathname ':' SubtypeIndication '>>'
 
 ExternalSignalName =
-  '<<' 'signal' ExternalPathName ':' SubtypeIndication '>>'
+  '<<' 'signal' ExternalPathname ':' SubtypeIndication '>>'
 
 ExternalVariableName =
-  '<<' 'variable' ExternalPathName ':' SubtypeIndication '>>'
+  '<<' 'variable' ExternalPathname ':' SubtypeIndication '>>'
 
-ExternalPathName =
+ExternalPathname =
   PackagePathname | AbsolutePathname | RelativePathname
 
 PackagePathname =
   '@' '.'* simple_name:'#identifier'*
 
 RelativePathname =
-  '^'* '.'* PartialPathname?
+  '^'* '.'* PartialPathname
 
 PartialPathname =
   '#identifier'* '.'*
@@ -776,7 +744,7 @@ NameTail =
 // § 12: Scope and Visibility
 //==============================================================================
 UseClause =
-  'use' NameList? ';'
+  'use' NameList ';'
 
 //==============================================================================
 // § 10: Sequential Statements
@@ -791,8 +759,8 @@ AssertionStatement =
   Label? Assertion ';'
 
 CaseStatementAlternative =
-  case_statement_alternative_preamble:('when' Choices? '=>')
-  SequentialStatements?
+  case_statement_alternative_preamble:('when' Choices '=>')
+  SequentialStatements
 
 CaseStatement =
   case_statement_preamble:(Label? 'case' '?'? Expression 'is')
@@ -803,11 +771,9 @@ ConditionClause =
   'until' Expression
 
 ConditionalExpressions =
-  conditional_expression:(Expression 'when' condition:Expression)
-  conditional_else_when_expression:(
-    'else' Expression 'when' condition:Expression
-  )*
-  conditional_else_item:('else' Expression)?
+  when_expression:(Expression 'when' condition:Expression)
+  else_when_expression:('else' Expression 'when' condition:Expression)*
+  else_expression:('else' Expression)?
 
 ConditionalForceAssignment =
   Label? Target '<=' 'force' ForceMode? ConditionalExpressions ';'
@@ -822,50 +788,42 @@ ConditionalWaveformAssignment =
   Target '<=' DelayMechanism? ConditionalWaveforms ';'
 
 ConditionalWaveforms =
-  conditional_waveform:(Waveform 'when' Expression)
-  conditional_waveform_else_when_expression:(
-    'else' Waveform 'when' condition:Expression
-  )*
-  conditional_waveform_else_item:('else' Waveform)?
+  when_waveform:(Waveform 'when' condition:Expression)
+  else_when_waveform:('else' Waveform 'when' condition:Expression)*
+  else_waveform:('else' Waveform)?
 
 TransportDelayMechanism =
   'transport'
 
 InertialDelayMechanism =
-  'reject'? Expression? 'inertial'
+  reject_clause:('reject' Expression)? 'inertial'
 
 DelayMechanism =
   TransportDelayMechanism | InertialDelayMechanism
 
 ExitStatement =
-  Label? 'exit' loop_label:'#identifier'? 'when'? Expression? ';'
+  Label? 'exit' loop_label:'#identifier'? when_clause:('when' Expression)? ';'
 
 ForceMode =
   'in' | 'out'
 
 IfStatement =
   if_statement_preamble:(Label? 'if' Expression 'then')
-  SequentialStatements?
+  SequentialStatements
   if_statement_elsif:('elsif' Expression 'then' SequentialStatements?)*
   if_statement_else:('else' SequentialStatements?)?
   if_statement_epilogue:('end' 'if' '#identifier'? ';')
 
-WhileIterationScheme =
-  'while' Expression
-
-ForIterationScheme =
-  'for' ParameterSpecification
-
 IterationScheme =
-  WhileIterationScheme | ForIterationScheme
+  while_scheme:('while' Expression) | for_scheme:('for' ParameterSpecification)
 
 LoopStatement =
   loop_statement_preamble:(Label? IterationScheme? 'loop')
-  SequentialStatements?
+  SequentialStatements
   loop_statement_epilogue:('end' 'loop' '#identifier'? ';')
 
 NextStatement =
-  Label? 'next' loop_label:'#identifier'? 'when'? Expression? ';'
+  Label? 'next' loop_label:'#identifier'? when_clause:('when' Expression)? ';'
 
 NullStatement =
   Label? 'null' ';'
@@ -877,7 +835,7 @@ ProcedureCallStatement =
   Label? Name ';'
 
 ReportStatement =
-  Label? 'report' report:Expression 'severity'? severity:Expression? ';'
+  Label? 'report' Expression severity_clause:('severity' Expression)? ';'
 
 ReturnStatement =
   Label? 'return' Expression? ';'
@@ -886,12 +844,13 @@ SelectedExpressions =
   selected_expression_item:(Expression 'when' Choices?)* ','*
 
 SelectedForceAssignment =
-  SelectedAssignmentPreamble
+  Label?
+  selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='
   'force'
   ForceMode?
-  SelectedExpressions?
+  SelectedExpressions
   ';'
 
 SelectedWaveforms =
@@ -901,21 +860,24 @@ SelectedSignalAssignment =
   SelectedWaveformAssignment | SelectedForceAssignment
 
 SelectedVariableAssignment =
-  SelectedAssignmentPreamble Target ':=' SelectedExpressions? ';'
+  Label?
+  selected_assignment_preamble:('with' Expression 'select' '?'?)
+  Target
+  ':='
+  SelectedExpressions
+  ';'
 
 SelectedWaveformAssignment =
-  SelectedAssignmentPreamble
+  Label?
+  selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='
   DelayMechanism?
-  SelectedWaveforms?
+  SelectedWaveforms
   ';'
 
-SelectedAssignmentPreamble =
-  'with' Expression 'select' '?'?
-
 SensitivityClause =
-  'on' NameList?
+  'on' NameList
 
 SequentialStatement =
   WaitStatement
@@ -973,7 +935,7 @@ WaitStatement =
   Label? 'wait' SensitivityClause? ConditionClause? TimeoutClause? ';'
 
 WaveformElement =
-  Expression 'after'? time_expression:Expression?
+  Expression after_clause:('after' Expression)?
 
 WaveformElements =
   WaveformElement* ','*
@@ -1000,18 +962,17 @@ AttributeSpecification =
   ';'
 
 BindingIndication =
-  'use'? EntityAspect? GenericMapAspect? PortMapAspect?
+  binding_use_clause:('use' EntityAspect)? GenericMapAspect? PortMapAspect?
 
 ComponentSpecification =
   InstantiationList ':' Name
 
 CompoundConfigurationSpecification =
-  ComponentConfigurationPreamble
-  compound_configuration_specification_items:(
-    SemiColonTerminatedBindingIndication
-    SemiColonTerminatedVerificationUnitBindingIndication*
-  )
-  ComponentConfigurationEpilogue
+  component_configuration_preamble:('for' ComponentSpecification)
+  BindingIndication
+  ';'
+  verification_unit_binding:(VerificationUnitBindingIndication ';')*
+  component_configuration_epilogue:('end' 'for' ';')
 
 ConfigurationSpecification =
   SimpleConfigurationSpecification | CompoundConfigurationSpecification
@@ -1101,13 +1062,13 @@ SignalList =
   SignalListList | SignalListAll | SignalListOthers
 
 SimpleConfigurationSpecification =
-  ComponentConfigurationPreamble
+  component_configuration_preamble:('for' ComponentSpecification)
   BindingIndication
   ';'
-  ComponentConfigurationEpilogue?
+  component_configuration_epilogue:('end' 'for' ';')?
 
 VerificationUnitBindingIndication =
-  'use' 'vunit' VerificationUnitList?
+  'use' 'vunit' VerificationUnitList
 
 VerificationUnitList =
   Name* ','*
@@ -1122,56 +1083,52 @@ SubprogramSpecification =
   ProcedureSpecification | FunctionSpecification
 
 ProcedureSpecification =
-  'procedure' Designator SubprogramHeader? ParameterList?
+  'procedure'
+  Designator
+  SubprogramHeader?
+  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
 
 FunctionSpecification =
-  FunctionPurity?
+  purity:('pure' | 'impure')?
   'function'
   Designator
   SubprogramHeader?
-  ParameterList?
+  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
   'return'
   Name
 
-ParameterList =
-  'parameter'? parenthesized_interface_list:('(' InterfaceList ')')?
-
-FunctionPurity =
-  'pure' | 'impure'
-
 SubprogramHeader =
-  subprogram_header_generic_clause:('generic' '(' InterfaceList? ')')?
+  subprogram_header_generic_clause:('generic' '(' InterfaceList? ')')
   GenericMapAspect?
 
 SubprogramBody =
   subprogram_body_preamble:(SubprogramSpecification 'is')
-  Declarations?
+  Declarations
   DeclarationStatementSeparator
-  SequentialStatements?
+  SequentialStatements
   subprogram_body_epilogue:('end' SubprogramKind? Designator? ';')
 
 SubprogramKind =
   'procedure' | 'function'
 
 SubprogramInstantiationDeclaration =
-  subprogram_instantiation_declaration_preamble:(
-    SubprogramKind name:'#identifier' 'is' 'new' Name Signature?
-  )
+  subprogram_instantiation_declaration_preamble:(SubprogramKind name:'#identifier' 'is' 'new' Name Signature?)
   GenericMapAspect?
   ';'
 
 Package =
   package_preamble:('package' name:'#identifier' 'is')
   PackageHeader?
-  Declarations?
+  Declarations
   package_epilogue:('end' 'package'? '#identifier'? ';')
 
 PackageHeader =
-  GenericClause? GenericMapAspect? ';'?
+  GenericClause
+  generic_map:(GenericMapAspect ';')?
 
 PackageBody =
   package_body_preamble:('package' 'body' name:'#identifier' 'is')
-  Declarations?
+  Declarations
   package_body_epilogue:('end' 'package'? 'body'? '#identifier'? ';')
 
 PackageInstantiation =
@@ -1180,7 +1137,7 @@ PackageInstantiation =
   ';'
 
 Signature =
-  '[' NameList? 'return'? return_type:Name? ']'
+  '[' NameList? return_type:('return' Name)? ']'
 
 //==============================================================================
 // § 5: Types
@@ -1230,7 +1187,7 @@ IndexSubtypeDefinition =
   Name 'range' '<>'
 
 PhysicalLiteral =
-  '#abstract_literal' Name
+  '#abstract_literal'? Name
 
 PhysicalTypeDefinition =
   RangeConstraint
@@ -1242,15 +1199,15 @@ PrimaryUnitDeclaration =
 
 ProtectedTypeBody =
   protected_type_body_preamble:('protected' 'body')
-  Declarations?
+  Declarations
   protected_type_body_epilogue:('end' 'protected' 'body' name:'#identifier'?)
 
 ProtectedTypeDeclaration =
-  ProtectedTypeDeclarationPreamble
-  Declarations?
+  ProtectedPreamble
+  Declarations
   protected_type_declaration_epilogue:('end' 'protected' name:'#identifier'?)
 
-ProtectedTypeDeclarationPreamble =
+ProtectedPreamble =
   'protected'
 
 ProtectedTypeDefinition =
@@ -1263,7 +1220,7 @@ RangeConstraint =
 
 RecordTypeDefinition =
   RecordTypeDefinitionPreamble
-  RecordElementDeclarations?
+  RecordElementDeclarations
   record_type_definition_epilogue:('end' 'record' '#identifier'?)
 
 RecordElementDeclarations =

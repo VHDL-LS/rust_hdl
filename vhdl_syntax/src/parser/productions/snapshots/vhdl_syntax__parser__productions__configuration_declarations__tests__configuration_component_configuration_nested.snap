@@ -11,58 +11,55 @@ ConfigurationDeclaration
       NameDesignatorPrefix
         Identifier 'entity_name'
     Keyword(Is)
-  ConfigurationDeclarationItems
-    BlockConfiguration
-      BlockConfigurationPreamble
+  BlockConfiguration
+    BlockConfigurationPreamble
+      Keyword(For)
+      Name
+        NameDesignatorPrefix
+          Identifier 'rtl'
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '0'
+          RightPar
+    ComponentConfiguration
+      ComponentConfigurationPreamble
         Keyword(For)
-        Name
-          NameDesignatorPrefix
-            Identifier 'rtl'
-          ParenthesizedName
-            LeftPar
-            AssociationList
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    LiteralExpression
-                      AbstractLiteral '0'
-            RightPar
-      BlockConfigurationItems
-        ComponentConfiguration
-          ComponentConfigurationPreamble
-            Keyword(For)
-            ComponentSpecification
-              InstantiationListList
-                Identifier 'inst'
-              Colon
-              Name
-                NameDesignatorPrefix
-                  Identifier 'lib'
-                SelectedName
-                  Dot
-                  Identifier 'pkg'
-                SelectedName
-                  Dot
-                  Identifier 'comp'
-          ComponentConfigurationItems
-            BlockConfiguration
-              BlockConfigurationPreamble
-                Keyword(For)
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'arch'
-              BlockConfigurationEpilogue
-                Keyword(End)
-                Keyword(For)
-                SemiColon
-          ComponentConfigurationEpilogue
-            Keyword(End)
-            Keyword(For)
-            SemiColon
-      BlockConfigurationEpilogue
+        ComponentSpecification
+          InstantiationListList
+            Identifier 'inst'
+          Colon
+          Name
+            NameDesignatorPrefix
+              Identifier 'lib'
+            SelectedName
+              Dot
+              Identifier 'pkg'
+            SelectedName
+              Dot
+              Identifier 'comp'
+      BlockConfiguration
+        BlockConfigurationPreamble
+          Keyword(For)
+          Name
+            NameDesignatorPrefix
+              Identifier 'arch'
+        BlockConfigurationEpilogue
+          Keyword(End)
+          Keyword(For)
+          SemiColon
+      ComponentConfigurationEpilogue
         Keyword(End)
         Keyword(For)
         SemiColon
+    BlockConfigurationEpilogue
+      Keyword(End)
+      Keyword(For)
+      SemiColon
   ConfigurationDeclarationEpilogue
     Keyword(End)
     Keyword(Configuration)

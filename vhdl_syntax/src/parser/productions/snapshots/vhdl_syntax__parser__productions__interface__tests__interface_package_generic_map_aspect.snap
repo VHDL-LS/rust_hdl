@@ -21,11 +21,12 @@ InterfacePackageDeclaration
     InterfacePackageGenericMapAspectAssociations
       AssociationList
         AssociationElement
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'foo'
-          RightArrow
+          Formal
+            FormalPart
+              Name
+                NameDesignatorPrefix
+                  Identifier 'foo'
+            RightArrow
           ActualPart
             ActualPartExpression
               NameExpression

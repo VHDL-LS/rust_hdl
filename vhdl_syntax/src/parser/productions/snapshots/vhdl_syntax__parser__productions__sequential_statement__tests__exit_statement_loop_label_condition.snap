@@ -5,9 +5,10 @@ expression: "to_test_text(Parser::exit_statement, \"exit foo when condition;\")"
 ExitStatement
   Keyword(Exit)
   Identifier 'foo'
-  Keyword(When)
-  NameExpression
-    Name
-      NameDesignatorPrefix
-        Identifier 'condition'
+  WhenClause
+    Keyword(When)
+    NameExpression
+      Name
+        NameDesignatorPrefix
+          Identifier 'condition'
   SemiColon

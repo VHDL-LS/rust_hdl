@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"with x(0) + 1 select\n   foo(0) <= transport bar(1,2) after 2 ns when 0|1;\",)"
 ---
 ConcurrentSelectedSignalAssignment
-  ConcurrentSelectedSignalAssignmentPreamble
+  SelectedAssignmentPreamble
     Keyword(With)
     BinaryExpression
       NameExpression
@@ -62,13 +62,14 @@ ConcurrentSelectedSignalAssignment
                         LiteralExpression
                           AbstractLiteral '2'
                 RightPar
-          Keyword(After)
-          PhysicalLiteralExpression
-            PhysicalLiteral
-              AbstractLiteral '2'
-              Name
-                NameDesignatorPrefix
-                  Identifier 'ns'
+          AfterClause
+            Keyword(After)
+            PhysicalLiteralExpression
+              PhysicalLiteral
+                AbstractLiteral '2'
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'ns'
       Keyword(When)
       Choices
         ExpressionChoice

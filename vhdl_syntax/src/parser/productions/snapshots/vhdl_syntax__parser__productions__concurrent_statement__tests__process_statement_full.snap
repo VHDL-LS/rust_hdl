@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nprocess (all) is\n  variable foo : boolean;\nbegin\n  foo <= true;\n  wait;\nend process;\",)"
 ---
 ProcessStatement
-  ProcessStatementPreamble
+  ProcessPreamble
     Keyword(Process)
     ParenthesizedProcessSensitivityList
       LeftPar
@@ -41,7 +41,7 @@ ProcessStatement
     WaitStatement
       Keyword(Wait)
       SemiColon
-  ProcessStatementEpilogue
+  ProcessEpilogue
     Keyword(End)
     Keyword(Process)
     SemiColon

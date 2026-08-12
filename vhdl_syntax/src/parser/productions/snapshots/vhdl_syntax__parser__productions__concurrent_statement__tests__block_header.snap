@@ -3,87 +3,93 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nname: block is\n  generic(gen: integer := 1);\n  generic map(gen => 1);\n  port(prt: integer := 1);\n  port map(prt => 2);\nbegin\nend block;\",)"
 ---
 BlockStatement
+  Label
+    Identifier 'name'
+    Colon
   BlockPreamble
-    Label
-      Identifier 'name'
-      Colon
     Keyword(Block)
     Keyword(Is)
   BlockHeader
-    GenericClause
-      GenericClausePreamble
-        Keyword(Generic)
-        LeftPar
-      InterfaceList
-        InterfaceObjectDeclaration
-          IdentifierList
-            Identifier 'gen'
-          Colon
-          SubtypeIndication
-            Name
-              NameDesignatorPrefix
-                Identifier 'integer'
-          ColonEq
-          LiteralExpression
-            AbstractLiteral '1'
-      GenericClauseEpilogue
-        RightPar
-        SemiColon
-    SemiColonTerminatedGenericMapAspect
-      GenericMapAspect
-        Keyword(Generic)
-        Keyword(Map)
-        LeftPar
-        AssociationList
-          AssociationElement
-            FormalPart
+    GenericPart
+      GenericClause
+        GenericClausePreamble
+          Keyword(Generic)
+          LeftPar
+        InterfaceList
+          InterfaceObjectDeclaration
+            IdentifierList
+              Identifier 'gen'
+            Colon
+            SubtypeIndication
               Name
                 NameDesignatorPrefix
-                  Identifier 'gen'
-            RightArrow
-            ActualPart
-              ActualPartExpression
-                LiteralExpression
-                  AbstractLiteral '1'
-        RightPar
-      SemiColon
-    PortClause
-      PortClausePreamble
-        Keyword(Port)
-        LeftPar
-      InterfaceList
-        InterfaceObjectDeclaration
-          IdentifierList
-            Identifier 'prt'
-          Colon
-          SubtypeIndication
-            Name
-              NameDesignatorPrefix
-                Identifier 'integer'
-          ColonEq
-          LiteralExpression
-            AbstractLiteral '1'
-      PortClauseEpilogue
-        RightPar
+                  Identifier 'integer'
+            InitialValue
+              ColonEq
+              LiteralExpression
+                AbstractLiteral '1'
+        GenericClauseEpilogue
+          RightPar
+          SemiColon
+      GenericMap
+        GenericMapAspect
+          Keyword(Generic)
+          Keyword(Map)
+          LeftPar
+          AssociationList
+            AssociationElement
+              Formal
+                FormalPart
+                  Name
+                    NameDesignatorPrefix
+                      Identifier 'gen'
+                RightArrow
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '1'
+          RightPar
         SemiColon
-    SemiColonTerminatedPortMapAspect
-      PortMapAspect
-        Keyword(Port)
-        Keyword(Map)
-        LeftPar
-        AssociationList
-          AssociationElement
-            FormalPart
+    PortPart
+      PortClause
+        PortClausePreamble
+          Keyword(Port)
+          LeftPar
+        InterfaceList
+          InterfaceObjectDeclaration
+            IdentifierList
+              Identifier 'prt'
+            Colon
+            SubtypeIndication
               Name
                 NameDesignatorPrefix
-                  Identifier 'prt'
-            RightArrow
-            ActualPart
-              ActualPartExpression
-                LiteralExpression
-                  AbstractLiteral '2'
-        RightPar
-      SemiColon
+                  Identifier 'integer'
+            InitialValue
+              ColonEq
+              LiteralExpression
+                AbstractLiteral '1'
+        PortClauseEpilogue
+          RightPar
+          SemiColon
+      PortMap
+        PortMapAspect
+          Keyword(Port)
+          Keyword(Map)
+          LeftPar
+          AssociationList
+            AssociationElement
+              Formal
+                FormalPart
+                  Name
+                    NameDesignatorPrefix
+                      Identifier 'prt'
+                RightArrow
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '2'
+          RightPar
+        SemiColon
   DeclarationStatementSeparator
     Keyword(Begin)
   BlockEpilogue

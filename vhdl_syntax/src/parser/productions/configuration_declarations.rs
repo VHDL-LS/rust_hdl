@@ -14,18 +14,16 @@ impl Parser {
     pub fn configuration_declaration(&mut self) {
         self.start_node(NodeKind::ConfigurationDeclaration);
         self.configuration_declaration_preamble();
-        self.start_node(NodeKind::ConfigurationDeclarationItems);
         self.start_node(NodeKind::Declarations);
         self.configuration_declarative_part();
         self.end_node();
         if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
-            self.start_node(NodeKind::SemiColonTerminatedVerificationUnitBindingIndication);
+            self.start_node(NodeKind::VerificationUnitBinding);
             self.verification_unit_binding_indication();
             self.expect_token(SemiColon);
             self.end_node();
         }
         self.block_configuration();
-        self.end_node();
         self.configuration_declaration_epilogue();
         self.end_node();
     }
@@ -84,14 +82,12 @@ impl Parser {
     }
 
     fn block_configuration_known_spec(&mut self) {
-        self.start_node(NodeKind::BlockConfigurationItems);
         while self.next_is(Keyword(Kw::Use)) {
             self.use_clause();
         }
         while self.next_is(Keyword(Kw::For)) {
             self.configuration_item();
         }
-        self.end_node();
         self.block_configuration_epilogue();
     }
 
@@ -165,17 +161,16 @@ impl Parser {
     }
 
     fn component_configuration_known_spec(&mut self) {
-        self.start_node(NodeKind::ComponentConfigurationItems);
         if self.next_is_one_of([Keyword(Kw::Use), Keyword(Kw::Generic), Keyword(Kw::Port)])
             && !self.next_nth_is(Keyword(Kw::Vunit), 1)
         {
-            self.start_node(NodeKind::SemiColonTerminatedBindingIndication);
+            self.start_node(NodeKind::Binding);
             self.binding_indication();
             self.expect_token(TokenKind::SemiColon);
             self.end_node();
         }
         if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
-            self.start_node(NodeKind::SemiColonTerminatedVerificationUnitBindingIndication);
+            self.start_node(NodeKind::VerificationUnitBinding);
             self.verification_unit_binding_indication();
             self.expect_token(SemiColon);
             self.end_node();
@@ -183,7 +178,6 @@ impl Parser {
         if self.next_is(Keyword(Kw::For)) {
             self.block_configuration();
         }
-        self.end_node();
         self.component_configuration_epilogue();
     }
 }

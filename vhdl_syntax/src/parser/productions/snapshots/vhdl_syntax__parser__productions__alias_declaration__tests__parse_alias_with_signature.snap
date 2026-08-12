@@ -11,9 +11,10 @@ AliasDeclaration
       Identifier 'name'
   Signature
     LeftSquare
-    Keyword(Return)
-    Name
-      NameDesignatorPrefix
-        Identifier 'natural'
+    ReturnType
+      Keyword(Return)
+      Name
+        NameDesignatorPrefix
+          Identifier 'natural'
     RightSquare
   SemiColon

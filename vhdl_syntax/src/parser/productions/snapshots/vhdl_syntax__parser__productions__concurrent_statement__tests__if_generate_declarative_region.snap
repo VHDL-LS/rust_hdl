@@ -20,9 +20,10 @@ IfGenerateStatement
             Identifier 'true'
     Keyword(Generate)
     GenerateStatementBody
-      DeclarationStatementSeparator
-        Keyword(Begin)
-  IfGenerateStatementEpilogue
+      GenerateBodyDeclarations
+        DeclarationStatementSeparator
+          Keyword(Begin)
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

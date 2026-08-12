@@ -13,7 +13,7 @@ ComponentInstantiationStatement
   Label
     Identifier 'u_cpu'
     Colon
-  EntityInstantiatedUnit
+  InstantiatedEntity
     Keyword(Entity)
     Name
       NameDesignatorPrefix
@@ -21,25 +21,25 @@ ComponentInstantiationStatement
       SelectedName
         Dot
         Identifier 'cpu'
-  ComponentInstantiationItems
-    PortMapAspect
-      Keyword(Port)
-      Keyword(Map)
-      LeftPar
-      AssociationList
-        AssociationElement
+  PortMapAspect
+    Keyword(Port)
+    Keyword(Map)
+    LeftPar
+    AssociationList
+      AssociationElement
+        Formal
           FormalPart
             Name
               NameDesignatorPrefix
                 Identifier 'clk'
           RightArrow
-          ActualPart
-            ActualPartExpression
-              NameExpression
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'clk'
-      RightPar
+        ActualPart
+          ActualPartExpression
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'clk'
+    RightPar
 
 == diagnostics ==
 4:4 Expected([SemiColon])

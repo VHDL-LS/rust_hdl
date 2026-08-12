@@ -4,7 +4,7 @@ expression: "to_test_text(Parser::loop_statement,\n\"\\\nfor idx in 0 to 3 loop\
 ---
 LoopStatement
   LoopStatementPreamble
-    ForIterationScheme
+    ForScheme
       Keyword(For)
       ParameterSpecification
         Identifier 'idx'

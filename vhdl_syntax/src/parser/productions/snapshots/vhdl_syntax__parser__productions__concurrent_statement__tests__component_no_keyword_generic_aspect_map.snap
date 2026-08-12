@@ -6,7 +6,7 @@ ComponentInstantiationStatement
   Label
     Identifier 'inst'
     Colon
-  ComponentInstantiatedUnit
+  InstantiatedComponent
     Name
       NameDesignatorPrefix
         Identifier 'lib'
@@ -16,21 +16,21 @@ ComponentInstantiationStatement
       SelectedName
         Dot
         Identifier 'bar'
-  ComponentInstantiationItems
-    GenericMapAspect
-      Keyword(Generic)
-      Keyword(Map)
-      LeftPar
-      AssociationList
-        AssociationElement
+  GenericMapAspect
+    Keyword(Generic)
+    Keyword(Map)
+    LeftPar
+    AssociationList
+      AssociationElement
+        Formal
           FormalPart
             Name
               NameDesignatorPrefix
                 Identifier 'const'
           RightArrow
-          ActualPart
-            ActualPartExpression
-              LiteralExpression
-                AbstractLiteral '1'
-      RightPar
+        ActualPart
+          ActualPartExpression
+            LiteralExpression
+              AbstractLiteral '1'
+    RightPar
   SemiColon

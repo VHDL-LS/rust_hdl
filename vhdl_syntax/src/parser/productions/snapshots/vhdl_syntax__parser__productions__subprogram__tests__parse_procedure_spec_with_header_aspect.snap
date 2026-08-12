@@ -19,9 +19,10 @@ SubprogramDeclaration
               Name
                 NameDesignatorPrefix
                   Identifier 'natural'
-            ColonEq
-            LiteralExpression
-              AbstractLiteral '4'
+            InitialValue
+              ColonEq
+              LiteralExpression
+                AbstractLiteral '4'
           SemiColon
           InterfaceObjectDeclaration
             IdentifierList
@@ -31,9 +32,10 @@ SubprogramDeclaration
               Name
                 NameDesignatorPrefix
                   Identifier 'real'
-            ColonEq
-            LiteralExpression
-              AbstractLiteral '4'
+            InitialValue
+              ColonEq
+              LiteralExpression
+                AbstractLiteral '4'
         RightPar
       GenericMapAspect
         Keyword(Generic)
@@ -41,11 +43,12 @@ SubprogramDeclaration
         LeftPar
         AssociationList
           AssociationElement
-            FormalPart
-              Name
-                NameDesignatorPrefix
-                  Identifier 'x'
-            RightArrow
+            Formal
+              FormalPart
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'x'
+              RightArrow
             ActualPart
               ActualPartExpression
                 LiteralExpression

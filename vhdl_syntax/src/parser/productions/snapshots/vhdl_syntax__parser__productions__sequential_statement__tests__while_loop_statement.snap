@@ -4,7 +4,7 @@ expression: "to_test_text(Parser::loop_statement,\n\"\\\nwhile foo = true loop\n
 ---
 LoopStatement
   LoopStatementPreamble
-    WhileIterationScheme
+    WhileScheme
       Keyword(While)
       BinaryExpression
         NameExpression

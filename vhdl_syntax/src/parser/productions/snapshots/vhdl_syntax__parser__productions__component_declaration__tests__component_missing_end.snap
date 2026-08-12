@@ -15,47 +15,46 @@ ComponentDeclaration
     Keyword(Component)
     Identifier 'fifo'
     Keyword(Is)
-  ComponentDeclarationItems
-    PortClause
-      PortClausePreamble
-        Keyword(Port)
-        LeftPar
-      InterfaceList
-        InterfaceObjectDeclaration
-          IdentifierList
-            Identifier 'clk'
-          Colon
-          Keyword(In)
-          SubtypeIndication
-            Name
-              NameDesignatorPrefix
-                Identifier 'std_logic'
-        SemiColon
-        InterfaceObjectDeclaration
-          IdentifierList
-            Identifier 'data'
-          Colon
-          Keyword(Out)
-          SubtypeIndication
-            Name
-              NameDesignatorPrefix
-                Identifier 'std_logic_vector'
-              ParenthesizedName
-                LeftPar
-                AssociationList
-                  AssociationElement
-                    ActualPart
-                      ActualPartExpression
-                        BinaryExpression
-                          LiteralExpression
-                            AbstractLiteral '7'
-                          Keyword(Downto)
-                          LiteralExpression
-                            AbstractLiteral '0'
-                RightPar
-      PortClauseEpilogue
-        RightPar
-        SemiColon
+  PortClause
+    PortClausePreamble
+      Keyword(Port)
+      LeftPar
+    InterfaceList
+      InterfaceObjectDeclaration
+        IdentifierList
+          Identifier 'clk'
+        Colon
+        Keyword(In)
+        SubtypeIndication
+          Name
+            NameDesignatorPrefix
+              Identifier 'std_logic'
+      SemiColon
+      InterfaceObjectDeclaration
+        IdentifierList
+          Identifier 'data'
+        Colon
+        Keyword(Out)
+        SubtypeIndication
+          Name
+            NameDesignatorPrefix
+              Identifier 'std_logic_vector'
+            ParenthesizedName
+              LeftPar
+              AssociationList
+                AssociationElement
+                  ActualPart
+                    ActualPartExpression
+                      BinaryExpression
+                        LiteralExpression
+                          AbstractLiteral '7'
+                        Keyword(Downto)
+                        LiteralExpression
+                          AbstractLiteral '0'
+              RightPar
+    PortClauseEpilogue
+      RightPar
+      SemiColon
 
 == diagnostics ==
 5:5 Expected([Keyword(End)])

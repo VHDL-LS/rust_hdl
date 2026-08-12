@@ -10,11 +10,12 @@ InterfaceSubprogramDeclaration
     Name
       NameDesignatorPrefix
         Identifier 'bar'
-  Keyword(Is)
-  InterfaceSubprogramDefaultName
-    Name
-      NameDesignatorPrefix
-        Identifier 'lib'
-      SelectedName
-        Dot
-        Identifier 'name'
+  SubprogramDefault
+    Keyword(Is)
+    InterfaceSubprogramDefaultName
+      Name
+        NameDesignatorPrefix
+          Identifier 'lib'
+        SelectedName
+          Dot
+          Identifier 'name'

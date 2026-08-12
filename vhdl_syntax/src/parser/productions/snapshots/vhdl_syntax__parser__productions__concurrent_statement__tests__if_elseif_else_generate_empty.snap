@@ -35,7 +35,7 @@ IfGenerateStatement
   IfGenerateElse
     Keyword(Else)
     Keyword(Generate)
-  IfGenerateStatementEpilogue
+  GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
     SemiColon

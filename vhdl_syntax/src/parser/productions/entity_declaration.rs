@@ -16,8 +16,10 @@ impl Parser {
         self.entity_header();
         self.opt_declarative_part();
         if self.next_is(Keyword(Kw::Begin)) {
+            self.start_node(EntityStatementPart);
             self.skip_into_node(DeclarationStatementSeparator);
             self.concurrent_statements();
+            self.end_node();
         }
         self.entity_declaration_epilogue();
         self.end_node();
