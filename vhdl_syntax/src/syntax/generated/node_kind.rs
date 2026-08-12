@@ -109,6 +109,7 @@ pub enum NodeKind {
     EntityNameListOthers,
     EntityOpenAspect,
     EntitySpecification,
+    EntityStatementPart,
     EnumerationTypeDefinition,
     ExitStatement,
     ExpressionChoice,

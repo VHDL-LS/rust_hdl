@@ -6337,14 +6337,8 @@ impl AstNode for EntityDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "declaration_statement_separator",
-                kind: LayoutItemKind::Node(NodeKind::DeclarationStatementSeparator),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "concurrent_statements",
-                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
+                name: "entity_statement_part",
+                kind: LayoutItemKind::Node(NodeKind::EntityStatementPart),
             },
             LayoutItem {
                 optional: false,
@@ -6380,16 +6374,10 @@ impl EntityDeclarationSyntax {
             .filter_map(DeclarationsSyntax::cast)
             .nth(0)
     }
-    pub fn declaration_statement_separator(&self) -> Option<DeclarationStatementSeparatorSyntax> {
+    pub fn entity_statement_part(&self) -> Option<EntityStatementPartSyntax> {
         self.0
             .children()
-            .filter_map(DeclarationStatementSeparatorSyntax::cast)
-            .nth(0)
-    }
-    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
-        self.0
-            .children()
-            .filter_map(ConcurrentStatementsSyntax::cast)
+            .filter_map(EntityStatementPartSyntax::cast)
             .nth(0)
     }
     pub fn entity_declaration_epilogue(&self) -> Option<EntityDeclarationEpilogueSyntax> {
@@ -6865,6 +6853,47 @@ impl EntitySpecificationSyntax {
     }
     pub fn entity_class(&self) -> Option<EntityClassSyntax> {
         self.0.tokens().filter_map(EntityClassSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct EntityStatementPartSyntax(pub(crate) SyntaxNode);
+impl AstNode for EntityStatementPartSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::EntityStatementPart,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "declaration_statement_separator",
+                kind: LayoutItemKind::Node(NodeKind::DeclarationStatementSeparator),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "concurrent_statements",
+                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        EntityStatementPartSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl EntityStatementPartSyntax {
+    pub fn declaration_statement_separator(&self) -> Option<DeclarationStatementSeparatorSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationStatementSeparatorSyntax::cast)
+            .nth(0)
+    }
+    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+        self.0
+            .children()
+            .filter_map(ConcurrentStatementsSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]

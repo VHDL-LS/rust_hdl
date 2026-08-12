@@ -5277,8 +5277,7 @@ pub struct EntityDeclarationBuilder {
     entity_declaration_preamble: EntityDeclarationPreambleSyntax,
     entity_header: Option<EntityHeaderSyntax>,
     declarations: Option<DeclarationsSyntax>,
-    declaration_statement_separator: Option<DeclarationStatementSeparatorSyntax>,
-    concurrent_statements: Option<ConcurrentStatementsSyntax>,
+    entity_statement_part: Option<EntityStatementPartSyntax>,
     entity_declaration_epilogue: EntityDeclarationEpilogueSyntax,
 }
 impl EntityDeclarationBuilder {
@@ -5287,8 +5286,7 @@ impl EntityDeclarationBuilder {
             entity_declaration_preamble: entity_declaration_preamble.into(),
             entity_header: None,
             declarations: None,
-            declaration_statement_separator: None,
-            concurrent_statements: None,
+            entity_statement_part: None,
             entity_declaration_epilogue: EntityDeclarationEpilogueBuilder::default().build(),
         }
     }
@@ -5307,15 +5305,8 @@ impl EntityDeclarationBuilder {
         self.declarations = Some(n.into());
         self
     }
-    pub fn with_declaration_statement_separator(
-        mut self,
-        n: impl Into<DeclarationStatementSeparatorSyntax>,
-    ) -> Self {
-        self.declaration_statement_separator = Some(n.into());
-        self
-    }
-    pub fn with_concurrent_statements(mut self, n: impl Into<ConcurrentStatementsSyntax>) -> Self {
-        self.concurrent_statements = Some(n.into());
+    pub fn with_entity_statement_part(mut self, n: impl Into<EntityStatementPartSyntax>) -> Self {
+        self.entity_statement_part = Some(n.into());
         self
     }
     pub fn with_entity_declaration_epilogue(
@@ -5335,10 +5326,7 @@ impl EntityDeclarationBuilder {
         if let Some(n) = self.declarations {
             builder.push_node(n.raw().green().clone());
         }
-        if let Some(n) = self.declaration_statement_separator {
-            builder.push_node(n.raw().green().clone());
-        }
-        if let Some(n) = self.concurrent_statements {
+        if let Some(n) = self.entity_statement_part {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.entity_declaration_epilogue.raw().green().clone());
@@ -5806,6 +5794,52 @@ impl EntitySpecificationBuilder {
 }
 impl From<EntitySpecificationBuilder> for EntitySpecificationSyntax {
     fn from(value: EntitySpecificationBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct EntityStatementPartBuilder {
+    declaration_statement_separator: DeclarationStatementSeparatorSyntax,
+    concurrent_statements: Option<ConcurrentStatementsSyntax>,
+}
+impl Default for EntityStatementPartBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl EntityStatementPartBuilder {
+    pub fn new() -> Self {
+        Self {
+            declaration_statement_separator: DeclarationStatementSeparatorBuilder::default()
+                .build(),
+            concurrent_statements: None,
+        }
+    }
+    pub fn with_declaration_statement_separator(
+        mut self,
+        n: impl Into<DeclarationStatementSeparatorSyntax>,
+    ) -> Self {
+        self.declaration_statement_separator = n.into();
+        self
+    }
+    pub fn with_concurrent_statements(mut self, n: impl Into<ConcurrentStatementsSyntax>) -> Self {
+        self.concurrent_statements = Some(n.into());
+        self
+    }
+    pub fn build(self) -> EntityStatementPartSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::EntityStatementPart);
+        builder.push_node(self.declaration_statement_separator.raw().green().clone());
+        if let Some(n) = self.concurrent_statements {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        EntityStatementPartSyntax::cast(node).unwrap()
+    }
+}
+impl From<EntityStatementPartBuilder> for EntityStatementPartSyntax {
+    fn from(value: EntityStatementPartBuilder) -> Self {
         value.build()
     }
 }

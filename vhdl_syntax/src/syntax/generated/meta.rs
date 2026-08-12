@@ -127,6 +127,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::EntityNameListOthers => EntityNameListOthersSyntax::META,
         NodeKind::EntityOpenAspect => EntityOpenAspectSyntax::META,
         NodeKind::EntitySpecification => EntitySpecificationSyntax::META,
+        NodeKind::EntityStatementPart => EntityStatementPartSyntax::META,
         NodeKind::EnumerationTypeDefinition => EnumerationTypeDefinitionSyntax::META,
         NodeKind::ExitStatement => ExitStatementSyntax::META,
         NodeKind::ExpressionChoice => ExpressionChoiceSyntax::META,

@@ -477,10 +477,9 @@ ConfigurationDeclaration =
 
 EntityDeclaration =
   entity_declaration_preamble:('entity' name:'#identifier' 'is')
-  EntityHeader?
-  Declarations?
-  DeclarationStatementSeparator?
-  ConcurrentStatements?
+  EntityHeader
+  Declarations
+  entity_statement_part:(DeclarationStatementSeparator ConcurrentStatements)?
   entity_declaration_epilogue:('end' 'entity'? '#identifier'? ';')
 
 EntityHeader =
