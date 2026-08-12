@@ -342,7 +342,7 @@ InterfacePackageGenericMapAspectDefault =
   'default'
 
 InterfacePackageGenericMapAspectAssociations =
-  AssociationList?
+  AssociationList
 
 InterfacePackageGenericMapAspectInner =
   InterfacePackageGenericMapAspectBox
