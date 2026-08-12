@@ -13265,19 +13265,17 @@ impl From<ReportClauseBuilder> for ReportClauseSyntax {
 pub struct ReportStatementBuilder {
     label: Option<LabelSyntax>,
     report_token: Token,
-    report: ExpressionSyntax,
-    severity_token: Option<Token>,
-    severity: Option<ExpressionSyntax>,
+    expression: ExpressionSyntax,
+    severity_clause: Option<SeverityClauseSyntax>,
     semi_colon_token: Token,
 }
 impl ReportStatementBuilder {
-    pub fn new(report: impl Into<ExpressionSyntax>) -> Self {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             label: None,
             report_token: Kw::Report.canonical_token(),
-            report: report.into(),
-            severity_token: None,
-            severity: None,
+            expression: expression.into(),
+            severity_clause: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
@@ -13293,23 +13291,12 @@ impl ReportStatementBuilder {
         self.report_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_report(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.report = n.into();
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
         self
     }
-    pub fn with_severity_token(mut self, t: impl Into<Token>) -> Self {
-        self.severity_token = Some(t.into());
-        self
-    }
-    pub fn with_severity_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .severity_token
-            .get_or_insert_with(|| Kw::Severity.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_severity(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.severity = Some(n.into());
+    pub fn with_severity_clause(mut self, n: impl Into<SeverityClauseSyntax>) -> Self {
+        self.severity_clause = Some(n.into());
         self
     }
     pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -13327,11 +13314,8 @@ impl ReportStatementBuilder {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.report_token);
-        builder.push_node(self.report.raw().green().clone());
-        if let Some(t) = self.severity_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.severity {
+        builder.push_node(self.expression.raw().green().clone());
+        if let Some(n) = self.severity_clause {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.semi_colon_token);

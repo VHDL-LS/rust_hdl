@@ -835,7 +835,7 @@ ProcedureCallStatement =
   Label? Name ';'
 
 ReportStatement =
-  Label? 'report' report:Expression 'severity'? severity:Expression? ';'
+  Label? 'report' Expression severity_clause:('severity' Expression)? ';'
 
 ReturnStatement =
   Label? 'return' Expression? ';'

@@ -14974,7 +14974,7 @@ impl AstNode for ReportStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "report",
+                name: "expression",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -14989,23 +14989,8 @@ impl AstNode for ReportStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "severity",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Severity)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "severity",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "severity_clause",
+                kind: LayoutItemKind::Node(NodeKind::SeverityClause),
             },
             LayoutItem {
                 optional: false,
@@ -15032,17 +15017,14 @@ impl ReportStatementSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Report))
             .nth(0)
     }
-    pub fn report(&self) -> Option<ExpressionSyntax> {
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
-    pub fn severity_token(&self) -> Option<SyntaxToken> {
+    pub fn severity_clause(&self) -> Option<SeverityClauseSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Severity))
+            .children()
+            .filter_map(SeverityClauseSyntax::cast)
             .nth(0)
-    }
-    pub fn severity(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(1)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0

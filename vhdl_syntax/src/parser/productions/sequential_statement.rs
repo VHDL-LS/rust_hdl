@@ -52,8 +52,10 @@ impl Parser {
         self.expect_kw(Kw::Report);
         self.expression();
         if self.next_is(Keyword(Kw::Severity)) {
-            self.skip();
+            self.start_node(SeverityClause);
+            self.skip(); // Kw::Severity
             self.expression();
+            self.end_node();
         }
         self.expect_token(SemiColon);
         self.end_node();
