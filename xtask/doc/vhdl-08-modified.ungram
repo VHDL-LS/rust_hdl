@@ -378,7 +378,7 @@ PortClause =
   port_clause_epilogue:(')' ';')
 
 PortMapAspect =
-  'port' 'map' '(' AssociationList? ')'
+  'port' 'map' '(' AssociationList ')'
 
 RecordElementResolution =
   name:'#identifier' ResolutionIndication
