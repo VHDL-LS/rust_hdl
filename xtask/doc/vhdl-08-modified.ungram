@@ -679,15 +679,15 @@ ExternalName =
   ExternalConstantName | ExternalSignalName | ExternalVariableName
 
 ExternalConstantName =
-  '<<' 'constant' ExternalPathName ':' SubtypeIndication '>>'
+  '<<' 'constant' ExternalPathname ':' SubtypeIndication '>>'
 
 ExternalSignalName =
-  '<<' 'signal' ExternalPathName ':' SubtypeIndication '>>'
+  '<<' 'signal' ExternalPathname ':' SubtypeIndication '>>'
 
 ExternalVariableName =
-  '<<' 'variable' ExternalPathName ':' SubtypeIndication '>>'
+  '<<' 'variable' ExternalPathname ':' SubtypeIndication '>>'
 
-ExternalPathName =
+ExternalPathname =
   PackagePathname | AbsolutePathname | RelativePathname
 
 PackagePathname =

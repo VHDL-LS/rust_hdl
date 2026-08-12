@@ -7255,7 +7255,7 @@ impl AstNode for ExternalConstantNameSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "external_path_name",
+                name: "external_pathname",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::PackagePathname,
                     NodeKind::AbsolutePathname,
@@ -7302,10 +7302,10 @@ impl ExternalConstantNameSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Constant))
             .nth(0)
     }
-    pub fn external_path_name(&self) -> Option<ExternalPathNameSyntax> {
+    pub fn external_pathname(&self) -> Option<ExternalPathnameSyntax> {
         self.0
             .children()
-            .filter_map(ExternalPathNameSyntax::cast)
+            .filter_map(ExternalPathnameSyntax::cast)
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
@@ -7371,12 +7371,12 @@ impl AstNode for ExternalNameSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub enum ExternalPathNameSyntax {
+pub enum ExternalPathnameSyntax {
     PackagePathname(PackagePathnameSyntax),
     AbsolutePathname(AbsolutePathnameSyntax),
     RelativePathname(RelativePathnameSyntax),
 }
-impl AstNode for ExternalPathNameSyntax {
+impl AstNode for ExternalPathnameSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
         options: &[
             NodeKind::PackagePathname,
@@ -7386,17 +7386,17 @@ impl AstNode for ExternalPathNameSyntax {
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         if PackagePathnameSyntax::can_cast(&node) {
-            return ExternalPathNameSyntax::PackagePathname(PackagePathnameSyntax::cast_unchecked(
+            return ExternalPathnameSyntax::PackagePathname(PackagePathnameSyntax::cast_unchecked(
                 node,
             ));
         }
         if AbsolutePathnameSyntax::can_cast(&node) {
-            return ExternalPathNameSyntax::AbsolutePathname(
+            return ExternalPathnameSyntax::AbsolutePathname(
                 AbsolutePathnameSyntax::cast_unchecked(node),
             );
         }
         if RelativePathnameSyntax::can_cast(&node) {
-            return ExternalPathNameSyntax::RelativePathname(
+            return ExternalPathnameSyntax::RelativePathname(
                 RelativePathnameSyntax::cast_unchecked(node),
             );
         }
@@ -7407,9 +7407,9 @@ impl AstNode for ExternalPathNameSyntax {
     }
     fn raw(&self) -> SyntaxNode {
         match self {
-            ExternalPathNameSyntax::PackagePathname(inner) => inner.raw(),
-            ExternalPathNameSyntax::AbsolutePathname(inner) => inner.raw(),
-            ExternalPathNameSyntax::RelativePathname(inner) => inner.raw(),
+            ExternalPathnameSyntax::PackagePathname(inner) => inner.raw(),
+            ExternalPathnameSyntax::AbsolutePathname(inner) => inner.raw(),
+            ExternalPathnameSyntax::RelativePathname(inner) => inner.raw(),
         }
     }
 }
@@ -7434,7 +7434,7 @@ impl AstNode for ExternalSignalNameSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "external_path_name",
+                name: "external_pathname",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::PackagePathname,
                     NodeKind::AbsolutePathname,
@@ -7481,10 +7481,10 @@ impl ExternalSignalNameSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Signal))
             .nth(0)
     }
-    pub fn external_path_name(&self) -> Option<ExternalPathNameSyntax> {
+    pub fn external_pathname(&self) -> Option<ExternalPathnameSyntax> {
         self.0
             .children()
-            .filter_map(ExternalPathNameSyntax::cast)
+            .filter_map(ExternalPathnameSyntax::cast)
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {
@@ -7527,7 +7527,7 @@ impl AstNode for ExternalVariableNameSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "external_path_name",
+                name: "external_pathname",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::PackagePathname,
                     NodeKind::AbsolutePathname,
@@ -7574,10 +7574,10 @@ impl ExternalVariableNameSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Variable))
             .nth(0)
     }
-    pub fn external_path_name(&self) -> Option<ExternalPathNameSyntax> {
+    pub fn external_pathname(&self) -> Option<ExternalPathnameSyntax> {
         self.0
             .children()
-            .filter_map(ExternalPathNameSyntax::cast)
+            .filter_map(ExternalPathnameSyntax::cast)
             .nth(0)
     }
     pub fn colon_token(&self) -> Option<SyntaxToken> {

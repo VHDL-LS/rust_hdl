@@ -6067,7 +6067,7 @@ impl From<ExpressionChoiceBuilder> for ExpressionChoiceSyntax {
 pub struct ExternalConstantNameBuilder {
     lt_lt_token: Token,
     constant_token: Token,
-    external_path_name: Option<ExternalPathNameSyntax>,
+    external_pathname: Option<ExternalPathnameSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     gt_gt_token: Token,
@@ -6077,7 +6077,7 @@ impl ExternalConstantNameBuilder {
         Self {
             lt_lt_token: TokenKind::LtLt.canonical_token().unwrap(),
             constant_token: Kw::Constant.canonical_token(),
-            external_path_name: None,
+            external_pathname: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             gt_gt_token: TokenKind::GtGt.canonical_token().unwrap(),
@@ -6099,8 +6099,8 @@ impl ExternalConstantNameBuilder {
         self.constant_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_external_path_name(mut self, n: impl Into<ExternalPathNameSyntax>) -> Self {
-        self.external_path_name = Some(n.into());
+    pub fn with_external_pathname(mut self, n: impl Into<ExternalPathnameSyntax>) -> Self {
+        self.external_pathname = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -6128,7 +6128,7 @@ impl ExternalConstantNameBuilder {
         builder.start_node(NodeKind::ExternalConstantName);
         builder.push(self.lt_lt_token);
         builder.push(self.constant_token);
-        if let Some(n) = self.external_path_name {
+        if let Some(n) = self.external_pathname {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.colon_token);
@@ -6148,7 +6148,7 @@ impl From<ExternalConstantNameBuilder> for ExternalConstantNameSyntax {
 pub struct ExternalSignalNameBuilder {
     lt_lt_token: Token,
     signal_token: Token,
-    external_path_name: Option<ExternalPathNameSyntax>,
+    external_pathname: Option<ExternalPathnameSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     gt_gt_token: Token,
@@ -6158,7 +6158,7 @@ impl ExternalSignalNameBuilder {
         Self {
             lt_lt_token: TokenKind::LtLt.canonical_token().unwrap(),
             signal_token: Kw::Signal.canonical_token(),
-            external_path_name: None,
+            external_pathname: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             gt_gt_token: TokenKind::GtGt.canonical_token().unwrap(),
@@ -6180,8 +6180,8 @@ impl ExternalSignalNameBuilder {
         self.signal_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_external_path_name(mut self, n: impl Into<ExternalPathNameSyntax>) -> Self {
-        self.external_path_name = Some(n.into());
+    pub fn with_external_pathname(mut self, n: impl Into<ExternalPathnameSyntax>) -> Self {
+        self.external_pathname = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -6209,7 +6209,7 @@ impl ExternalSignalNameBuilder {
         builder.start_node(NodeKind::ExternalSignalName);
         builder.push(self.lt_lt_token);
         builder.push(self.signal_token);
-        if let Some(n) = self.external_path_name {
+        if let Some(n) = self.external_pathname {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.colon_token);
@@ -6229,7 +6229,7 @@ impl From<ExternalSignalNameBuilder> for ExternalSignalNameSyntax {
 pub struct ExternalVariableNameBuilder {
     lt_lt_token: Token,
     variable_token: Token,
-    external_path_name: Option<ExternalPathNameSyntax>,
+    external_pathname: Option<ExternalPathnameSyntax>,
     colon_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
     gt_gt_token: Token,
@@ -6239,7 +6239,7 @@ impl ExternalVariableNameBuilder {
         Self {
             lt_lt_token: TokenKind::LtLt.canonical_token().unwrap(),
             variable_token: Kw::Variable.canonical_token(),
-            external_path_name: None,
+            external_pathname: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
             subtype_indication: subtype_indication.into(),
             gt_gt_token: TokenKind::GtGt.canonical_token().unwrap(),
@@ -6261,8 +6261,8 @@ impl ExternalVariableNameBuilder {
         self.variable_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_external_path_name(mut self, n: impl Into<ExternalPathNameSyntax>) -> Self {
-        self.external_path_name = Some(n.into());
+    pub fn with_external_pathname(mut self, n: impl Into<ExternalPathnameSyntax>) -> Self {
+        self.external_pathname = Some(n.into());
         self
     }
     pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -6290,7 +6290,7 @@ impl ExternalVariableNameBuilder {
         builder.start_node(NodeKind::ExternalVariableName);
         builder.push(self.lt_lt_token);
         builder.push(self.variable_token);
-        if let Some(n) = self.external_path_name {
+        if let Some(n) = self.external_pathname {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.colon_token);
