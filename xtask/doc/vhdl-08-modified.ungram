@@ -744,7 +744,7 @@ NameTail =
 // § 12: Scope and Visibility
 //==============================================================================
 UseClause =
-  'use' NameList? ';'
+  'use' NameList ';'
 
 //==============================================================================
 // § 10: Sequential Statements
@@ -759,8 +759,8 @@ AssertionStatement =
   Label? Assertion ';'
 
 CaseStatementAlternative =
-  case_statement_alternative_preamble:('when' Choices? '=>')
-  SequentialStatements?
+  case_statement_alternative_preamble:('when' Choices '=>')
+  SequentialStatements
 
 CaseStatement =
   case_statement_preamble:(Label? 'case' '?'? Expression 'is')
