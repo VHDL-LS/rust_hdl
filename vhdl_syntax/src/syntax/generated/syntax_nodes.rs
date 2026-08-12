@@ -5427,7 +5427,6 @@ pub enum DeclarationSyntax {
     ConstantDeclaration(ConstantDeclarationSyntax),
     SignalDeclaration(SignalDeclarationSyntax),
     VariableDeclaration(VariableDeclarationSyntax),
-    SharedVariableDeclaration(SharedVariableDeclarationSyntax),
 }
 impl AstNode for DeclarationSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
@@ -5455,7 +5454,6 @@ impl AstNode for DeclarationSyntax {
             NodeKind::ConstantDeclaration,
             NodeKind::SignalDeclaration,
             NodeKind::VariableDeclaration,
-            NodeKind::SharedVariableDeclaration,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -5558,11 +5556,6 @@ impl AstNode for DeclarationSyntax {
                 VariableDeclarationSyntax::cast_unchecked(node),
             );
         }
-        if SharedVariableDeclarationSyntax::can_cast(&node) {
-            return DeclarationSyntax::SharedVariableDeclaration(
-                SharedVariableDeclarationSyntax::cast_unchecked(node),
-            );
-        }
         unreachable!(
             "cast_unchecked called with unexpected node kind {:?}",
             node.kind()
@@ -5591,7 +5584,6 @@ impl AstNode for DeclarationSyntax {
             DeclarationSyntax::ConstantDeclaration(inner) => inner.raw(),
             DeclarationSyntax::SignalDeclaration(inner) => inner.raw(),
             DeclarationSyntax::VariableDeclaration(inner) => inner.raw(),
-            DeclarationSyntax::SharedVariableDeclaration(inner) => inner.raw(),
         }
     }
 }
@@ -5655,7 +5647,6 @@ impl AstNode for DeclarationsSyntax {
                 NodeKind::ConstantDeclaration,
                 NodeKind::SignalDeclaration,
                 NodeKind::VariableDeclaration,
-                NodeKind::SharedVariableDeclaration,
             ]),
         }],
     });
@@ -16517,107 +16508,6 @@ impl SeverityClauseSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct SharedVariableDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for SharedVariableDeclarationSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::SharedVariableDeclaration,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "shared",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Shared)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "variable",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Variable)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier_list",
-                kind: LayoutItemKind::Node(NodeKind::IdentifierList),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "colon",
-                kind: LayoutItemKind::Token(TokenKind::Colon),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "subtype_indication",
-                kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "initial_value",
-                kind: LayoutItemKind::Node(NodeKind::InitialValue),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        SharedVariableDeclarationSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SharedVariableDeclarationSyntax {
-    pub fn shared_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Shared))
-            .nth(0)
-    }
-    pub fn variable_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Variable))
-            .nth(0)
-    }
-    pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
-        self.0
-            .children()
-            .filter_map(IdentifierListSyntax::cast)
-            .nth(0)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Colon)
-            .nth(0)
-    }
-    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(SubtypeIndicationSyntax::cast)
-            .nth(0)
-    }
-    pub fn initial_value(&self) -> Option<InitialValueSyntax> {
-        self.0
-            .children()
-            .filter_map(InitialValueSyntax::cast)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub enum SignalAssignmentStatementSyntax {
     SimpleSignalAssignment(SimpleSignalAssignmentSyntax),
     ConditionalSignalAssignment(ConditionalSignalAssignmentSyntax),
@@ -18786,6 +18676,12 @@ impl AstNode for VariableDeclarationSyntax {
         kind: NodeKind::VariableDeclaration,
         items: &[
             LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "shared",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Shared)),
+            },
+            LayoutItem {
                 optional: false,
                 repeated: false,
                 name: "variable",
@@ -18831,6 +18727,12 @@ impl AstNode for VariableDeclarationSyntax {
     }
 }
 impl VariableDeclarationSyntax {
+    pub fn shared_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Shared))
+            .nth(0)
+    }
     pub fn variable_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()

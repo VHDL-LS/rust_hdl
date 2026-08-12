@@ -14471,96 +14471,6 @@ impl From<SeverityClauseBuilder> for SeverityClauseSyntax {
         value.build()
     }
 }
-pub struct SharedVariableDeclarationBuilder {
-    shared_token: Token,
-    variable_token: Token,
-    identifier_list: Option<IdentifierListSyntax>,
-    colon_token: Token,
-    subtype_indication: SubtypeIndicationSyntax,
-    initial_value: Option<InitialValueSyntax>,
-    semi_colon_token: Token,
-}
-impl SharedVariableDeclarationBuilder {
-    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
-        Self {
-            shared_token: Kw::Shared.canonical_token(),
-            variable_token: Kw::Variable.canonical_token(),
-            identifier_list: None,
-            colon_token: TokenKind::Colon.canonical_token().unwrap(),
-            subtype_indication: subtype_indication.into(),
-            initial_value: None,
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_shared_token(mut self, t: impl Into<Token>) -> Self {
-        self.shared_token = t.into();
-        self
-    }
-    pub fn with_shared_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.shared_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_variable_token(mut self, t: impl Into<Token>) -> Self {
-        self.variable_token = t.into();
-        self
-    }
-    pub fn with_variable_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.variable_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_identifier_list(mut self, n: impl Into<IdentifierListSyntax>) -> Self {
-        self.identifier_list = Some(n.into());
-        self
-    }
-    pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.colon_token = t.into();
-        self
-    }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_subtype_indication(mut self, n: impl Into<SubtypeIndicationSyntax>) -> Self {
-        self.subtype_indication = n.into();
-        self
-    }
-    pub fn with_initial_value(mut self, n: impl Into<InitialValueSyntax>) -> Self {
-        self.initial_value = Some(n.into());
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> SharedVariableDeclarationSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::SharedVariableDeclaration);
-        builder.push(self.shared_token);
-        builder.push(self.variable_token);
-        if let Some(n) = self.identifier_list {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push(self.colon_token);
-        builder.push_node(self.subtype_indication.raw().green().clone());
-        if let Some(n) = self.initial_value {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        SharedVariableDeclarationSyntax::cast(node).unwrap()
-    }
-}
-impl From<SharedVariableDeclarationBuilder> for SharedVariableDeclarationSyntax {
-    fn from(value: SharedVariableDeclarationBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct SignalDeclarationBuilder {
     signal_token: Token,
     identifier_list: Option<IdentifierListSyntax>,
@@ -16249,6 +16159,7 @@ impl From<UseClauseDeclarationBuilder> for UseClauseDeclarationSyntax {
     }
 }
 pub struct VariableDeclarationBuilder {
+    shared_token: Option<Token>,
     variable_token: Token,
     identifier_list: Option<IdentifierListSyntax>,
     colon_token: Token,
@@ -16259,6 +16170,7 @@ pub struct VariableDeclarationBuilder {
 impl VariableDeclarationBuilder {
     pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
         Self {
+            shared_token: None,
             variable_token: Kw::Variable.canonical_token(),
             identifier_list: None,
             colon_token: TokenKind::Colon.canonical_token().unwrap(),
@@ -16266,6 +16178,17 @@ impl VariableDeclarationBuilder {
             initial_value: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
+    }
+    pub fn with_shared_token(mut self, t: impl Into<Token>) -> Self {
+        self.shared_token = Some(t.into());
+        self
+    }
+    pub fn with_shared_token_trivia(mut self, trivia: Trivia) -> Self {
+        let tok = self
+            .shared_token
+            .get_or_insert_with(|| Kw::Shared.canonical_token());
+        tok.set_leading_trivia(trivia);
+        self
     }
     pub fn with_variable_token(mut self, t: impl Into<Token>) -> Self {
         self.variable_token = t.into();
@@ -16306,6 +16229,9 @@ impl VariableDeclarationBuilder {
     pub fn build(self) -> VariableDeclarationSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::VariableDeclaration);
+        if let Some(t) = self.shared_token {
+            builder.push(t);
+        }
         builder.push(self.variable_token);
         if let Some(n) = self.identifier_list {
             builder.push_node(n.raw().green().clone());

@@ -527,7 +527,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::PackageBodyDeclaration
         | NodeKind::PackageDeclaration
         | NodeKind::PackageInstantiationDeclaration
-        | NodeKind::SharedVariableDeclaration
         | NodeKind::SignalDeclaration
         | NodeKind::SimpleConfigurationSpecification
         | NodeKind::SubprogramBody

@@ -270,7 +270,6 @@ pub enum NodeKind {
     SensitivityList,
     SequentialStatements,
     SeverityClause,
-    SharedVariableDeclaration,
     SignalDeclaration,
     SignalListAll,
     SignalListList,

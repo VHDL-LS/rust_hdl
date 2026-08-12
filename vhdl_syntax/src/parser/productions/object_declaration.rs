@@ -49,11 +49,9 @@ impl Parser {
     }
 
     fn any_object_declaration(&mut self, object: Object) {
-        if object == Object::Variable && self.next_is(Keyword(Kw::Shared)) {
-            self.start_node(SharedVariableDeclaration);
-            self.skip(); // shared
-        } else {
-            self.start_node(object.kind());
+        self.start_node(object.kind());
+        if object == Object::Variable {
+            self.opt_token(Keyword(Kw::Shared));
         }
         self.expect_token(object.initial_token());
         self.identifier_list();

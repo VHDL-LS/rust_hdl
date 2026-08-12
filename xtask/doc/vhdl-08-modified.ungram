@@ -168,7 +168,6 @@ Declaration =
 | ConstantDeclaration
 | SignalDeclaration
 | VariableDeclaration
-| SharedVariableDeclaration
 
 // | PslPropertyDeclaration  -- add here if PSL is supported
 // | PslSequenceDeclaration  -- add here if PSL is supported
@@ -429,15 +428,7 @@ TypeDefinition =
 | ProtectedTypeDefinition
 
 VariableDeclaration =
-  'variable'
-  IdentifierList
-  ':'
-  SubtypeIndication
-  initial_value:(':=' Expression)?
-  ';'
-
-SharedVariableDeclaration =
-  'shared'
+  'shared'?
   'variable'
   IdentifierList
   ':'

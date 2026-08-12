@@ -312,7 +312,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::SensitivityList => SensitivityListSyntax::META,
         NodeKind::SequentialStatements => SequentialStatementsSyntax::META,
         NodeKind::SeverityClause => SeverityClauseSyntax::META,
-        NodeKind::SharedVariableDeclaration => SharedVariableDeclarationSyntax::META,
         NodeKind::SignalDeclaration => SignalDeclarationSyntax::META,
         NodeKind::SignalListAll => SignalListAllSyntax::META,
         NodeKind::SignalListList => SignalListListSyntax::META,
