@@ -809,19 +809,13 @@ ForceMode =
 
 IfStatement =
   if_statement_preamble:(Label? 'if' Expression 'then')
-  SequentialStatements?
+  SequentialStatements
   if_statement_elsif:('elsif' Expression 'then' SequentialStatements?)*
   if_statement_else:('else' SequentialStatements?)?
   if_statement_epilogue:('end' 'if' '#identifier'? ';')
 
-WhileIterationScheme =
-  'while' Expression
-
-ForIterationScheme =
-  'for' ParameterSpecification
-
 IterationScheme =
-  WhileIterationScheme | ForIterationScheme
+  while_scheme:('while' Expression) | for_scheme:('for' ParameterSpecification)
 
 LoopStatement =
   loop_statement_preamble:(Label? IterationScheme? 'loop')

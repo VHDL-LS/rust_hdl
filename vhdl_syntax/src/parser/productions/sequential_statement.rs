@@ -243,12 +243,12 @@ impl Parser {
 
     fn opt_iteration_scheme(&mut self) {
         if self.next_is(Keyword(Kw::While)) {
-            self.start_node(WhileIterationScheme);
+            self.start_node(WhileScheme);
             self.skip();
             self.condition();
             self.end_node();
         } else if self.next_is(Keyword(Kw::For)) {
-            self.start_node(ForIterationScheme);
+            self.start_node(ForScheme);
             self.skip();
             self.parameter_specification();
             self.end_node();

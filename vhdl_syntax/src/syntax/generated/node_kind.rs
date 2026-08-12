@@ -121,7 +121,7 @@ pub enum NodeKind {
     FileTypeDefinition,
     ForGeneratePreamble,
     ForGenerateStatement,
-    ForIterationScheme,
+    ForScheme,
     Formal,
     FormalPart,
     FullTypeDeclaration,
@@ -309,5 +309,5 @@ pub enum NodeKind {
     WhenClause,
     WhenExpression,
     WhenWaveform,
-    WhileIterationScheme,
+    WhileScheme,
 }

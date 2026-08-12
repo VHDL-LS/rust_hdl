@@ -6505,11 +6505,11 @@ impl From<ForGenerateStatementBuilder> for ForGenerateStatementSyntax {
         value.build()
     }
 }
-pub struct ForIterationSchemeBuilder {
+pub struct ForSchemeBuilder {
     for_token: Token,
     parameter_specification: ParameterSpecificationSyntax,
 }
-impl ForIterationSchemeBuilder {
+impl ForSchemeBuilder {
     pub fn new(parameter_specification: impl Into<ParameterSpecificationSyntax>) -> Self {
         Self {
             for_token: Kw::For.canonical_token(),
@@ -6531,19 +6531,19 @@ impl ForIterationSchemeBuilder {
         self.parameter_specification = n.into();
         self
     }
-    pub fn build(self) -> ForIterationSchemeSyntax {
+    pub fn build(self) -> ForSchemeSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ForIterationScheme);
+        builder.start_node(NodeKind::ForScheme);
         builder.push(self.for_token);
         builder.push_node(self.parameter_specification.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        ForIterationSchemeSyntax::cast(node).unwrap()
+        ForSchemeSyntax::cast(node).unwrap()
     }
 }
-impl From<ForIterationSchemeBuilder> for ForIterationSchemeSyntax {
-    fn from(value: ForIterationSchemeBuilder) -> Self {
+impl From<ForSchemeBuilder> for ForSchemeSyntax {
+    fn from(value: ForSchemeBuilder) -> Self {
         value.build()
     }
 }
@@ -16577,11 +16577,11 @@ impl From<WhenWaveformBuilder> for WhenWaveformSyntax {
         value.build()
     }
 }
-pub struct WhileIterationSchemeBuilder {
+pub struct WhileSchemeBuilder {
     while_token: Token,
     expression: ExpressionSyntax,
 }
-impl WhileIterationSchemeBuilder {
+impl WhileSchemeBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             while_token: Kw::While.canonical_token(),
@@ -16600,19 +16600,19 @@ impl WhileIterationSchemeBuilder {
         self.expression = n.into();
         self
     }
-    pub fn build(self) -> WhileIterationSchemeSyntax {
+    pub fn build(self) -> WhileSchemeSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::WhileIterationScheme);
+        builder.start_node(NodeKind::WhileScheme);
         builder.push(self.while_token);
         builder.push_node(self.expression.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        WhileIterationSchemeSyntax::cast(node).unwrap()
+        WhileSchemeSyntax::cast(node).unwrap()
     }
 }
-impl From<WhileIterationSchemeBuilder> for WhileIterationSchemeSyntax {
-    fn from(value: WhileIterationSchemeBuilder) -> Self {
+impl From<WhileSchemeBuilder> for WhileSchemeSyntax {
+    fn from(value: WhileSchemeBuilder) -> Self {
         value.build()
     }
 }

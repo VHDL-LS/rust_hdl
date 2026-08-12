@@ -280,7 +280,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::SecondaryUnitDeclaration
         | NodeKind::UnitDeclarations => &[Keyword(Kw::End)],
         NodeKind::EntitySpecification => &[Keyword(Kw::Is)],
-        NodeKind::ForIterationScheme | NodeKind::WhileIterationScheme => &[Keyword(Kw::Loop)],
+        NodeKind::ForScheme | NodeKind::WhileScheme => &[Keyword(Kw::Loop)],
         NodeKind::GuardedSignalSpecification => &[Keyword(Kw::After)],
         NodeKind::IndexConstraint => &[Keyword(Kw::Of)],
         NodeKind::InterfacePackageDeclarationPreamble => &[Keyword(Kw::New)],

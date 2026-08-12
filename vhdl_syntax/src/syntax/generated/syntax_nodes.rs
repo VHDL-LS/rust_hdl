@@ -7809,10 +7809,10 @@ impl ForGenerateStatementSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct ForIterationSchemeSyntax(pub(crate) SyntaxNode);
-impl AstNode for ForIterationSchemeSyntax {
+pub struct ForSchemeSyntax(pub(crate) SyntaxNode);
+impl AstNode for ForSchemeSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ForIterationScheme,
+        kind: NodeKind::ForScheme,
         items: &[
             LayoutItem {
                 optional: false,
@@ -7829,13 +7829,13 @@ impl AstNode for ForIterationSchemeSyntax {
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        ForIterationSchemeSyntax(node)
+        ForSchemeSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl ForIterationSchemeSyntax {
+impl ForSchemeSyntax {
     pub fn for_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -11065,23 +11065,19 @@ impl AstNode for InterfaceSubprogramSpecificationSyntax {
 }
 #[derive(Debug, Clone)]
 pub enum IterationSchemeSyntax {
-    WhileIterationScheme(WhileIterationSchemeSyntax),
-    ForIterationScheme(ForIterationSchemeSyntax),
+    WhileScheme(WhileSchemeSyntax),
+    ForScheme(ForSchemeSyntax),
 }
 impl AstNode for IterationSchemeSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
-        options: &[NodeKind::WhileIterationScheme, NodeKind::ForIterationScheme],
+        options: &[NodeKind::WhileScheme, NodeKind::ForScheme],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        if WhileIterationSchemeSyntax::can_cast(&node) {
-            return IterationSchemeSyntax::WhileIterationScheme(
-                WhileIterationSchemeSyntax::cast_unchecked(node),
-            );
+        if WhileSchemeSyntax::can_cast(&node) {
+            return IterationSchemeSyntax::WhileScheme(WhileSchemeSyntax::cast_unchecked(node));
         }
-        if ForIterationSchemeSyntax::can_cast(&node) {
-            return IterationSchemeSyntax::ForIterationScheme(
-                ForIterationSchemeSyntax::cast_unchecked(node),
-            );
+        if ForSchemeSyntax::can_cast(&node) {
+            return IterationSchemeSyntax::ForScheme(ForSchemeSyntax::cast_unchecked(node));
         }
         unreachable!(
             "cast_unchecked called with unexpected node kind {:?}",
@@ -11090,8 +11086,8 @@ impl AstNode for IterationSchemeSyntax {
     }
     fn raw(&self) -> SyntaxNode {
         match self {
-            IterationSchemeSyntax::WhileIterationScheme(inner) => inner.raw(),
-            IterationSchemeSyntax::ForIterationScheme(inner) => inner.raw(),
+            IterationSchemeSyntax::WhileScheme(inner) => inner.raw(),
+            IterationSchemeSyntax::ForScheme(inner) => inner.raw(),
         }
     }
 }
@@ -11418,10 +11414,7 @@ impl AstNode for LoopStatementPreambleSyntax {
                 optional: true,
                 repeated: false,
                 name: "iteration_scheme",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::WhileIterationScheme,
-                    NodeKind::ForIterationScheme,
-                ]),
+                kind: LayoutItemKind::NodeChoice(&[NodeKind::WhileScheme, NodeKind::ForScheme]),
             },
             LayoutItem {
                 optional: false,
@@ -19138,10 +19131,10 @@ impl WhenWaveformSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct WhileIterationSchemeSyntax(pub(crate) SyntaxNode);
-impl AstNode for WhileIterationSchemeSyntax {
+pub struct WhileSchemeSyntax(pub(crate) SyntaxNode);
+impl AstNode for WhileSchemeSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::WhileIterationScheme,
+        kind: NodeKind::WhileScheme,
         items: &[
             LayoutItem {
                 optional: false,
@@ -19167,13 +19160,13 @@ impl AstNode for WhileIterationSchemeSyntax {
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        WhileIterationSchemeSyntax(node)
+        WhileSchemeSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl WhileIterationSchemeSyntax {
+impl WhileSchemeSyntax {
     pub fn while_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()

@@ -137,7 +137,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::FileTypeDefinition => FileTypeDefinitionSyntax::META,
         NodeKind::ForGeneratePreamble => ForGeneratePreambleSyntax::META,
         NodeKind::ForGenerateStatement => ForGenerateStatementSyntax::META,
-        NodeKind::ForIterationScheme => ForIterationSchemeSyntax::META,
+        NodeKind::ForScheme => ForSchemeSyntax::META,
         NodeKind::Formal => FormalSyntax::META,
         NodeKind::FormalPart => FormalPartSyntax::META,
         NodeKind::FullTypeDeclaration => FullTypeDeclarationSyntax::META,
@@ -351,6 +351,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::WhenClause => WhenClauseSyntax::META,
         NodeKind::WhenExpression => WhenExpressionSyntax::META,
         NodeKind::WhenWaveform => WhenWaveformSyntax::META,
-        NodeKind::WhileIterationScheme => WhileIterationSchemeSyntax::META,
+        NodeKind::WhileScheme => WhileSchemeSyntax::META,
     }
 }
