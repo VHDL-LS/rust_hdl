@@ -11037,17 +11037,8 @@ impl AstNode for InterfaceSubprogramDeclarationSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "is",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "interface_subprogram_default",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::InterfaceSubprogramDefaultName,
-                    NodeKind::InterfaceSubprogramDefaultBox,
-                ]),
+                name: "subprogram_default",
+                kind: LayoutItemKind::Node(NodeKind::SubprogramDefault),
             },
         ],
     });
@@ -11067,16 +11058,10 @@ impl InterfaceSubprogramDeclarationSyntax {
             .filter_map(InterfaceSubprogramSpecificationSyntax::cast)
             .nth(0)
     }
-    pub fn is_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
-            .nth(0)
-    }
-    pub fn interface_subprogram_default(&self) -> Option<InterfaceSubprogramDefaultSyntax> {
+    pub fn subprogram_default(&self) -> Option<SubprogramDefaultSyntax> {
         self.0
             .children()
-            .filter_map(InterfaceSubprogramDefaultSyntax::cast)
+            .filter_map(SubprogramDefaultSyntax::cast)
             .nth(0)
     }
 }
@@ -17690,6 +17675,50 @@ impl SubprogramDeclarationSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct SubprogramDefaultSyntax(pub(crate) SyntaxNode);
+impl AstNode for SubprogramDefaultSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SubprogramDefault,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "is",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Is)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "interface_subprogram_default",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::InterfaceSubprogramDefaultName,
+                    NodeKind::InterfaceSubprogramDefaultBox,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SubprogramDefaultSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SubprogramDefaultSyntax {
+    pub fn is_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
+            .nth(0)
+    }
+    pub fn interface_subprogram_default(&self) -> Option<InterfaceSubprogramDefaultSyntax> {
+        self.0
+            .children()
+            .filter_map(InterfaceSubprogramDefaultSyntax::cast)
             .nth(0)
     }
 }

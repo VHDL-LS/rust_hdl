@@ -355,7 +355,7 @@ InterfaceProcedureSpecification =
   parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
 
 InterfaceSubprogramDeclaration =
-  InterfaceSubprogramSpecification 'is'? InterfaceSubprogramDefault?
+  InterfaceSubprogramSpecification subprogram_default:('is' InterfaceSubprogramDefault)?
 
 InterfaceSubprogramDefaultName =
   Name

@@ -285,6 +285,7 @@ pub enum NodeKind {
     SubprogramBodyEpilogue,
     SubprogramBodyPreamble,
     SubprogramDeclaration,
+    SubprogramDefault,
     SubprogramHeader,
     SubprogramHeaderGenericClause,
     SubprogramInstantiationDeclaration,

@@ -9480,8 +9480,7 @@ impl From<InterfaceProcedureSpecificationBuilder> for InterfaceProcedureSpecific
 }
 pub struct InterfaceSubprogramDeclarationBuilder {
     interface_subprogram_specification: InterfaceSubprogramSpecificationSyntax,
-    is_token: Option<Token>,
-    interface_subprogram_default: Option<InterfaceSubprogramDefaultSyntax>,
+    subprogram_default: Option<SubprogramDefaultSyntax>,
 }
 impl InterfaceSubprogramDeclarationBuilder {
     pub fn new(
@@ -9489,8 +9488,7 @@ impl InterfaceSubprogramDeclarationBuilder {
     ) -> Self {
         Self {
             interface_subprogram_specification: interface_subprogram_specification.into(),
-            is_token: None,
-            interface_subprogram_default: None,
+            subprogram_default: None,
         }
     }
     pub fn with_interface_subprogram_specification(
@@ -9500,22 +9498,8 @@ impl InterfaceSubprogramDeclarationBuilder {
         self.interface_subprogram_specification = n.into();
         self
     }
-    pub fn with_is_token(mut self, t: impl Into<Token>) -> Self {
-        self.is_token = Some(t.into());
-        self
-    }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .is_token
-            .get_or_insert_with(|| Kw::Is.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_interface_subprogram_default(
-        mut self,
-        n: impl Into<InterfaceSubprogramDefaultSyntax>,
-    ) -> Self {
-        self.interface_subprogram_default = Some(n.into());
+    pub fn with_subprogram_default(mut self, n: impl Into<SubprogramDefaultSyntax>) -> Self {
+        self.subprogram_default = Some(n.into());
         self
     }
     pub fn build(self) -> InterfaceSubprogramDeclarationSyntax {
@@ -9527,10 +9511,7 @@ impl InterfaceSubprogramDeclarationBuilder {
                 .green()
                 .clone(),
         );
-        if let Some(t) = self.is_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.interface_subprogram_default {
+        if let Some(n) = self.subprogram_default {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();
@@ -15444,6 +15425,48 @@ impl SubprogramDeclarationBuilder {
 }
 impl From<SubprogramDeclarationBuilder> for SubprogramDeclarationSyntax {
     fn from(value: SubprogramDeclarationBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct SubprogramDefaultBuilder {
+    is_token: Token,
+    interface_subprogram_default: InterfaceSubprogramDefaultSyntax,
+}
+impl SubprogramDefaultBuilder {
+    pub fn new(interface_subprogram_default: impl Into<InterfaceSubprogramDefaultSyntax>) -> Self {
+        Self {
+            is_token: Kw::Is.canonical_token(),
+            interface_subprogram_default: interface_subprogram_default.into(),
+        }
+    }
+    pub fn with_is_token(mut self, t: impl Into<Token>) -> Self {
+        self.is_token = t.into();
+        self
+    }
+    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.is_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_interface_subprogram_default(
+        mut self,
+        n: impl Into<InterfaceSubprogramDefaultSyntax>,
+    ) -> Self {
+        self.interface_subprogram_default = n.into();
+        self
+    }
+    pub fn build(self) -> SubprogramDefaultSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::SubprogramDefault);
+        builder.push(self.is_token);
+        builder.push_node(self.interface_subprogram_default.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        SubprogramDefaultSyntax::cast(node).unwrap()
+    }
+}
+impl From<SubprogramDefaultBuilder> for SubprogramDefaultSyntax {
+    fn from(value: SubprogramDefaultBuilder) -> Self {
         value.build()
     }
 }

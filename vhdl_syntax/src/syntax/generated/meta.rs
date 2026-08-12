@@ -329,6 +329,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::SubprogramBodyEpilogue => SubprogramBodyEpilogueSyntax::META,
         NodeKind::SubprogramBodyPreamble => SubprogramBodyPreambleSyntax::META,
         NodeKind::SubprogramDeclaration => SubprogramDeclarationSyntax::META,
+        NodeKind::SubprogramDefault => SubprogramDefaultSyntax::META,
         NodeKind::SubprogramHeader => SubprogramHeaderSyntax::META,
         NodeKind::SubprogramHeaderGenericClause => SubprogramHeaderGenericClauseSyntax::META,
         NodeKind::SubprogramInstantiationDeclaration => {

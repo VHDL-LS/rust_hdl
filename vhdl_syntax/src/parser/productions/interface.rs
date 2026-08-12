@@ -91,8 +91,11 @@ impl Parser {
     pub fn interface_subprogram_declaration(&mut self) {
         self.start_node(InterfaceSubprogramDeclaration);
         self.interface_subprogram_specification();
-        if self.opt_token(Keyword(Kw::Is)) {
+        if self.next_is(Keyword(Kw::Is)) {
+            self.start_node(SubprogramDefault);
+            self.skip(); // Kw::Is
             self.interface_subprogram_default();
+            self.end_node();
         }
         self.end_node();
     }
