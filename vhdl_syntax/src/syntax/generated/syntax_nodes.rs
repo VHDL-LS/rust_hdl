@@ -6929,23 +6929,8 @@ impl AstNode for ExitStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "when",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "expression",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
+                name: "when_clause",
+                kind: LayoutItemKind::Node(NodeKind::WhenClause),
             },
             LayoutItem {
                 optional: false,
@@ -6978,14 +6963,8 @@ impl ExitStatementSyntax {
             .filter(|token| token.kind() == TokenKind::Identifier)
             .nth(0)
     }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
-            .nth(0)
-    }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
-        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    pub fn when_clause(&self) -> Option<WhenClauseSyntax> {
+        self.0.children().filter_map(WhenClauseSyntax::cast).nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -18985,6 +18964,53 @@ impl WaveformElementsSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Comma)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct WhenClauseSyntax(pub(crate) SyntaxNode);
+impl AstNode for WhenClauseSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::WhenClause,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "when",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "expression",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        WhenClauseSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl WhenClauseSyntax {
+    pub fn when_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
+            .nth(0)
+    }
+    pub fn expression(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]

@@ -348,6 +348,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::WaitStatement => WaitStatementSyntax::META,
         NodeKind::WaveformElement => WaveformElementSyntax::META,
         NodeKind::WaveformElements => WaveformElementsSyntax::META,
+        NodeKind::WhenClause => WhenClauseSyntax::META,
         NodeKind::WhenExpression => WhenExpressionSyntax::META,
         NodeKind::WhenWaveform => WhenWaveformSyntax::META,
         NodeKind::WhileIterationScheme => WhileIterationSchemeSyntax::META,

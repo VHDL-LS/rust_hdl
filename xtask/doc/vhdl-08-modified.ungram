@@ -802,7 +802,7 @@ DelayMechanism =
   TransportDelayMechanism | InertialDelayMechanism
 
 ExitStatement =
-  Label? 'exit' loop_label:'#identifier'? 'when'? Expression? ';'
+  Label? 'exit' loop_label:'#identifier'? when_clause:('when' Expression)? ';'
 
 ForceMode =
   'in' | 'out'

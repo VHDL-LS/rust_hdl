@@ -5831,8 +5831,7 @@ pub struct ExitStatementBuilder {
     label: Option<LabelSyntax>,
     exit_token: Token,
     loop_label_token: Option<Token>,
-    when_token: Option<Token>,
-    expression: Option<ExpressionSyntax>,
+    when_clause: Option<WhenClauseSyntax>,
     semi_colon_token: Token,
 }
 impl Default for ExitStatementBuilder {
@@ -5846,8 +5845,7 @@ impl ExitStatementBuilder {
             label: None,
             exit_token: Kw::Exit.canonical_token(),
             loop_label_token: None,
-            when_token: None,
-            expression: None,
+            when_clause: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
@@ -5873,19 +5871,8 @@ impl ExitStatementBuilder {
         }
         self
     }
-    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
-        self.when_token = Some(t.into());
-        self
-    }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
-        let tok = self
-            .when_token
-            .get_or_insert_with(|| Kw::When.canonical_token());
-        tok.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = Some(n.into());
+    pub fn with_when_clause(mut self, n: impl Into<WhenClauseSyntax>) -> Self {
+        self.when_clause = Some(n.into());
         self
     }
     pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -5906,10 +5893,7 @@ impl ExitStatementBuilder {
         if let Some(t) = self.loop_label_token {
             builder.push(t);
         }
-        if let Some(t) = self.when_token {
-            builder.push(t);
-        }
-        if let Some(n) = self.expression {
+        if let Some(n) = self.when_clause {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.semi_colon_token);
@@ -16454,6 +16438,45 @@ impl WaveformElementsBuilder {
 }
 impl From<WaveformElementsBuilder> for WaveformElementsSyntax {
     fn from(value: WaveformElementsBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct WhenClauseBuilder {
+    when_token: Token,
+    expression: ExpressionSyntax,
+}
+impl WhenClauseBuilder {
+    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
+        Self {
+            when_token: Kw::When.canonical_token(),
+            expression: expression.into(),
+        }
+    }
+    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
+        self.when_token = t.into();
+        self
+    }
+    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.when_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.expression = n.into();
+        self
+    }
+    pub fn build(self) -> WhenClauseSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::WhenClause);
+        builder.push(self.when_token);
+        builder.push_node(self.expression.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        WhenClauseSyntax::cast(node).unwrap()
+    }
+}
+impl From<WhenClauseBuilder> for WhenClauseSyntax {
+    fn from(value: WhenClauseBuilder) -> Self {
         value.build()
     }
 }

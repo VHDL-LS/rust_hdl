@@ -306,6 +306,7 @@ pub enum NodeKind {
     WaitStatement,
     WaveformElement,
     WaveformElements,
+    WhenClause,
     WhenExpression,
     WhenWaveform,
     WhileIterationScheme,
