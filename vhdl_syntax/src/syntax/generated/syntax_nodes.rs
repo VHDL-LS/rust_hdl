@@ -4671,10 +4671,22 @@ impl AstNode for ConfigurationDeclarationSyntax {
                 kind: LayoutItemKind::Node(NodeKind::ConfigurationDeclarationPreamble),
             },
             LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "declarations",
+                kind: LayoutItemKind::Node(NodeKind::Declarations),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: true,
+                name: "verification_unit_bindings",
+                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBinding),
+            },
+            LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "configuration_declaration_items",
-                kind: LayoutItemKind::Node(NodeKind::ConfigurationDeclarationItems),
+                name: "block_configuration",
+                kind: LayoutItemKind::Node(NodeKind::BlockConfiguration),
             },
             LayoutItem {
                 optional: false,
@@ -4700,10 +4712,23 @@ impl ConfigurationDeclarationSyntax {
             .filter_map(ConfigurationDeclarationPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn configuration_declaration_items(&self) -> Option<ConfigurationDeclarationItemsSyntax> {
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
         self.0
             .children()
-            .filter_map(ConfigurationDeclarationItemsSyntax::cast)
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn verification_unit_bindings(
+        &self,
+    ) -> impl Iterator<Item = VerificationUnitBindingSyntax> + use<'_> {
+        self.0
+            .children()
+            .filter_map(VerificationUnitBindingSyntax::cast)
+    }
+    pub fn block_configuration(&self) -> Option<BlockConfigurationSyntax> {
+        self.0
+            .children()
+            .filter_map(BlockConfigurationSyntax::cast)
             .nth(0)
     }
     pub fn configuration_declaration_epilogue(
@@ -4777,60 +4802,6 @@ impl ConfigurationDeclarationEpilogueSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ConfigurationDeclarationItemsSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConfigurationDeclarationItemsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConfigurationDeclarationItems,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "declarations",
-                kind: LayoutItemKind::Node(NodeKind::Declarations),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "verification_unit_bindings",
-                kind: LayoutItemKind::Node(NodeKind::VerificationUnitBinding),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "block_configuration",
-                kind: LayoutItemKind::Node(NodeKind::BlockConfiguration),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConfigurationDeclarationItemsSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConfigurationDeclarationItemsSyntax {
-    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
-        self.0
-            .children()
-            .filter_map(DeclarationsSyntax::cast)
-            .nth(0)
-    }
-    pub fn verification_unit_bindings(
-        &self,
-    ) -> impl Iterator<Item = VerificationUnitBindingSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(VerificationUnitBindingSyntax::cast)
-    }
-    pub fn block_configuration(&self) -> Option<BlockConfigurationSyntax> {
-        self.0
-            .children()
-            .filter_map(BlockConfigurationSyntax::cast)
             .nth(0)
     }
 }

@@ -95,7 +95,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ConditionalWaveforms => ConditionalWaveformsSyntax::META,
         NodeKind::ConfigurationDeclaration => ConfigurationDeclarationSyntax::META,
         NodeKind::ConfigurationDeclarationEpilogue => ConfigurationDeclarationEpilogueSyntax::META,
-        NodeKind::ConfigurationDeclarationItems => ConfigurationDeclarationItemsSyntax::META,
         NodeKind::ConfigurationDeclarationPreamble => ConfigurationDeclarationPreambleSyntax::META,
         NodeKind::ConstantDeclaration => ConstantDeclarationSyntax::META,
         NodeKind::ConstrainedArrayDefinition => ConstrainedArrayDefinitionSyntax::META,

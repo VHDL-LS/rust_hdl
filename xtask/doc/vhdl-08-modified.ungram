@@ -470,11 +470,9 @@ ComponentConfiguration =
 
 ConfigurationDeclaration =
   configuration_declaration_preamble:('configuration' name:'#identifier' 'of' entity_name:Name 'is')
-  configuration_declaration_items:(
-    Declarations?
-    verification_unit_binding:(VerificationUnitBindingIndication ';')*
-    BlockConfiguration
-  )
+  Declarations
+  verification_unit_binding:(VerificationUnitBindingIndication ';')*
+  BlockConfiguration
   configuration_declaration_epilogue:('end' 'configuration'? '#identifier'? ';')
 
 EntityDeclaration =

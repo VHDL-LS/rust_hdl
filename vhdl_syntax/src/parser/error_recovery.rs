@@ -273,7 +273,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::CaseStatementAlternative
         | NodeKind::ComponentConfiguration
         | NodeKind::CompoundConfigurationSpecificationItems
-        | NodeKind::ConfigurationDeclarationItems
         | NodeKind::ElementDeclaration
         | NodeKind::IfGenerateElse
         | NodeKind::IfStatementElse
@@ -329,7 +328,9 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::UnaffectedWaveform | NodeKind::WaveformElements => {
             &[Keyword(Kw::When), SemiColon]
         }
-        NodeKind::VerificationUnitBindingIndication | NodeKind::VerificationUnitList => {
+        NodeKind::VerificationUnitBinding
+        | NodeKind::VerificationUnitBindingIndication
+        | NodeKind::VerificationUnitList => {
             &[Keyword(Kw::End), SemiColon]
         }
         NodeKind::AssertionStatement

@@ -11,26 +11,25 @@ ConfigurationDeclaration
       NameDesignatorPrefix
         Identifier 'entity_name'
     Keyword(Is)
-  ConfigurationDeclarationItems
-    BlockConfiguration
-      BlockConfigurationPreamble
-        Keyword(For)
-        Name
-          NameDesignatorPrefix
-            Identifier 'rtl'
-          ParenthesizedName
-            LeftPar
-            AssociationList
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    LiteralExpression
-                      AbstractLiteral '0'
-            RightPar
-      BlockConfigurationEpilogue
-        Keyword(End)
-        Keyword(For)
-        SemiColon
+  BlockConfiguration
+    BlockConfigurationPreamble
+      Keyword(For)
+      Name
+        NameDesignatorPrefix
+          Identifier 'rtl'
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '0'
+          RightPar
+    BlockConfigurationEpilogue
+      Keyword(End)
+      Keyword(For)
+      SemiColon
   ConfigurationDeclarationEpilogue
     Keyword(End)
     SemiColon

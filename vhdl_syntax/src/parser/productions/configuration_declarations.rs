@@ -14,7 +14,6 @@ impl Parser {
     pub fn configuration_declaration(&mut self) {
         self.start_node(NodeKind::ConfigurationDeclaration);
         self.configuration_declaration_preamble();
-        self.start_node(NodeKind::ConfigurationDeclarationItems);
         self.start_node(NodeKind::Declarations);
         self.configuration_declarative_part();
         self.end_node();
@@ -25,7 +24,6 @@ impl Parser {
             self.end_node();
         }
         self.block_configuration();
-        self.end_node();
         self.configuration_declaration_epilogue();
         self.end_node();
     }

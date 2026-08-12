@@ -11,55 +11,54 @@ ConfigurationDeclaration
       NameDesignatorPrefix
         Identifier 'entity_name'
     Keyword(Is)
-  ConfigurationDeclarationItems
-    Declarations
-      UseClauseDeclaration
-        UseClause
-          Keyword(Use)
-          NameList
-            Name
-              NameDesignatorPrefix
-                Identifier 'lib'
-              SelectedName
-                Dot
-                Identifier 'foo'
-              SelectedName
-                Dot
-                Identifier 'bar'
-          SemiColon
-      UseClauseDeclaration
-        UseClause
-          Keyword(Use)
-          NameList
-            Name
-              NameDesignatorPrefix
-                Identifier 'lib2'
-              SelectedName
-                Dot
-                Identifier 'foo'
-              SelectedName
-                Dot
-                Identifier 'bar'
-          SemiColon
-    BlockConfiguration
-      BlockConfigurationPreamble
-        Keyword(For)
-        Name
-          NameDesignatorPrefix
-            Identifier 'rtl'
-          ParenthesizedName
-            LeftPar
-            AssociationList
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    LiteralExpression
-                      AbstractLiteral '0'
-            RightPar
-      BlockConfigurationEpilogue
-        Keyword(End)
-        Keyword(For)
+  Declarations
+    UseClauseDeclaration
+      UseClause
+        Keyword(Use)
+        NameList
+          Name
+            NameDesignatorPrefix
+              Identifier 'lib'
+            SelectedName
+              Dot
+              Identifier 'foo'
+            SelectedName
+              Dot
+              Identifier 'bar'
         SemiColon
+    UseClauseDeclaration
+      UseClause
+        Keyword(Use)
+        NameList
+          Name
+            NameDesignatorPrefix
+              Identifier 'lib2'
+            SelectedName
+              Dot
+              Identifier 'foo'
+            SelectedName
+              Dot
+              Identifier 'bar'
+        SemiColon
+  BlockConfiguration
+    BlockConfigurationPreamble
+      Keyword(For)
+      Name
+        NameDesignatorPrefix
+          Identifier 'rtl'
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  LiteralExpression
+                    AbstractLiteral '0'
+          RightPar
+    BlockConfigurationEpilogue
+      Keyword(End)
+      Keyword(For)
+      SemiColon
   ConfigurationDeclarationEpilogue
     Keyword(End)
     Keyword(Configuration)

@@ -4122,17 +4122,21 @@ impl From<ConditionalWaveformsBuilder> for ConditionalWaveformsSyntax {
 }
 pub struct ConfigurationDeclarationBuilder {
     configuration_declaration_preamble: ConfigurationDeclarationPreambleSyntax,
-    configuration_declaration_items: ConfigurationDeclarationItemsSyntax,
+    declarations: Option<DeclarationsSyntax>,
+    verification_unit_bindings: Vec<VerificationUnitBindingSyntax>,
+    block_configuration: BlockConfigurationSyntax,
     configuration_declaration_epilogue: ConfigurationDeclarationEpilogueSyntax,
 }
 impl ConfigurationDeclarationBuilder {
     pub fn new(
         configuration_declaration_preamble: impl Into<ConfigurationDeclarationPreambleSyntax>,
-        configuration_declaration_items: impl Into<ConfigurationDeclarationItemsSyntax>,
+        block_configuration: impl Into<BlockConfigurationSyntax>,
     ) -> Self {
         Self {
             configuration_declaration_preamble: configuration_declaration_preamble.into(),
-            configuration_declaration_items: configuration_declaration_items.into(),
+            declarations: None,
+            verification_unit_bindings: Vec::new(),
+            block_configuration: block_configuration.into(),
             configuration_declaration_epilogue: ConfigurationDeclarationEpilogueBuilder::default()
                 .build(),
         }
@@ -4144,11 +4148,19 @@ impl ConfigurationDeclarationBuilder {
         self.configuration_declaration_preamble = n.into();
         self
     }
-    pub fn with_configuration_declaration_items(
+    pub fn with_declarations(mut self, n: impl Into<DeclarationsSyntax>) -> Self {
+        self.declarations = Some(n.into());
+        self
+    }
+    pub fn add_verification_unit_bindings(
         mut self,
-        n: impl Into<ConfigurationDeclarationItemsSyntax>,
+        n: impl Into<VerificationUnitBindingSyntax>,
     ) -> Self {
-        self.configuration_declaration_items = n.into();
+        self.verification_unit_bindings.push(n.into());
+        self
+    }
+    pub fn with_block_configuration(mut self, n: impl Into<BlockConfigurationSyntax>) -> Self {
+        self.block_configuration = n.into();
         self
     }
     pub fn with_configuration_declaration_epilogue(
@@ -4167,7 +4179,13 @@ impl ConfigurationDeclarationBuilder {
                 .green()
                 .clone(),
         );
-        builder.push_node(self.configuration_declaration_items.raw().green().clone());
+        if let Some(n) = self.declarations {
+            builder.push_node(n.raw().green().clone());
+        }
+        for n in self.verification_unit_bindings {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.push_node(self.block_configuration.raw().green().clone());
         builder.push_node(
             self.configuration_declaration_epilogue
                 .raw()
@@ -4261,55 +4279,6 @@ impl ConfigurationDeclarationEpilogueBuilder {
 }
 impl From<ConfigurationDeclarationEpilogueBuilder> for ConfigurationDeclarationEpilogueSyntax {
     fn from(value: ConfigurationDeclarationEpilogueBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ConfigurationDeclarationItemsBuilder {
-    declarations: Option<DeclarationsSyntax>,
-    verification_unit_bindings: Vec<VerificationUnitBindingSyntax>,
-    block_configuration: BlockConfigurationSyntax,
-}
-impl ConfigurationDeclarationItemsBuilder {
-    pub fn new(block_configuration: impl Into<BlockConfigurationSyntax>) -> Self {
-        Self {
-            declarations: None,
-            verification_unit_bindings: Vec::new(),
-            block_configuration: block_configuration.into(),
-        }
-    }
-    pub fn with_declarations(mut self, n: impl Into<DeclarationsSyntax>) -> Self {
-        self.declarations = Some(n.into());
-        self
-    }
-    pub fn add_verification_unit_bindings(
-        mut self,
-        n: impl Into<VerificationUnitBindingSyntax>,
-    ) -> Self {
-        self.verification_unit_bindings.push(n.into());
-        self
-    }
-    pub fn with_block_configuration(mut self, n: impl Into<BlockConfigurationSyntax>) -> Self {
-        self.block_configuration = n.into();
-        self
-    }
-    pub fn build(self) -> ConfigurationDeclarationItemsSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConfigurationDeclarationItems);
-        if let Some(n) = self.declarations {
-            builder.push_node(n.raw().green().clone());
-        }
-        for n in self.verification_unit_bindings {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.push_node(self.block_configuration.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConfigurationDeclarationItemsSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConfigurationDeclarationItemsBuilder> for ConfigurationDeclarationItemsSyntax {
-    fn from(value: ConfigurationDeclarationItemsBuilder) -> Self {
         value.build()
     }
 }

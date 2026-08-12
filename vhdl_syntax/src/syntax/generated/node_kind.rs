@@ -79,7 +79,6 @@ pub enum NodeKind {
     ConditionalWaveforms,
     ConfigurationDeclaration,
     ConfigurationDeclarationEpilogue,
-    ConfigurationDeclarationItems,
     ConfigurationDeclarationPreamble,
     ConstantDeclaration,
     ConstrainedArrayDefinition,
