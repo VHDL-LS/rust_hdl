@@ -5,13 +5,16 @@
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
 use crate::parser::Parser;
+use crate::syntax::NodeKind;
 use crate::tokens::TokenKind;
 
 impl Parser {
-    pub(crate) fn separated_list(&mut self, element: impl Fn(&mut Parser), separator: TokenKind) {
+    pub(crate) fn separated_list(&mut self, node: NodeKind, element: impl Fn(&mut Parser), separator: TokenKind) {
+        self.start_node(node);
         element(self);
         while self.opt_token(separator) {
             element(self);
         }
+        self.end_node();
     }
 }

@@ -471,9 +471,7 @@ impl Parser {
     }
 
     pub fn sensitivity_list(&mut self) {
-        self.start_node(SensitivityList);
-        self.separated_list(Parser::name, Comma);
-        self.end_node();
+        self.separated_list(SensitivityList, Parser::name, Comma);
     }
 }
 

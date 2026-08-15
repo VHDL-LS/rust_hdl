@@ -35,9 +35,7 @@ impl Parser {
             Keyword(Kw::All) => self.skip_into_node(EntityNameListAll),
             Keyword(Kw::Others) => self.skip_into_node(EntityNameListOthers),
             Identifier, StringLiteral, CharacterLiteral => {
-                self.start_node(EntityDesignatorList);
-                self.separated_list(Parser::entity_designator, Comma);
-                self.end_node();
+                self.separated_list(EntityDesignatorList, Parser::entity_designator, Comma);
             }
         );
     }

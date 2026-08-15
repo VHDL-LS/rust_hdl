@@ -41,9 +41,7 @@ impl Parser {
     }
 
     pub fn selected_waveforms(&mut self) {
-        self.start_node(SelectedWaveforms);
-        self.separated_list(Parser::selected_waveform, Comma);
-        self.end_node();
+        self.separated_list(SelectedWaveforms, Parser::selected_waveform, Comma);
     }
 
     fn selected_waveform(&mut self) {
@@ -55,9 +53,7 @@ impl Parser {
     }
 
     pub fn waveform_elements(&mut self) {
-        self.start_node(WaveformElements);
-        self.separated_list(Parser::waveform_element, Comma);
-        self.end_node();
+        self.separated_list(WaveformElements, Parser::waveform_element, Comma);
     }
 
     pub fn waveform(&mut self) {

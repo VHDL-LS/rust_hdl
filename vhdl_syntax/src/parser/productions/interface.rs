@@ -53,9 +53,7 @@ impl Parser {
     }
 
     pub fn interface_list(&mut self) {
-        self.start_node(InterfaceList);
-        self.separated_list(Parser::interface_declaration, SemiColon);
-        self.end_node();
+        self.separated_list(InterfaceList, Parser::interface_declaration, SemiColon);
     }
 
     pub fn interface_declaration(&mut self) {
@@ -211,8 +209,8 @@ impl Parser {
     }
 
     pub fn association_list(&mut self) {
-        self.start_node(AssociationList);
         self.separated_list(
+            AssociationList,
             |parser| {
                 let end_of_element_idx =
                     match parser.lookahead_max_token_index(usize::MAX, [Comma, RightPar]) {
@@ -223,7 +221,6 @@ impl Parser {
             },
             Comma,
         );
-        self.end_node();
     }
 
     fn association_element_bounded(&mut self, max_index: usize) {

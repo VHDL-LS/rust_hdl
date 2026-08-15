@@ -17,8 +17,6 @@ impl Parser {
     }
 
     pub fn verification_unit_list(&mut self) {
-        self.start_node(NodeKind::VerificationUnitList);
-        self.separated_list(Parser::name, Comma);
-        self.end_node();
+        self.separated_list(NodeKind::VerificationUnitList, Parser::name, Comma);
     }
 }

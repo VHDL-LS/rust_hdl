@@ -55,9 +55,7 @@ impl Parser {
     }
 
     pub fn record_resolution(&mut self) {
-        self.start_node(RecordResolution);
-        self.separated_list(Parser::record_element_resolution, Comma);
-        self.end_node();
+        self.separated_list(RecordResolution, Parser::record_element_resolution, Comma);
     }
 
     pub fn subtype_indication(&mut self) {

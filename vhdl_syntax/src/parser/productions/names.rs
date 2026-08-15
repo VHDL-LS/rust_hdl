@@ -97,9 +97,7 @@ impl Parser {
     }
 
     pub(crate) fn name_list(&mut self) {
-        self.start_node(NameList);
-        self.separated_list(Parser::name, Comma);
-        self.end_node();
+        self.separated_list(NameList, Parser::name, Comma);
     }
 
     fn suffix(&mut self) {
@@ -181,9 +179,7 @@ impl Parser {
         CommAt => {
             self.start_node(PackagePathname);
             self.skip();
-            self.start_node(PackagePath);
-            self.separated_list(Parser::identifier, Dot);
-            self.end_node();
+            self.separated_list(PackagePath, Parser::identifier, Dot);
         },
         Dot => {
             self.start_node(AbsolutePathname);
@@ -206,9 +202,7 @@ impl Parser {
     fn partial_pathname(&mut self) {
         // LRM §8.7
         // partial_pathname ::= { pathname_element `.` } object_simple_name ;
-        self.start_node(PartialPathname);
-        self.separated_list(Parser::pathname_element, Dot);
-        self.end_node();
+        self.separated_list(PartialPathname, Parser::pathname_element, Dot);
     }
 
     fn pathname_element(&mut self) {
@@ -225,9 +219,7 @@ impl Parser {
     }
 
     pub fn choices(&mut self) {
-        self.start_node(Choices);
-        self.separated_list(Parser::choice, Bar);
-        self.end_node();
+        self.separated_list(Choices, Parser::choice, Bar);
     }
 
     pub fn choice(&mut self) {

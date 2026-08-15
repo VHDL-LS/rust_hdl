@@ -307,7 +307,6 @@ pub struct ListNode {
     pub kind: NodeKind,
     pub element: Field,
     pub separator: Field,
-    pub allow_empty: bool,
 }
 
 #[derive(Debug, Default)]
@@ -443,12 +442,8 @@ impl Model {
                             }
                         }
                     }
-                    // Lists are empty-capable when explicitly set.
-                    Node::List(list) => {
-                        if list.allow_empty {
-                            empty_capable.insert(list.kind.clone());
-                        }
-                    }
+                    // Lists are always non-optional
+                    Node::List(_) => {}
                 }
             }
             if empty_capable.len() == prev_size {
