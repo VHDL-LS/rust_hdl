@@ -328,15 +328,9 @@ impl AstNode for AggregateSyntax {
             },
             LayoutItem {
                 optional: false,
-                repeated: true,
-                name: "element_associations",
-                kind: LayoutItemKind::Node(NodeKind::ElementAssociation),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
+                repeated: false,
+                name: "element_association_list",
+                kind: LayoutItemKind::Node(NodeKind::ElementAssociationList),
             },
             LayoutItem {
                 optional: false,
@@ -360,13 +354,11 @@ impl AggregateSyntax {
             .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
-    pub fn element_associations(&self) -> impl Iterator<Item = ElementAssociationSyntax> + use<'_> {
-        self.0.children().filter_map(ElementAssociationSyntax::cast)
-    }
-    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+    pub fn element_association_list(&self) -> Option<ElementAssociationListSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Comma)
+            .children()
+            .filter_map(ElementAssociationListSyntax::cast)
+            .nth(0)
     }
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -2136,7 +2128,7 @@ impl AstNode for CaseGenerateAlternativeSyntax {
                 kind: LayoutItemKind::Node(NodeKind::Label),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "choices",
                 kind: LayoutItemKind::Node(NodeKind::Choices),
@@ -2420,7 +2412,7 @@ impl AstNode for CaseStatementAlternativePreambleSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "choices",
                 kind: LayoutItemKind::Node(NodeKind::Choices),
@@ -2645,25 +2637,21 @@ impl AstNode for ChoiceSyntax {
 #[derive(Debug, Clone)]
 pub struct ChoicesSyntax(pub(crate) SyntaxNode);
 impl AstNode for ChoicesSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
+    const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::Choices,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "choices",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::ExpressionChoice,
-                    NodeKind::OthersChoice,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "bar",
-                kind: LayoutItemKind::Token(TokenKind::Bar),
-            },
-        ],
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "choices",
+            kind: LayoutItemKind::NodeChoice(&[NodeKind::ExpressionChoice, NodeKind::OthersChoice]),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "bar",
+            kind: LayoutItemKind::Token(TokenKind::Bar),
+        },
+        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ChoicesSyntax(node)
@@ -3116,7 +3104,7 @@ impl AstNode for ComponentSpecificationSyntax {
         kind: NodeKind::ComponentSpecification,
         items: &[
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "instantiation_list",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -3563,7 +3551,7 @@ impl AstNode for ConcurrentSelectedSignalAssignmentSyntax {
                 ]),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "selected_waveforms",
                 kind: LayoutItemKind::Node(NodeKind::SelectedWaveforms),
@@ -3682,7 +3670,7 @@ impl AstNode for ConcurrentSimpleSignalAssignmentSyntax {
                 ]),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -5589,13 +5577,49 @@ impl ElementAssociationSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct ElementAssociationListSyntax(pub(crate) SyntaxNode);
+impl AstNode for ElementAssociationListSyntax {
+    const META: &'static Layout = &Layout::List(List {
+        kind: NodeKind::ElementAssociationList,
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "element_associations",
+            kind: LayoutItemKind::Node(NodeKind::ElementAssociation),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ElementAssociationListSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ElementAssociationListSyntax {
+    pub fn element_associations(&self) -> impl Iterator<Item = ElementAssociationSyntax> + use<'_> {
+        self.0.children().filter_map(ElementAssociationSyntax::cast)
+    }
+    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct ElementChoicesSyntax(pub(crate) SyntaxNode);
 impl AstNode for ElementChoicesSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::ElementChoices,
         items: &[
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "choices",
                 kind: LayoutItemKind::Node(NodeKind::Choices),
@@ -5816,7 +5840,7 @@ impl AstNode for ElseWaveformSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -5934,7 +5958,7 @@ impl AstNode for ElseWhenWaveformSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Else)),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -6475,22 +6499,21 @@ impl EntityDesignatorSyntax {
 #[derive(Debug, Clone)]
 pub struct EntityDesignatorListSyntax(pub(crate) SyntaxNode);
 impl AstNode for EntityDesignatorListSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
+    const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::EntityDesignatorList,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "entity_designators",
-                kind: LayoutItemKind::Node(NodeKind::EntityDesignator),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
-            },
-        ],
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "entity_designators",
+            kind: LayoutItemKind::Node(NodeKind::EntityDesignator),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityDesignatorListSyntax(node)
@@ -6716,7 +6739,7 @@ impl AstNode for EntitySpecificationSyntax {
         kind: NodeKind::EntitySpecification,
         items: &[
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "entity_name_list",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -6848,6 +6871,45 @@ impl EntityTagSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct EnumerationListSyntax(pub(crate) SyntaxNode);
+impl AstNode for EnumerationListSyntax {
+    const META: &'static Layout = &Layout::List(List {
+        kind: NodeKind::EnumerationList,
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "enumeration_literals",
+            kind: LayoutItemKind::TokenChoice(&[
+                TokenKind::Identifier,
+                TokenKind::CharacterLiteral,
+            ]),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        EnumerationListSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl EnumerationListSyntax {
+    pub fn enumeration_literals(&self) -> impl Iterator<Item = EnumerationLiteralSyntax> + use<'_> {
+        self.0.tokens().filter_map(EnumerationLiteralSyntax::cast)
+    }
+    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum EnumerationLiteralSyntax {
     Identifier(SyntaxToken),
     CharacterLiteral(SyntaxToken),
@@ -6881,18 +6943,9 @@ impl AstNode for EnumerationTypeDefinitionSyntax {
             },
             LayoutItem {
                 optional: false,
-                repeated: true,
-                name: "enumeration_literals",
-                kind: LayoutItemKind::TokenChoice(&[
-                    TokenKind::Identifier,
-                    TokenKind::CharacterLiteral,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
+                repeated: false,
+                name: "enumeration_list",
+                kind: LayoutItemKind::Node(NodeKind::EnumerationList),
             },
             LayoutItem {
                 optional: false,
@@ -6916,13 +6969,11 @@ impl EnumerationTypeDefinitionSyntax {
             .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
-    pub fn enumeration_literals(&self) -> impl Iterator<Item = EnumerationLiteralSyntax> + use<'_> {
-        self.0.tokens().filter_map(EnumerationLiteralSyntax::cast)
-    }
-    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+    pub fn enumeration_list(&self) -> Option<EnumerationListSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Comma)
+            .children()
+            .filter_map(EnumerationListSyntax::cast)
+            .nth(0)
     }
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -7110,6 +7161,51 @@ impl AstNode for ExpressionChoiceSyntax {
 impl ExpressionChoiceSyntax {
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ExpressionListSyntax(pub(crate) SyntaxNode);
+impl AstNode for ExpressionListSyntax {
+    const META: &'static Layout = &Layout::List(List {
+        kind: NodeKind::ExpressionList,
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "expressions",
+            kind: LayoutItemKind::NodeChoice(&[
+                NodeKind::LiteralExpression,
+                NodeKind::PhysicalLiteralExpression,
+                NodeKind::UnaryExpression,
+                NodeKind::BinaryExpression,
+                NodeKind::ParenthesizedExpressionOrAggregate,
+                NodeKind::Allocator,
+                NodeKind::NameExpression,
+                NodeKind::QualifiedExpression,
+            ]),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ExpressionListSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ExpressionListSyntax {
+    pub fn expressions(&self) -> impl Iterator<Item = ExpressionSyntax> + use<'_> {
+        self.0.children().filter_map(ExpressionSyntax::cast)
+    }
+    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -9592,24 +9688,9 @@ impl AstNode for IndexConstraintSyntax {
             },
             LayoutItem {
                 optional: false,
-                repeated: true,
-                name: "expressions",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::LiteralExpression,
-                    NodeKind::PhysicalLiteralExpression,
-                    NodeKind::UnaryExpression,
-                    NodeKind::BinaryExpression,
-                    NodeKind::ParenthesizedExpressionOrAggregate,
-                    NodeKind::Allocator,
-                    NodeKind::NameExpression,
-                    NodeKind::QualifiedExpression,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
+                repeated: false,
+                name: "expression_list",
+                kind: LayoutItemKind::Node(NodeKind::ExpressionList),
             },
             LayoutItem {
                 optional: false,
@@ -9633,13 +9714,11 @@ impl IndexConstraintSyntax {
             .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
-    pub fn expressions(&self) -> impl Iterator<Item = ExpressionSyntax> + use<'_> {
-        self.0.children().filter_map(ExpressionSyntax::cast)
-    }
-    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+    pub fn expression_list(&self) -> Option<ExpressionListSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Comma)
+            .children()
+            .filter_map(ExpressionListSyntax::cast)
+            .nth(0)
     }
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -9701,22 +9780,21 @@ impl IndexSubtypeDefinitionSyntax {
 #[derive(Debug, Clone)]
 pub struct IndexSubtypeDefinitionListSyntax(pub(crate) SyntaxNode);
 impl AstNode for IndexSubtypeDefinitionListSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
+    const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::IndexSubtypeDefinitionList,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "index_subtype_definitions",
-                kind: LayoutItemKind::Node(NodeKind::IndexSubtypeDefinition),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
-            },
-        ],
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "index_subtype_definitions",
+            kind: LayoutItemKind::Node(NodeKind::IndexSubtypeDefinition),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IndexSubtypeDefinitionListSyntax(node)
@@ -10057,22 +10135,21 @@ impl InstantiationListAllSyntax {
 #[derive(Debug, Clone)]
 pub struct InstantiationListListSyntax(pub(crate) SyntaxNode);
 impl AstNode for InstantiationListListSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
+    const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::InstantiationListList,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "identifier",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
-            },
-        ],
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "identifier",
+            kind: LayoutItemKind::Token(TokenKind::Identifier),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InstantiationListListSyntax(node)
@@ -12920,15 +12997,9 @@ impl AstNode for ParenthesizedExpressionOrAggregateSyntax {
             },
             LayoutItem {
                 optional: false,
-                repeated: true,
-                name: "element_associations",
-                kind: LayoutItemKind::Node(NodeKind::ElementAssociation),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
+                repeated: false,
+                name: "element_association_list",
+                kind: LayoutItemKind::Node(NodeKind::ElementAssociationList),
             },
             LayoutItem {
                 optional: false,
@@ -12952,13 +13023,11 @@ impl ParenthesizedExpressionOrAggregateSyntax {
             .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
-    pub fn element_associations(&self) -> impl Iterator<Item = ElementAssociationSyntax> + use<'_> {
-        self.0.children().filter_map(ElementAssociationSyntax::cast)
-    }
-    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+    pub fn element_association_list(&self) -> Option<ElementAssociationListSyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Comma)
+            .children()
+            .filter_map(ElementAssociationListSyntax::cast)
+            .nth(0)
     }
     pub fn right_par_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -14684,22 +14753,21 @@ impl RecordElementResolutionSyntax {
 #[derive(Debug, Clone)]
 pub struct RecordResolutionSyntax(pub(crate) SyntaxNode);
 impl AstNode for RecordResolutionSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
+    const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::RecordResolution,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "record_element_resolutions",
-                kind: LayoutItemKind::Node(NodeKind::RecordElementResolution),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
-            },
-        ],
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "record_element_resolutions",
+            kind: LayoutItemKind::Node(NodeKind::RecordElementResolution),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RecordResolutionSyntax(node)
@@ -15531,7 +15599,7 @@ impl AstNode for SelectedExpressionItemSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "choices",
                 kind: LayoutItemKind::Node(NodeKind::Choices),
@@ -15562,22 +15630,21 @@ impl SelectedExpressionItemSyntax {
 #[derive(Debug, Clone)]
 pub struct SelectedExpressionsSyntax(pub(crate) SyntaxNode);
 impl AstNode for SelectedExpressionsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
+    const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::SelectedExpressions,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "selected_expression_items",
-                kind: LayoutItemKind::Node(NodeKind::SelectedExpressionItem),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
-            },
-        ],
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "selected_expression_items",
+            kind: LayoutItemKind::Node(NodeKind::SelectedExpressionItem),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedExpressionsSyntax(node)
@@ -15649,7 +15716,7 @@ impl AstNode for SelectedForceAssignmentSyntax {
                 ]),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "selected_expressions",
                 kind: LayoutItemKind::Node(NodeKind::SelectedExpressions),
@@ -15822,7 +15889,7 @@ impl AstNode for SelectedVariableAssignmentSyntax {
                 kind: LayoutItemKind::Token(TokenKind::ColonEq),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "selected_expressions",
                 kind: LayoutItemKind::Node(NodeKind::SelectedExpressions),
@@ -15875,6 +15942,56 @@ impl SelectedVariableAssignmentSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct SelectedWaveformSyntax(pub(crate) SyntaxNode);
+impl AstNode for SelectedWaveformSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SelectedWaveform,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "waveform",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::WaveformElements,
+                    NodeKind::UnaffectedWaveform,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "when",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "choices",
+                kind: LayoutItemKind::Node(NodeKind::Choices),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SelectedWaveformSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SelectedWaveformSyntax {
+    pub fn waveform(&self) -> Option<WaveformSyntax> {
+        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
+    }
+    pub fn when_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
+            .nth(0)
+    }
+    pub fn choices(&self) -> Option<ChoicesSyntax> {
+        self.0.children().filter_map(ChoicesSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct SelectedWaveformAssignmentSyntax(pub(crate) SyntaxNode);
 impl AstNode for SelectedWaveformAssignmentSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -15917,7 +16034,7 @@ impl AstNode for SelectedWaveformAssignmentSyntax {
                 ]),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "selected_waveforms",
                 kind: LayoutItemKind::Node(NodeKind::SelectedWaveforms),
@@ -15976,74 +16093,23 @@ impl SelectedWaveformAssignmentSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct SelectedWaveformItemSyntax(pub(crate) SyntaxNode);
-impl AstNode for SelectedWaveformItemSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::SelectedWaveformItem,
-        items: &[
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "waveform",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::WaveformElements,
-                    NodeKind::UnaffectedWaveform,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "when",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "choices",
-                kind: LayoutItemKind::Node(NodeKind::Choices),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        SelectedWaveformItemSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SelectedWaveformItemSyntax {
-    pub fn waveform(&self) -> Option<WaveformSyntax> {
-        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
-    }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
-            .nth(0)
-    }
-    pub fn choices(&self) -> Option<ChoicesSyntax> {
-        self.0.children().filter_map(ChoicesSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct SelectedWaveformsSyntax(pub(crate) SyntaxNode);
 impl AstNode for SelectedWaveformsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
+    const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::SelectedWaveforms,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "selected_waveform_items",
-                kind: LayoutItemKind::Node(NodeKind::SelectedWaveformItem),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
-            },
-        ],
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "selected_waveforms",
+            kind: LayoutItemKind::Node(NodeKind::SelectedWaveform),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedWaveformsSyntax(node)
@@ -16053,12 +16119,8 @@ impl AstNode for SelectedWaveformsSyntax {
     }
 }
 impl SelectedWaveformsSyntax {
-    pub fn selected_waveform_items(
-        &self,
-    ) -> impl Iterator<Item = SelectedWaveformItemSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(SelectedWaveformItemSyntax::cast)
+    pub fn selected_waveforms(&self) -> impl Iterator<Item = SelectedWaveformSyntax> + use<'_> {
+        self.0.children().filter_map(SelectedWaveformSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0
@@ -17137,7 +17199,7 @@ impl AstNode for SimpleWaveformAssignmentSyntax {
                 ]),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -18964,22 +19026,21 @@ impl WaveformElementSyntax {
 #[derive(Debug, Clone)]
 pub struct WaveformElementsSyntax(pub(crate) SyntaxNode);
 impl AstNode for WaveformElementsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
+    const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::WaveformElements,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "waveform_elements",
-                kind: LayoutItemKind::Node(NodeKind::WaveformElement),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "comma",
-                kind: LayoutItemKind::Token(TokenKind::Comma),
-            },
-        ],
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "waveform_elements",
+            kind: LayoutItemKind::Node(NodeKind::WaveformElement),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         WaveformElementsSyntax(node)
@@ -19117,7 +19178,7 @@ impl AstNode for WhenWaveformSyntax {
         kind: NodeKind::WhenWaveform,
         items: &[
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "waveform",
                 kind: LayoutItemKind::NodeChoice(&[

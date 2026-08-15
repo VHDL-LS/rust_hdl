@@ -383,7 +383,7 @@ RecordElementResolution =
   name:'#identifier' ResolutionIndication
 
 RecordResolution =
-  RecordElementResolution* ','*
+  RecordElementResolution (',' RecordElementResolution)*
 
 NameResolutionIndication =
   Name
@@ -548,7 +548,7 @@ Literal =
 | 'null'
 
 ParenthesizedExpressionOrAggregate =
-  '(' ElementAssociation* ','* ')'
+  '(' element_association_list:(ElementAssociation (',' ElementAssociation)*) ')'
 
 UnaryOperator =
   '??'
@@ -631,7 +631,7 @@ Expression =
 | QualifiedExpression
 
 Aggregate =
-  '(' ElementAssociation* ','* ')'
+  '(' element_association_list:(ElementAssociation (',' ElementAssociation)*) ')'
 
 // LRM has `new subtype_indication | new qualified_expression`. Additionally:
 // "A subtype indication that is part of an allocator shall not include a resolution indication" (LRM 9.3.7)
@@ -653,7 +653,7 @@ Choice =
   ExpressionChoice | OthersChoice
 
 Choices =
-  Choice* '|'*
+  Choice ('|' Choice)*
 
 ElementAssociation =
   element_choices:(Choices '=>')?
@@ -843,8 +843,10 @@ ReportStatement =
 ReturnStatement =
   Label? 'return' Expression? ';'
 
+SelectedExpressionItem = Expression 'when' Choices
+
 SelectedExpressions =
-  selected_expression_item:(Expression 'when' Choices?)* ','*
+  SelectedExpressionItem (',' SelectedExpressionItem)*
 
 SelectedForceAssignment =
   Label?
@@ -856,8 +858,10 @@ SelectedForceAssignment =
   SelectedExpressions
   ';'
 
+SelectedWaveform = Waveform 'when' Choices
+
 SelectedWaveforms =
-  selected_waveform_item:(Waveform 'when' Choices?)* ','*
+  SelectedWaveform (',' SelectedWaveform)*
 
 SelectedSignalAssignment =
   SelectedWaveformAssignment | SelectedForceAssignment
@@ -941,7 +945,7 @@ WaveformElement =
   Expression after_clause:('after' Expression)?
 
 WaveformElements =
-  WaveformElement* ','*
+  WaveformElement (',' WaveformElement)*
 
 UnaffectedWaveform =
   'unaffected'
@@ -1020,7 +1024,7 @@ EntityDesignator =
   EntityTag Signature?
 
 EntityDesignatorList =
-  EntityDesignator* ','*
+  EntityDesignator (',' EntityDesignator)*
 
 EntityNameListAll =
   'all'
@@ -1041,7 +1045,7 @@ GuardedSignalSpecification =
   SignalList ':' Name
 
 InstantiationListList =
-  '#identifier'* ','*
+  '#identifier' (',' '#identifier')*
 
 InstantiationListAll =
   'all'
@@ -1175,7 +1179,7 @@ EnumerationLiteral =
   '#identifier' | '#character_literal'
 
 EnumerationTypeDefinition =
-  '(' EnumerationLiteral* ','* ')'
+  '(' enumeration_list:(EnumerationLiteral (',' EnumerationLiteral)*) ')'
 
 FileTypeDefinition =
   'file' 'of' Name
@@ -1242,12 +1246,12 @@ SecondaryUnitDeclaration =
   '#identifier' '=' PhysicalLiteral ';'
 
 IndexConstraint =
-  '(' Expression* ','* ')'
+  '(' expression_list:(Expression (',' Expression)*) ')'
 
 UnboundedArrayDefinition =
   'array'
   '('
-  index_subtype_definition_list:(IndexSubtypeDefinition* ','*)?
+  index_subtype_definition_list:(IndexSubtypeDefinition (',' IndexSubtypeDefinition)*)?
   ')'
   'of'
   SubtypeIndication

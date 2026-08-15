@@ -69,7 +69,9 @@ impl Parser {
     pub fn index_constraint(&mut self) {
         self.start_node(IndexConstraint);
         self.expect_token(LeftPar);
+        self.start_node(ExpressionList);
         self.separated_list(Parser::expression, Comma);
+        self.end_node();
         self.expect_token(RightPar);
         self.end_node();
     }

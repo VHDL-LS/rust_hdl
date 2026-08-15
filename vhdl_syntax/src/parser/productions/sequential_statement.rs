@@ -201,7 +201,9 @@ impl Parser {
 
     pub(crate) fn aggregate_inner(&mut self) {
         self.expect_token(LeftPar);
+        self.start_node(ElementAssociationList);
         self.separated_list(Parser::element_association, Comma);
+        self.end_node();
         self.expect_token(RightPar);
     }
 
