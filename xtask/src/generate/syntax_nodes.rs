@@ -119,7 +119,6 @@ fn generate_ast_node_rust_impl(node: &Node, model: &Model) -> TokenStream {
             &list.kind,
             &layout_item_ts(&list.element, model),
             &layout_item_ts(&list.separator, model),
-            list.allow_empty,
         ),
         Node::Choices(choice) => generate_choice_ast_impl(choice, model),
     }
@@ -227,7 +226,6 @@ fn generate_list_ast_impl(
     name: &NodeKind,
     element: &TokenStream,
     separator: &TokenStream,
-    can_be_empty: bool,
 ) -> TokenStream {
     let struct_name = syntax_type_ident(name);
     let node_kind = node_kind_ident(name);
@@ -237,7 +235,6 @@ fn generate_list_ast_impl(
                 kind: NodeKind::#node_kind,
                 element: &#element,
                 separator: &#separator,
-                can_be_empty: #can_be_empty
             });
             fn cast_unchecked(node: SyntaxNode) -> Self {
                 #struct_name(node)

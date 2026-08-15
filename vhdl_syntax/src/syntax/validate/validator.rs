@@ -75,10 +75,7 @@ fn match_list(node: &SyntaxNode, list: &List, err: &mut ValidationError) {
     }
 
     if !saw_any {
-        // An empty list node: legal only when the grammar says so.
-        if !list.can_be_empty {
-            err.push_missing(Missing::new(None, node.clone(), *list.element));
-        }
+        err.push_missing(Missing::new(None, node.clone(), *list.element));
     } else if expect_element {
         // The last child was a separator, so an element is still owed.
         err.push_missing(Missing::new(previous, node.clone(), *list.element));

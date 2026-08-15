@@ -147,14 +147,6 @@ fn compute_defaultable_nodes(model: &Model) -> HashSet<NodeKind> {
         let prev_size = defaultable.len();
 
         for node in model.all_nodes() {
-            // An empty-capable list needs no first element, so its `new()` takes no args.
-            // A `1+` list always requires one and is therefore never defaultable.
-            if let Node::List(list) = node {
-                if list.allow_empty {
-                    defaultable.insert(list.kind.clone());
-                }
-                continue;
-            }
             if let Node::Items(seq) = node {
                 if defaultable.contains(&seq.name) {
                     continue;
@@ -595,47 +587,15 @@ fn generate_list_builder(list: &ListNode, model: &Model) -> TokenStream {
 
     let ElementShape { ty, convert, push } = element_shape(&list.element, model);
 
-    let (new_fn, extra_impls) = if list.allow_empty {
-        (
-            quote! {
-                pub fn new() -> Self {
-                    Self { elements: Vec::new() }
-                }
-            },
-            quote! {
-                impl Default for #builder {
-                    fn default() -> Self {
-                        Self::new()
-                    }
-                }
-
-                impl<T: Into<#ty>> FromIterator<T> for #builder {
-                    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-                        Self { elements: iter.into_iter().map(|e| e.#convert).collect() }
-                    }
-                }
-            },
-        )
-    } else {
-        (
-            quote! {
-                pub fn new(first: impl Into<#ty>) -> Self {
-                    Self { elements: vec![first.#convert] }
-                }
-            },
-            quote! {},
-        )
-    };
-
     quote! {
         pub struct #builder {
             elements: Vec<#ty>,
         }
 
-        #extra_impls
-
         impl #builder {
-            #new_fn
+            pub fn new(first: impl Into<#ty>) -> Self {
+                Self { elements: vec![first.#convert] }
+            }
 
             pub fn push(mut self, element: impl Into<#ty>) -> Self {
                 self.elements.push(element.#convert);

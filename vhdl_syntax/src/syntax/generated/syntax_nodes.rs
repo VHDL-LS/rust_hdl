@@ -1049,7 +1049,6 @@ impl AstNode for AssociationListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AssociationListSyntax(node)
@@ -2651,7 +2650,6 @@ impl AstNode for ChoicesSyntax {
             name: "bar",
             kind: LayoutItemKind::Token(TokenKind::Bar),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ChoicesSyntax(node)
@@ -5593,7 +5591,6 @@ impl AstNode for ElementAssociationListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElementAssociationListSyntax(node)
@@ -6205,7 +6202,6 @@ impl AstNode for EntityClassEntryListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityClassEntryListSyntax(node)
@@ -6513,7 +6509,6 @@ impl AstNode for EntityDesignatorListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityDesignatorListSyntax(node)
@@ -6890,7 +6885,6 @@ impl AstNode for EnumerationListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EnumerationListSyntax(node)
@@ -7189,7 +7183,6 @@ impl AstNode for ExpressionListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ExpressionListSyntax(node)
@@ -8988,7 +8981,6 @@ impl AstNode for IdentifierListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IdentifierListSyntax(node)
@@ -9794,7 +9786,6 @@ impl AstNode for IndexSubtypeDefinitionListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IndexSubtypeDefinitionListSyntax(node)
@@ -10149,7 +10140,6 @@ impl AstNode for InstantiationListListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InstantiationListListSyntax(node)
@@ -10471,7 +10461,6 @@ impl AstNode for InterfaceListSyntax {
             name: "semi_colon",
             kind: LayoutItemKind::Token(TokenKind::SemiColon),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceListSyntax(node)
@@ -11732,7 +11721,6 @@ impl AstNode for NameListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NameListSyntax(node)
@@ -12657,7 +12645,6 @@ impl AstNode for PackagePathSyntax {
             name: "dot",
             kind: LayoutItemKind::Token(TokenKind::Dot),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackagePathSyntax(node)
@@ -13215,7 +13202,6 @@ impl AstNode for PartialPathnameSyntax {
             name: "dot",
             kind: LayoutItemKind::Token(TokenKind::Dot),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PartialPathnameSyntax(node)
@@ -14767,7 +14753,6 @@ impl AstNode for RecordResolutionSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RecordResolutionSyntax(node)
@@ -15644,7 +15629,6 @@ impl AstNode for SelectedExpressionsSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedExpressionsSyntax(node)
@@ -16109,7 +16093,6 @@ impl AstNode for SelectedWaveformsSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedWaveformsSyntax(node)
@@ -16183,7 +16166,6 @@ impl AstNode for SensitivityListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SensitivityListSyntax(node)
@@ -16679,7 +16661,6 @@ impl AstNode for SignalListListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SignalListListSyntax(node)
@@ -18844,7 +18825,6 @@ impl AstNode for VerificationUnitListSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         VerificationUnitListSyntax(node)
@@ -19040,7 +19020,6 @@ impl AstNode for WaveformElementsSyntax {
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
         },
-        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         WaveformElementsSyntax(node)

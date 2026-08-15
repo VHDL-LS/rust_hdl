@@ -160,7 +160,6 @@ fn map_rule(
                                 kind: name,
                                 element: element_field,
                                 separator: separator_field,
-                                allow_empty: false,
                             });
                         }
                         _ => {}

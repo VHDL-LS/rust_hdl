@@ -236,8 +236,7 @@ end configuration cfg;
 
     /// An empty list node never reaches the tree: `NodeBuilder::end_node` drops any node
     /// that gained no children, so an empty-capable list shows up as *absent* from its
-    /// parent rather than as an empty node. `List::can_be_empty` therefore only governs
-    /// whether the parent's reference to the list is optional.
+    /// parent rather than as an empty node.
     #[test]
     fn empty_list_node_is_dropped_rather_than_built() {
         let mut b = NodeBuilder::new();

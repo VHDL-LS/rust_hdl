@@ -30,8 +30,6 @@ pub struct List {
     pub kind: NodeKind,
     pub element: &'static LayoutItem,
     pub separator: &'static LayoutItem,
-    /// Whether a list with no elements is legal
-    pub can_be_empty: bool,
 }
 
 /// A Layout Item
