@@ -29,6 +29,7 @@ fn generate_meta(model: &Model) -> TokenStream {
         .all_nodes()
         .filter_map(|node| match node {
             Node::Items(seq) => Some(seq.name.clone()),
+            Node::List(list) => Some(list.kind.clone()),
             Node::Choices(_) => None,
         })
         .collect();

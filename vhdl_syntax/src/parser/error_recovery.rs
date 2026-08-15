@@ -187,6 +187,9 @@ fn first_of_node(node: NodeKind, acc: &mut Vec<TokenKind>, visited: &mut Vec<Nod
                 }
             }
         }
+        Layout::List(list) => {
+            first_of_item(list.element, acc, visited);
+        }
     }
 }
 

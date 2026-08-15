@@ -7,7 +7,7 @@
 //! Per-node matching of children against a node's declared [`Layout`].
 
 use crate::syntax::layout_of;
-use crate::syntax::meta::{Layout, LayoutItem, LayoutItemKind};
+use crate::syntax::meta::{Layout, LayoutItem, LayoutItemKind, List};
 use crate::syntax::node::{SyntaxElement, SyntaxNode};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::validate::error::{Missing, ValidationError};
@@ -20,6 +20,7 @@ pub(crate) fn check_node(node: &SyntaxNode, err: &mut ValidationError) {
             debug_assert_eq!(node.kind(), seq.kind);
             match_children(node, seq.items, err);
         }
+        Layout::List(list) => match_list(node, list, err),
         // A `Choice` kind is an abstract alternative: the parser is expected to
         // materialize one of the concrete options directly, never a node tagged
         // with the choice kind itself. This is a parser/builder invariant, not a
@@ -31,6 +32,56 @@ pub(crate) fn check_node(node: &SyntaxNode, err: &mut ValidationError) {
             "{:?} has a choice layout but was materialized as a node",
             node.kind()
         ),
+    }
+}
+
+/// Match the children of a separated list against `element (separator element)*`.
+fn match_list(node: &SyntaxNode, list: &List, err: &mut ValidationError) {
+    // Which slot the next child has to fill for the alternation to hold.
+    let mut expect_element = true;
+    let mut previous: Option<SyntaxElement> = None;
+    let mut saw_any = false;
+
+    for child in node.children_with_tokens() {
+        let is_element = accepts(list.element, &child);
+        let is_separator = accepts(list.separator, &child);
+
+        if !is_element && !is_separator {
+            err.push_extraneous(child);
+            continue;
+        }
+
+        // A child that could fill either slot is read as the one the alternation wants.
+        let as_element = if expect_element {
+            is_element
+        } else {
+            !is_separator
+        };
+
+        if as_element != expect_element {
+            // The slot the alternation wanted was skipped over.
+            let expected = if expect_element {
+                list.element
+            } else {
+                list.separator
+            };
+            err.push_missing(Missing::new(previous.clone(), node.clone(), *expected));
+        }
+
+        // An element is followed by a separator and vice versa.
+        expect_element = !as_element;
+        previous = Some(child);
+        saw_any = true;
+    }
+
+    if !saw_any {
+        // An empty list node: legal only when the grammar says so.
+        if !list.can_be_empty {
+            err.push_missing(Missing::new(None, node.clone(), *list.element));
+        }
+    } else if expect_element {
+        // The last child was a separator, so an element is still owed.
+        err.push_missing(Missing::new(previous, node.clone(), *list.element));
     }
 }
 
@@ -109,6 +160,7 @@ fn node_satisfies(actual: NodeKind, expected: NodeKind) -> bool {
             .options
             .iter()
             .any(|&option| node_satisfies(actual, option)),
-        Layout::Sequence(_) => false,
+        // Both are concrete kinds, so the direct comparison above was the only chance.
+        Layout::Sequence(_) | Layout::List(_) => false,
     }
 }

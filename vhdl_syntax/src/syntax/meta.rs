@@ -8,6 +8,8 @@ pub enum Layout {
     Sequence(Sequence),
     /// A choice between several node kinds.
     Choice(Choice),
+    /// A list comprising several separated items.
+    List(List),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -20,6 +22,16 @@ pub struct Sequence {
 #[derive(Debug, Copy, Clone)]
 pub struct Choice {
     pub options: &'static [NodeKind],
+}
+
+/// A separated list: `element (separator element)*`
+#[derive(Debug, Copy, Clone)]
+pub struct List {
+    pub kind: NodeKind,
+    pub element: &'static LayoutItem,
+    pub separator: &'static LayoutItem,
+    /// Whether a list with no elements is legal
+    pub can_be_empty: bool,
 }
 
 /// A Layout Item

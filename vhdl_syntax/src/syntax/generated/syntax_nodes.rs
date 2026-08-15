@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 use super::*;
-use crate::syntax::meta::{Choice, Layout, LayoutItem, LayoutItemKind, Sequence};
+use crate::syntax::meta::{Choice, Layout, LayoutItem, LayoutItemKind, List, Sequence};
 use crate::syntax::node::{SyntaxNode, SyntaxToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
@@ -10377,28 +10377,27 @@ impl InterfaceIncompleteTypeDeclarationSyntax {
 #[derive(Debug, Clone)]
 pub struct InterfaceListSyntax(pub(crate) SyntaxNode);
 impl AstNode for InterfaceListSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
+    const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::InterfaceList,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "interface_declarations",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::InterfaceObjectDeclaration,
-                    NodeKind::InterfaceFileDeclaration,
-                    NodeKind::InterfaceIncompleteTypeDeclaration,
-                    NodeKind::InterfaceSubprogramDeclaration,
-                    NodeKind::InterfacePackageDeclaration,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "semi_colon",
-                kind: LayoutItemKind::Token(TokenKind::SemiColon),
-            },
-        ],
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "interface_declarations",
+            kind: LayoutItemKind::NodeChoice(&[
+                NodeKind::InterfaceObjectDeclaration,
+                NodeKind::InterfaceFileDeclaration,
+                NodeKind::InterfaceIncompleteTypeDeclaration,
+                NodeKind::InterfaceSubprogramDeclaration,
+                NodeKind::InterfacePackageDeclaration,
+            ]),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "semi_colon",
+            kind: LayoutItemKind::Token(TokenKind::SemiColon),
+        },
+        can_be_empty: false,
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceListSyntax(node)
@@ -12960,7 +12959,7 @@ impl AstNode for ParenthesizedInterfaceListSyntax {
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "interface_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),

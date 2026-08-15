@@ -8893,50 +8893,6 @@ impl From<InterfaceIncompleteTypeDeclarationBuilder> for InterfaceIncompleteType
         value.build()
     }
 }
-pub struct InterfaceListBuilder {
-    interface_declarations: Vec<InterfaceDeclarationSyntax>,
-    semi_colon_token: Vec<Token>,
-}
-impl Default for InterfaceListBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl InterfaceListBuilder {
-    pub fn new() -> Self {
-        Self {
-            interface_declarations: Vec::new(),
-            semi_colon_token: Vec::new(),
-        }
-    }
-    pub fn add_interface_declarations(mut self, n: impl Into<InterfaceDeclarationSyntax>) -> Self {
-        self.interface_declarations.push(n.into());
-        self
-    }
-    pub fn add_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token.push(t.into());
-        self
-    }
-    pub fn build(self) -> InterfaceListSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::InterfaceList);
-        for n in self.interface_declarations {
-            builder.push_node(n.raw().green().clone());
-        }
-        for t in self.semi_colon_token {
-            builder.push(t);
-        }
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        InterfaceListSyntax::cast(node).unwrap()
-    }
-}
-impl From<InterfaceListBuilder> for InterfaceListSyntax {
-    fn from(value: InterfaceListBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct InterfaceObjectDeclarationBuilder {
     interface_object_class: Option<InterfaceObjectClassToken>,
     identifier_list: Option<IdentifierListSyntax>,
@@ -10957,16 +10913,11 @@ pub struct ParameterListBuilder {
     parameter_token: Option<Token>,
     parenthesized_interface_list: ParenthesizedInterfaceListSyntax,
 }
-impl Default for ParameterListBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl ParameterListBuilder {
-    pub fn new() -> Self {
+    pub fn new(parenthesized_interface_list: impl Into<ParenthesizedInterfaceListSyntax>) -> Self {
         Self {
             parameter_token: None,
-            parenthesized_interface_list: ParenthesizedInterfaceListBuilder::default().build(),
+            parenthesized_interface_list: parenthesized_interface_list.into(),
         }
     }
     pub fn with_parameter_token(mut self, t: impl Into<Token>) -> Self {
@@ -11236,19 +11187,14 @@ impl From<ParenthesizedExpressionOrAggregateBuilder> for ParenthesizedExpression
 }
 pub struct ParenthesizedInterfaceListBuilder {
     left_par_token: Token,
-    interface_list: Option<InterfaceListSyntax>,
+    interface_list: InterfaceListSyntax,
     right_par_token: Token,
 }
-impl Default for ParenthesizedInterfaceListBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl ParenthesizedInterfaceListBuilder {
-    pub fn new() -> Self {
+    pub fn new(interface_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
-            interface_list: None,
+            interface_list: interface_list.into(),
             right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
@@ -11261,7 +11207,7 @@ impl ParenthesizedInterfaceListBuilder {
         self
     }
     pub fn with_interface_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.interface_list = Some(n.into());
+        self.interface_list = n.into();
         self
     }
     pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -11276,9 +11222,7 @@ impl ParenthesizedInterfaceListBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ParenthesizedInterfaceList);
         builder.push(self.left_par_token);
-        if let Some(n) = self.interface_list {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.interface_list.raw().green().clone());
         builder.push(self.right_par_token);
         builder.end_node();
         let green = builder.end();
@@ -16637,6 +16581,51 @@ impl WhileSchemeBuilder {
 }
 impl From<WhileSchemeBuilder> for WhileSchemeSyntax {
     fn from(value: WhileSchemeBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct InterfaceListBuilder {
+    elements: Vec<InterfaceDeclarationSyntax>,
+}
+impl InterfaceListBuilder {
+    #[doc = r" The list must hold at least one element, so the first one is required."]
+    pub fn new(first: impl Into<InterfaceDeclarationSyntax>) -> Self {
+        Self {
+            elements: vec![first.into()],
+        }
+    }
+    pub fn push(mut self, element: impl Into<InterfaceDeclarationSyntax>) -> Self {
+        self.elements.push(element.into());
+        self
+    }
+    pub fn extend(
+        mut self,
+        elements: impl IntoIterator<Item = impl Into<InterfaceDeclarationSyntax>>,
+    ) -> Self {
+        self.elements.extend(elements.into_iter().map(|e| e.into()));
+        self
+    }
+    pub fn build(self) -> InterfaceListSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::InterfaceList);
+        let mut first = true;
+        for element in self.elements {
+            if !first {
+                let mut separator = TokenKind::SemiColon.canonical_token().unwrap();
+                separator.set_leading_trivia(Trivia::default());
+                builder.push(separator);
+            }
+            first = false;
+            builder.push_node(element.raw().green().clone());
+        }
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        InterfaceListSyntax::cast(node).unwrap()
+    }
+}
+impl From<InterfaceListBuilder> for InterfaceListSyntax {
+    fn from(value: InterfaceListBuilder) -> Self {
         value.build()
     }
 }

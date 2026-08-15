@@ -7,8 +7,8 @@
 use crate::generate::naming::{node_kind_ident, syntax_type_ident, token_kind_path, variant_ident};
 use crate::generate::Generator;
 use crate::model::{
-    Cardinality, ChoiceNode, Field, Model, Node, NodeKind, NodeOrTokenKind, NodesOrTokens,
-    SequenceNode, TokenKind,
+    Cardinality, ChoiceNode, Field, ListNode, Model, Node, NodeKind, NodeOrTokenKind,
+    NodesOrTokens, SequenceNode, TokenKind,
 };
 use convert_case::{Case, Casing};
 use proc_macro2::{Literal, TokenStream};
@@ -28,7 +28,7 @@ impl Generator for SyntaxNodeGenerator {
             use crate::syntax::node::{SyntaxNode, SyntaxToken};
             use crate::syntax::node_kind::NodeKind;
             use crate::syntax::AstNode;
-            use crate::syntax::meta::{Layout, Sequence, Choice, LayoutItem, LayoutItemKind};
+            use crate::syntax::meta::{Layout, Sequence, Choice, List, LayoutItem, LayoutItemKind};
             use crate::tokens::Keyword as Kw;
             use crate::tokens::TokenKind;
         };
@@ -56,6 +56,7 @@ impl Generator for SyntaxNodeGenerator {
 fn generate_rust_struct(node: &Node) -> TokenStream {
     match node {
         Node::Items(seq) => generate_syntax_node_struct(&seq.name),
+        Node::List(list) => generate_syntax_node_struct(&list.kind),
         Node::Choices(choice) => generate_choice_enum(choice),
     }
 }
@@ -114,6 +115,12 @@ fn generate_ast_node_rust_impl(node: &Node, model: &Model) -> TokenStream {
                 .collect();
             generate_sequence_ast_impl(&seq.name, &meta_items)
         }
+        Node::List(list) => generate_list_ast_impl(
+            &list.kind,
+            &layout_item_ts(&list.element, model),
+            &layout_item_ts(&list.separator, model),
+            list.allow_empty,
+        ),
         Node::Choices(choice) => generate_choice_ast_impl(choice, model),
     }
 }
@@ -216,6 +223,32 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
     }
 }
 
+fn generate_list_ast_impl(
+    name: &NodeKind,
+    element: &TokenStream,
+    separator: &TokenStream,
+    can_be_empty: bool,
+) -> TokenStream {
+    let struct_name = syntax_type_ident(name);
+    let node_kind = node_kind_ident(name);
+    quote! {
+        impl AstNode for #struct_name {
+            const META: &'static Layout = &Layout::List(List {
+                kind: NodeKind::#node_kind,
+                element: &#element,
+                separator: &#separator,
+                can_be_empty: #can_be_empty
+            });
+            fn cast_unchecked(node: SyntaxNode) -> Self {
+                #struct_name(node)
+            }
+            fn raw(&self) -> SyntaxNode {
+                self.0.clone()
+            }
+        }
+    }
+}
+
 // MARK: META helpers
 
 /// Recursively collect all concrete (sequence / raw-token) `NodeKind::X` token-streams
@@ -233,7 +266,8 @@ fn collect_concrete_node_kinds(
         .node(name)
         .unwrap_or_else(|| panic!("node '{}' not found in model", name));
     match node {
-        Node::Items(_) => {
+        // Both are materialized by the parser as a node of exactly this kind.
+        Node::Items(_) | Node::List(_) => {
             let nk = node_kind_ident(name);
             vec![quote! { NodeKind::#nk }]
         }
@@ -278,7 +312,7 @@ fn layout_item_kind_for_node_ref(node_kind: &NodeKind, model: &Model) -> TokenSt
         .unwrap_or_else(|| panic!("node '{node_kind}' not found in model"));
 
     match target {
-        Node::Items(_) => {
+        Node::Items(_) | Node::List(_) => {
             let nk = node_kind_ident(node_kind);
             quote! { LayoutItemKind::Node(NodeKind::#nk) }
         }
@@ -300,6 +334,7 @@ fn layout_item_kind_for_node_ref(node_kind: &NodeKind, model: &Model) -> TokenSt
 fn generate_rust_impl_getters(node: &Node, model: &Model) -> TokenStream {
     match node {
         Node::Items(seq) => generate_sequence_getters(seq, model),
+        Node::List(list) => generate_list_getters(list, model),
         Node::Choices(_) => quote! {},
     }
 }
@@ -314,6 +349,18 @@ fn generate_sequence_getters(node: &SequenceNode, model: &Model) -> TokenStream 
     quote! {
         impl #name {
             #getters
+        }
+    }
+}
+
+fn generate_list_getters(list: &ListNode, model: &Model) -> TokenStream {
+    let element_getter = build_getter(&list.element, model);
+    let separator_getter = build_getter(&list.separator, model);
+    let name = syntax_type_ident(&list.kind);
+    quote! {
+        impl #name {
+            #element_getter
+            #separator_getter
         }
     }
 }
@@ -379,7 +426,7 @@ fn build_token_getter(item: &Field, token_kind: &TokenKind) -> TokenStream {
 
 fn generate_node_kind_enum(model: &Model) -> TokenStream {
     let mut choices = model
-        .collect_all_sequence_node_kinds()
+        .collect_all_materialized_node_kinds()
         .into_iter()
         .map(|kind| format_ident!("{}", kind.as_str()))
         .collect::<Vec<_>>();

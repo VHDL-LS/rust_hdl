@@ -310,7 +310,7 @@ InterfaceIncompleteTypeDeclaration =
   'type' '#identifier'
 
 InterfaceList =
-  InterfaceDeclaration* ';'*
+  InterfaceDeclaration (';' InterfaceDeclaration)*
 
 // A non-file interface object (constant/signal/variable)
 InterfaceObjectDeclaration =

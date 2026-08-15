@@ -13,6 +13,7 @@ pub use token::*;
 use convert_case::{Case, Casing};
 use std::path::Path;
 use std::str::FromStr;
+use ungrammar::Rule;
 
 pub fn load_model(file: &Path) -> Model {
     let mut model = Model::default();
@@ -94,9 +95,6 @@ fn map_single(
                 name = &name[1..];
             }
             let kind = str_to_token_kind(name)
-                .or_else(|_| {
-                    Keyword::from_str(&name.to_case(Case::UpperCamel)).map(TokenKind::Keyword)
-                })
                 .unwrap_or_else(|_| panic!("Invalid token kind {name} in production {production}"));
             Field::token(kind)
         }
@@ -148,6 +146,20 @@ fn map_rule(
             })
         }
         ungrammar::Rule::Seq(rules) => {
+            match &rules[..] {
+                [element @ Rule::Node(_) | element @ Rule::Token(_), Rule::Rep(subrule)] => match subrule.as_ref() {
+                    Rule::Seq(rules) => match &rules[..] {
+                        [sep @ Rule::Token(_), element2] if element2 == element => {
+                            let element_field = map_single(name.as_str(), element, grammar, model).make_repeated();
+                            let separator_field = map_single(name.as_str(), sep, grammar, model).make_repeated();
+                            return Node::List(ListNode { kind: name, element: element_field, separator: separator_field, allow_empty: false })
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                },
+                _ => {}
+            }
             let mut mapped = Vec::new();
             for rule in rules {
                 let next = map_single(name.as_str(), rule, grammar, model);
