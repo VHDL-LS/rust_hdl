@@ -543,7 +543,7 @@ fn element_shape(element: &Field, model: &Model) -> ElementShape {
             Some(domain) => ElementShape {
                 ty: domain,
                 convert: quote! { into().into() },
-                push: quote! { builder.push(element); },
+                push: quote! { builder.push(element.into()); },
             },
             None => ElementShape {
                 ty: quote! { Token },
@@ -596,7 +596,6 @@ fn generate_list_builder(list: &ListNode, model: &Model) -> TokenStream {
 
     let ElementShape { ty, convert, push } = element_shape(&list.element, model);
 
-    // An empty-capable list starts out empty; a `1+` list demands its first element up front.
     let (new_fn, extra_impls) = if list.allow_empty {
         (
             quote! {
@@ -621,7 +620,6 @@ fn generate_list_builder(list: &ListNode, model: &Model) -> TokenStream {
     } else {
         (
             quote! {
-                /// The list must hold at least one element, so the first one is required.
                 pub fn new(first: impl Into<#ty>) -> Self {
                     Self { elements: vec![first.#convert] }
                 }

@@ -623,16 +623,6 @@ end process;",
     }
 
     #[test]
-    fn process_empty_sensitivity() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "\
-process () is
-begin
-end process;",
-        ))
-    }
-
-    #[test]
     fn process_statement_full() {
         insta::assert_snapshot!(stmt_to_test_text(
             "\

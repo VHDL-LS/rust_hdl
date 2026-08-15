@@ -181,10 +181,9 @@ impl Parser {
         CommAt => {
             self.start_node(PackagePathname);
             self.skip();
-            self.identifier();
-            while self.opt_token(Dot) {
-                self.identifier();
-            }
+            self.start_node(PackagePath);
+            self.separated_list(Parser::identifier, Dot);
+            self.end_node();
         },
         Dot => {
             self.start_node(AbsolutePathname);

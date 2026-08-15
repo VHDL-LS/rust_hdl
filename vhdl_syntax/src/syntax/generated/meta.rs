@@ -230,6 +230,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
             PackageInstantiationDeclarationPrimaryUnitSyntax::META
         }
         NodeKind::PackageInstantiationPreamble => PackageInstantiationPreambleSyntax::META,
+        NodeKind::PackagePath => PackagePathSyntax::META,
         NodeKind::PackagePathname => PackagePathnameSyntax::META,
         NodeKind::PackagePreamble => PackagePreambleSyntax::META,
         NodeKind::ParameterList => ParameterListSyntax::META,

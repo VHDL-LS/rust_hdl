@@ -204,6 +204,7 @@ pub enum NodeKind {
     PackageInstantiationDeclaration,
     PackageInstantiationDeclarationPrimaryUnit,
     PackageInstantiationPreamble,
+    PackagePath,
     PackagePathname,
     PackagePreamble,
     ParameterList,

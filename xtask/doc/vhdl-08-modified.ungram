@@ -125,7 +125,7 @@ AllSensitivityList =
   'all'
 
 SensitivityList =
-  Name* ','*
+  Name (',' Name)*
 
 ProcessSensitivityList =
   AllSensitivityList | SensitivityList
@@ -222,7 +222,7 @@ AssociationElement =
   ActualPart
 
 AssociationList =
-  AssociationElement* ','*
+  AssociationElement (',' AssociationElement)*
 
 AttributeDeclaration =
   'attribute' '#identifier' ':' Name ';'
@@ -254,7 +254,7 @@ EntityClassEntry =
   EntityClass '<>'?
 
 EntityClassEntryList =
-  EntityClassEntry* ','*
+  EntityClassEntry (',' EntityClassEntry)*
 
 FileDeclaration =
   'file' IdentifierList ':' SubtypeIndication FileOpenInformation? ';'
@@ -691,19 +691,19 @@ ExternalPathname =
   PackagePathname | AbsolutePathname | RelativePathname
 
 PackagePathname =
-  '@' simple_name:'#identifier'* '.'*
+  '@' package_path:('#identifier' ('.' '#identifier')*)
 
 RelativePathname =
   up_level:('^' '.')* PartialPathname
 
 PartialPathname =
-  PathnameElement* '.'*
+  PathnameElement ('.' PathnameElement)*
 
 PathnameElement =
   '#identifier' parenthesized_expression:('(' Expression ')')?
 
 NameList =
-  Name* ','*
+  Name (',' Name)*
 
 Label =
   '#identifier' ':'
@@ -1053,7 +1053,7 @@ InstantiationList =
   InstantiationListList | InstantiationListAll | InstantiationListOthers
 
 SignalListList =
-  Name* ','*
+  Name (',' Name)*
 
 SignalListAll =
   'all'
@@ -1074,7 +1074,7 @@ VerificationUnitBindingIndication =
   'use' 'vunit' VerificationUnitList
 
 VerificationUnitList =
-  Name* ','*
+  Name (',' Name)*
 
 //==============================================================================
 // § 4: Subprograms and packages
@@ -1181,7 +1181,7 @@ FileTypeDefinition =
   'file' 'of' Name
 
 IdentifierList =
-  '#identifier'* ','*
+  '#identifier' (',' '#identifier')*
 
 IncompleteTypeDeclaration =
   'type' '#identifier' ';'
