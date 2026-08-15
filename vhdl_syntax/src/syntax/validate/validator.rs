@@ -99,16 +99,11 @@ fn match_children(node: &SyntaxNode, items: &[LayoutItem], err: &mut ValidationE
     for child in node.children_with_tokens() {
         match (pos..items.len()).find(|&j| accepts(&items[j], &child)) {
             Some(k) => {
-                // A separated list `X (sep X)*` is encoded as a run of adjacent
-                // `repeated` items (`[X*, sep*]`) whose children interleave. So
-                // matching a repeated item rewinds the cursor to the start of its
-                // run, keeping every member of the run matchable; a non-repeated
-                // item advances past it.
-                pos = if items[k].repeated {
-                    repeated_run_start(items, k)
-                } else {
-                    k + 1
-                };
+                // A repeated item holds the cursor in place so it can match again;
+                // anything else advances past it. Two adjacent repeated items are
+                // therefore still matched in grammar order — `A* B*` accepts
+                // `a a b b` but not `b a`, which is what the layout says.
+                pos = if items[k].repeated { k } else { k + 1 };
                 filled[k] = Some(child);
             }
             None => err.push_extraneous(child),
@@ -123,16 +118,6 @@ fn match_children(node: &SyntaxNode, items: &[LayoutItem], err: &mut ValidationE
             err.push_missing(Missing::new(previous, node.clone(), *item));
         }
     }
-}
-
-/// The first index of the maximal run of consecutive `repeated` items that
-/// contains `k`.
-fn repeated_run_start(items: &[LayoutItem], k: usize) -> usize {
-    let mut start = k;
-    while start > 0 && items[start - 1].repeated {
-        start -= 1;
-    }
-    start
 }
 
 /// Whether `item` accepts `child`.

@@ -27,9 +27,10 @@ ProcedureCallStatement
                 Tick
                 ParenthesizedExpressionOrAggregate
                   LeftPar
-                  ElementAssociation
-                    LiteralExpression
-                      StringLiteral '"L: "'
+                  ElementAssociationList
+                    ElementAssociation
+                      LiteralExpression
+                        StringLiteral '"L: "'
                   RightPar
       RightPar
   SemiColon

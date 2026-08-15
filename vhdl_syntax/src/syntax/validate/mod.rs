@@ -128,6 +128,28 @@ end entity foo;
         assert!(&node.raw().validate().is_ok());
     }
 
+    #[test]
+    fn adjacent_repeated_items_in_grammar_order_pass() {
+        let (node, diagnostics) = parse(
+            r#"
+configuration cfg of ent is
+    for rtl
+        use work.pkg.all;
+        use work.other.all;
+        for inst : comp
+            use entity work.e;
+        end for;
+        for other_inst : comp
+            use entity work.f;
+        end for;
+    end for;
+end configuration cfg;
+            "#,
+        );
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        assert!(node.raw().validate().is_ok());
+    }
+
     // --- separated-list tests ---
 
     /// Build an `InterfaceList` from a compact spec: `e` is an element, `;` a separator,

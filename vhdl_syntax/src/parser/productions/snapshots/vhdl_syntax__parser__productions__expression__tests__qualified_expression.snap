@@ -9,11 +9,12 @@ QualifiedExpression
   Tick
   ParenthesizedExpressionOrAggregate
     LeftPar
-    ElementAssociation
-      BinaryExpression
-        LiteralExpression
-          AbstractLiteral '1'
-        Plus
-        LiteralExpression
-          AbstractLiteral '2'
+    ElementAssociationList
+      ElementAssociation
+        BinaryExpression
+          LiteralExpression
+            AbstractLiteral '1'
+          Plus
+          LiteralExpression
+            AbstractLiteral '2'
     RightPar

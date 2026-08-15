@@ -9,23 +9,24 @@ SimpleVariableAssignment
   AggregateTarget
     Aggregate
       LeftPar
-      ElementAssociation
-        NameExpression
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo'
-      Comma
-      ElementAssociation
-        ElementChoices
-          Choices
-            ExpressionChoice
-              LiteralExpression
-                AbstractLiteral '1'
-          RightArrow
-        NameExpression
-          Name
-            NameDesignatorPrefix
-              Identifier 'bar'
+      ElementAssociationList
+        ElementAssociation
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'foo'
+        Comma
+        ElementAssociation
+          ElementChoices
+            Choices
+              ExpressionChoice
+                LiteralExpression
+                  AbstractLiteral '1'
+            RightArrow
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'bar'
       RightPar
   ColonEq
   NameExpression

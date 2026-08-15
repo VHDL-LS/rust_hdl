@@ -8,10 +8,11 @@ FullTypeDeclaration
   Keyword(Is)
   EnumerationTypeDefinition
     LeftPar
-    Identifier 'S1'
-    Comma
-    Identifier 'S2'
-    Comma
-    Identifier 'S3'
+    EnumerationList
+      Identifier 'S1'
+      Comma
+      Identifier 'S2'
+      Comma
+      Identifier 'S3'
     RightPar
   SemiColon

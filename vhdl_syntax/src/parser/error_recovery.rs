@@ -326,7 +326,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         }
         NodeKind::ParameterSpecification => &[Keyword(Kw::Generate), Keyword(Kw::Loop)],
         NodeKind::PrimaryUnitDeclaration => &[Identifier, Keyword(Kw::End)],
-        NodeKind::SelectedExpressionItem | NodeKind::SelectedWaveformItem => &[Comma, SemiColon],
+        NodeKind::SelectedExpressionItem | NodeKind::SelectedWaveform => &[Comma, SemiColon],
         NodeKind::UnaffectedWaveform | NodeKind::WaveformElements => {
             &[Keyword(Kw::When), SemiColon]
         }

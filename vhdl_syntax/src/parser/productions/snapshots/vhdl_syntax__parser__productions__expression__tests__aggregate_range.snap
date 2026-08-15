@@ -4,17 +4,18 @@ expression: "expr_to_test_text(\"(1 downto 0 => 2)\")"
 ---
 ParenthesizedExpressionOrAggregate
   LeftPar
-  ElementAssociation
-    ElementChoices
-      Choices
-        ExpressionChoice
-          BinaryExpression
-            LiteralExpression
-              AbstractLiteral '1'
-            Keyword(Downto)
-            LiteralExpression
-              AbstractLiteral '0'
-      RightArrow
-    LiteralExpression
-      AbstractLiteral '2'
+  ElementAssociationList
+    ElementAssociation
+      ElementChoices
+        Choices
+          ExpressionChoice
+            BinaryExpression
+              LiteralExpression
+                AbstractLiteral '1'
+              Keyword(Downto)
+              LiteralExpression
+                AbstractLiteral '0'
+        RightArrow
+      LiteralExpression
+        AbstractLiteral '2'
   RightPar

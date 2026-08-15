@@ -4,17 +4,18 @@ expression: "expr_to_test_text(\"(1 | 2 => 3)\")"
 ---
 ParenthesizedExpressionOrAggregate
   LeftPar
-  ElementAssociation
-    ElementChoices
-      Choices
-        ExpressionChoice
-          LiteralExpression
-            AbstractLiteral '1'
-        Bar
-        ExpressionChoice
-          LiteralExpression
-            AbstractLiteral '2'
-      RightArrow
-    LiteralExpression
-      AbstractLiteral '3'
+  ElementAssociationList
+    ElementAssociation
+      ElementChoices
+        Choices
+          ExpressionChoice
+            LiteralExpression
+              AbstractLiteral '1'
+          Bar
+          ExpressionChoice
+            LiteralExpression
+              AbstractLiteral '2'
+        RightArrow
+      LiteralExpression
+        AbstractLiteral '3'
   RightPar

@@ -10,9 +10,10 @@ BinaryExpression
     Tick
     ParenthesizedExpressionOrAggregate
       LeftPar
-      ElementAssociation
-        LiteralExpression
-          AbstractLiteral '0'
+      ElementAssociationList
+        ElementAssociation
+          LiteralExpression
+            AbstractLiteral '0'
       RightPar
   LT
   QualifiedExpression
@@ -22,7 +23,8 @@ BinaryExpression
     Tick
     ParenthesizedExpressionOrAggregate
       LeftPar
-      ElementAssociation
-        LiteralExpression
-          AbstractLiteral '1'
+      ElementAssociationList
+        ElementAssociation
+          LiteralExpression
+            AbstractLiteral '1'
       RightPar

@@ -9,12 +9,13 @@ QualifiedExpression
   Tick
   ParenthesizedExpressionOrAggregate
     LeftPar
-    ElementAssociation
-      ElementChoices
-        Choices
-          OthersChoice
-            Keyword(Others)
-        RightArrow
-      LiteralExpression
-        CharacterLiteral ''1''
+    ElementAssociationList
+      ElementAssociation
+        ElementChoices
+          Choices
+            OthersChoice
+              Keyword(Others)
+          RightArrow
+        LiteralExpression
+          CharacterLiteral ''1''
     RightPar

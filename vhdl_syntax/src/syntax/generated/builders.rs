@@ -15978,19 +15978,18 @@ pub struct IdentifierListBuilder {
 impl IdentifierListBuilder {
     pub fn new(first: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            elements: vec![first.into().into()],
+            elements: vec![first.into()],
         }
     }
     pub fn push(mut self, element: impl Into<crate::builder::Identifier>) -> Self {
-        self.elements.push(element.into().into());
+        self.elements.push(element.into());
         self
     }
     pub fn extend(
         mut self,
         elements: impl IntoIterator<Item = impl Into<crate::builder::Identifier>>,
     ) -> Self {
-        self.elements
-            .extend(elements.into_iter().map(|e| e.into().into()));
+        self.elements.extend(elements.into_iter().map(|e| e.into()));
         self
     }
     pub fn build(self) -> IdentifierListSyntax {
@@ -16067,19 +16066,18 @@ pub struct InstantiationListListBuilder {
 impl InstantiationListListBuilder {
     pub fn new(first: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            elements: vec![first.into().into()],
+            elements: vec![first.into()],
         }
     }
     pub fn push(mut self, element: impl Into<crate::builder::Identifier>) -> Self {
-        self.elements.push(element.into().into());
+        self.elements.push(element.into());
         self
     }
     pub fn extend(
         mut self,
         elements: impl IntoIterator<Item = impl Into<crate::builder::Identifier>>,
     ) -> Self {
-        self.elements
-            .extend(elements.into_iter().map(|e| e.into().into()));
+        self.elements.extend(elements.into_iter().map(|e| e.into()));
         self
     }
     pub fn build(self) -> InstantiationListListSyntax {
@@ -16197,19 +16195,18 @@ pub struct PackagePathBuilder {
 impl PackagePathBuilder {
     pub fn new(first: impl Into<crate::builder::Identifier>) -> Self {
         Self {
-            elements: vec![first.into().into()],
+            elements: vec![first.into()],
         }
     }
     pub fn push(mut self, element: impl Into<crate::builder::Identifier>) -> Self {
-        self.elements.push(element.into().into());
+        self.elements.push(element.into());
         self
     }
     pub fn extend(
         mut self,
         elements: impl IntoIterator<Item = impl Into<crate::builder::Identifier>>,
     ) -> Self {
-        self.elements
-            .extend(elements.into_iter().map(|e| e.into().into()));
+        self.elements.extend(elements.into_iter().map(|e| e.into()));
         self
     }
     pub fn build(self) -> PackagePathSyntax {

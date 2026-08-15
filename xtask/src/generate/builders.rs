@@ -539,10 +539,9 @@ struct ElementShape {
 fn element_shape(element: &Field, model: &Model) -> ElementShape {
     match &element.kind {
         NodeOrTokenKind::Token(kind) => match domain_type(kind) {
-            // Identifier, StringLiteral, … convert through their domain type.
             Some(domain) => ElementShape {
                 ty: domain,
-                convert: quote! { into().into() },
+                convert: quote! { into() },
                 push: quote! { builder.push(element.into()); },
             },
             None => ElementShape {

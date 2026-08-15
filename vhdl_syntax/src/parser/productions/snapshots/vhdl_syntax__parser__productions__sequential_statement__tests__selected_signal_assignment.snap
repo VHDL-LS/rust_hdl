@@ -40,7 +40,7 @@ SelectedWaveformAssignment
   TransportDelayMechanism
     Keyword(Transport)
   SelectedWaveforms
-    SelectedWaveformItem
+    SelectedWaveform
       WaveformElements
         WaveformElement
           NameExpression
@@ -80,7 +80,7 @@ SelectedWaveformAssignment
           LiteralExpression
             AbstractLiteral '1'
     Comma
-    SelectedWaveformItem
+    SelectedWaveform
       WaveformElements
         WaveformElement
           NameExpression

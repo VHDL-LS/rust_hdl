@@ -10,10 +10,11 @@ FullTypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      NameExpression
-        Name
-          NameDesignatorPrefix
-            Identifier 'natural'
+      ExpressionList
+        NameExpression
+          Name
+            NameDesignatorPrefix
+              Identifier 'natural'
       RightPar
     Keyword(Of)
     SubtypeIndication

@@ -47,7 +47,7 @@ impl Parser {
     }
 
     fn selected_waveform(&mut self) {
-        self.start_node(SelectedWaveformItem);
+        self.start_node(SelectedWaveform);
         self.waveform();
         self.expect_kw(Kw::When);
         self.choices();

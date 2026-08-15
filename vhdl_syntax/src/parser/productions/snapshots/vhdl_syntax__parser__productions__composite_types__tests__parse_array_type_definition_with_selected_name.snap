@@ -10,16 +10,17 @@ FullTypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      NameExpression
-        Name
-          NameDesignatorPrefix
-            Identifier 'lib'
-          SelectedName
-            Dot
-            Identifier 'pkg'
-          SelectedName
-            Dot
-            Identifier 'foo'
+      ExpressionList
+        NameExpression
+          Name
+            NameDesignatorPrefix
+              Identifier 'lib'
+            SelectedName
+              Dot
+              Identifier 'pkg'
+            SelectedName
+              Dot
+              Identifier 'foo'
       RightPar
     Keyword(Of)
     SubtypeIndication

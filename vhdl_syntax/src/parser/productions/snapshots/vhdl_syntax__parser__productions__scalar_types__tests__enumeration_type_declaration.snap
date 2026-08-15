@@ -8,6 +8,7 @@ FullTypeDeclaration
   Keyword(Is)
   EnumerationTypeDefinition
     LeftPar
-    Identifier 'A'
+    EnumerationList
+      Identifier 'A'
     RightPar
   SemiColon

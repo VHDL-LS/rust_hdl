@@ -19,7 +19,7 @@ SelectedWaveformAssignment
         Identifier 'foo'
   LTE
   SelectedWaveforms
-    SelectedWaveformItem
+    SelectedWaveform
       WaveformElements
         WaveformElement
           NameExpression

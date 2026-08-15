@@ -146,19 +146,26 @@ fn map_rule(
             })
         }
         ungrammar::Rule::Seq(rules) => {
-            match &rules[..] {
-                [element @ Rule::Node(_) | element @ Rule::Token(_), Rule::Rep(subrule)] => match subrule.as_ref() {
-                    Rule::Seq(rules) => match &rules[..] {
+            if let [element @ Rule::Node(_) | element @ Rule::Token(_), Rule::Rep(subrule)] =
+                &rules[..]
+            {
+                if let Rule::Seq(rules) = subrule.as_ref() {
+                    match &rules[..] {
                         [sep @ Rule::Token(_), element2] if element2 == element => {
-                            let element_field = map_single(name.as_str(), element, grammar, model).make_repeated();
-                            let separator_field = map_single(name.as_str(), sep, grammar, model).make_repeated();
-                            return Node::List(ListNode { kind: name, element: element_field, separator: separator_field, allow_empty: false })
+                            let element_field =
+                                map_single(name.as_str(), element, grammar, model).make_repeated();
+                            let separator_field =
+                                map_single(name.as_str(), sep, grammar, model).make_repeated();
+                            return Node::List(ListNode {
+                                kind: name,
+                                element: element_field,
+                                separator: separator_field,
+                                allow_empty: false,
+                            });
                         }
                         _ => {}
-                    },
-                    _ => {}
-                },
-                _ => {}
+                    }
+                }
             }
             let mut mapped = Vec::new();
             for rule in rules {

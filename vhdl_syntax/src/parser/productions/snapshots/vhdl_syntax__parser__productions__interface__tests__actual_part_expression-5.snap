@@ -7,11 +7,12 @@ ActualPart
     BinaryExpression
       ParenthesizedExpressionOrAggregate
         LeftPar
-        ElementAssociation
-          NameExpression
-            Name
-              NameDesignatorPrefix
-                Identifier 'foo'
+        ElementAssociationList
+          ElementAssociation
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'foo'
         RightPar
       Plus
       LiteralExpression
