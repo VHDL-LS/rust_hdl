@@ -691,13 +691,16 @@ ExternalPathname =
   PackagePathname | AbsolutePathname | RelativePathname
 
 PackagePathname =
-  '@' '.'* simple_name:'#identifier'*
+  '@' simple_name:'#identifier'* '.'*
 
 RelativePathname =
-  '^'* '.'* PartialPathname
+  up_level:('^' '.')* PartialPathname
 
 PartialPathname =
-  '#identifier'* '.'*
+  PathnameElement* '.'*
+
+PathnameElement =
+  '#identifier' parenthesized_expression:('(' Expression ')')?
 
 NameList =
   Name* ','*

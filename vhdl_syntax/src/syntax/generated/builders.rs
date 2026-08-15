@@ -10846,8 +10846,8 @@ impl From<PackageInstantiationPreambleBuilder> for PackageInstantiationPreambleS
 }
 pub struct PackagePathnameBuilder {
     comm_at_token: Token,
-    dot_token: Vec<Token>,
     simple_name_token: Vec<Token>,
+    dot_token: Vec<Token>,
 }
 impl Default for PackagePathnameBuilder {
     fn default() -> Self {
@@ -10858,8 +10858,8 @@ impl PackagePathnameBuilder {
     pub fn new() -> Self {
         Self {
             comm_at_token: TokenKind::CommAt.canonical_token().unwrap(),
-            dot_token: Vec::new(),
             simple_name_token: Vec::new(),
+            dot_token: Vec::new(),
         }
     }
     pub fn with_comm_at_token(mut self, t: impl Into<Token>) -> Self {
@@ -10870,22 +10870,22 @@ impl PackagePathnameBuilder {
         self.comm_at_token.set_leading_trivia(trivia);
         self
     }
-    pub fn add_dot_token(mut self, t: impl Into<Token>) -> Self {
-        self.dot_token.push(t.into());
-        self
-    }
     pub fn add_simple_name_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
         self.simple_name_token.push(t.into().into());
+        self
+    }
+    pub fn add_dot_token(mut self, t: impl Into<Token>) -> Self {
+        self.dot_token.push(t.into());
         self
     }
     pub fn build(self) -> PackagePathnameSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::PackagePathname);
         builder.push(self.comm_at_token);
-        for t in self.dot_token {
+        for t in self.simple_name_token {
             builder.push(t);
         }
-        for t in self.simple_name_token {
+        for t in self.dot_token {
             builder.push(t);
         }
         builder.end_node();
@@ -11411,7 +11411,7 @@ impl From<ParenthesizedProcessSensitivityListBuilder>
     }
 }
 pub struct PartialPathnameBuilder {
-    identifier_token: Vec<Token>,
+    pathname_elements: Vec<PathnameElementSyntax>,
     dot_token: Vec<Token>,
 }
 impl Default for PartialPathnameBuilder {
@@ -11422,12 +11422,12 @@ impl Default for PartialPathnameBuilder {
 impl PartialPathnameBuilder {
     pub fn new() -> Self {
         Self {
-            identifier_token: Vec::new(),
+            pathname_elements: Vec::new(),
             dot_token: Vec::new(),
         }
     }
-    pub fn add_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
-        self.identifier_token.push(t.into().into());
+    pub fn add_pathname_elements(mut self, n: impl Into<PathnameElementSyntax>) -> Self {
+        self.pathname_elements.push(n.into());
         self
     }
     pub fn add_dot_token(mut self, t: impl Into<Token>) -> Self {
@@ -11437,8 +11437,8 @@ impl PartialPathnameBuilder {
     pub fn build(self) -> PartialPathnameSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::PartialPathname);
-        for t in self.identifier_token {
-            builder.push(t);
+        for n in self.pathname_elements {
+            builder.push_node(n.raw().green().clone());
         }
         for t in self.dot_token {
             builder.push(t);
@@ -11451,6 +11451,50 @@ impl PartialPathnameBuilder {
 }
 impl From<PartialPathnameBuilder> for PartialPathnameSyntax {
     fn from(value: PartialPathnameBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct PathnameElementBuilder {
+    identifier_token: Token,
+    parenthesized_expression: Option<ParenthesizedExpressionSyntax>,
+}
+impl PathnameElementBuilder {
+    pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
+        Self {
+            identifier_token: identifier_token.into().into(),
+            parenthesized_expression: None,
+        }
+    }
+    pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
+        self.identifier_token = t.into().into();
+        self
+    }
+    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.identifier_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_parenthesized_expression(
+        mut self,
+        n: impl Into<ParenthesizedExpressionSyntax>,
+    ) -> Self {
+        self.parenthesized_expression = Some(n.into());
+        self
+    }
+    pub fn build(self) -> PathnameElementSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::PathnameElement);
+        builder.push(self.identifier_token);
+        if let Some(n) = self.parenthesized_expression {
+            builder.push_node(n.raw().green().clone());
+        }
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        PathnameElementSyntax::cast(node).unwrap()
+    }
+}
+impl From<PathnameElementBuilder> for PathnameElementSyntax {
+    fn from(value: PathnameElementBuilder) -> Self {
         value.build()
     }
 }
@@ -13161,8 +13205,7 @@ impl From<RejectClauseBuilder> for RejectClauseSyntax {
     }
 }
 pub struct RelativePathnameBuilder {
-    circ_token: Vec<Token>,
-    dot_token: Vec<Token>,
+    up_levels: Vec<UpLevelSyntax>,
     partial_pathname: Option<PartialPathnameSyntax>,
 }
 impl Default for RelativePathnameBuilder {
@@ -13173,17 +13216,12 @@ impl Default for RelativePathnameBuilder {
 impl RelativePathnameBuilder {
     pub fn new() -> Self {
         Self {
-            circ_token: Vec::new(),
-            dot_token: Vec::new(),
+            up_levels: Vec::new(),
             partial_pathname: None,
         }
     }
-    pub fn add_circ_token(mut self, t: impl Into<Token>) -> Self {
-        self.circ_token.push(t.into());
-        self
-    }
-    pub fn add_dot_token(mut self, t: impl Into<Token>) -> Self {
-        self.dot_token.push(t.into());
+    pub fn add_up_levels(mut self, n: impl Into<UpLevelSyntax>) -> Self {
+        self.up_levels.push(n.into());
         self
     }
     pub fn with_partial_pathname(mut self, n: impl Into<PartialPathnameSyntax>) -> Self {
@@ -13193,11 +13231,8 @@ impl RelativePathnameBuilder {
     pub fn build(self) -> RelativePathnameSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::RelativePathname);
-        for t in self.circ_token {
-            builder.push(t);
-        }
-        for t in self.dot_token {
-            builder.push(t);
+        for n in self.up_levels {
+            builder.push_node(n.raw().green().clone());
         }
         if let Some(n) = self.partial_pathname {
             builder.push_node(n.raw().green().clone());
@@ -15842,6 +15877,54 @@ impl UnitDeclarationsBuilder {
 }
 impl From<UnitDeclarationsBuilder> for UnitDeclarationsSyntax {
     fn from(value: UnitDeclarationsBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct UpLevelBuilder {
+    circ_token: Token,
+    dot_token: Token,
+}
+impl Default for UpLevelBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl UpLevelBuilder {
+    pub fn new() -> Self {
+        Self {
+            circ_token: TokenKind::Circ.canonical_token().unwrap(),
+            dot_token: TokenKind::Dot.canonical_token().unwrap(),
+        }
+    }
+    pub fn with_circ_token(mut self, t: impl Into<Token>) -> Self {
+        self.circ_token = t.into();
+        self
+    }
+    pub fn with_circ_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.circ_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_dot_token(mut self, t: impl Into<Token>) -> Self {
+        self.dot_token = t.into();
+        self
+    }
+    pub fn with_dot_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.dot_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> UpLevelSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::UpLevel);
+        builder.push(self.circ_token);
+        builder.push(self.dot_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        UpLevelSyntax::cast(node).unwrap()
+    }
+}
+impl From<UpLevelBuilder> for UpLevelSyntax {
+    fn from(value: UpLevelBuilder) -> Self {
         value.build()
     }
 }

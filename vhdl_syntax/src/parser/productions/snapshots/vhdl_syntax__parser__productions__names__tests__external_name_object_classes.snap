@@ -8,9 +8,11 @@ Name
     Keyword(Constant)
     RelativePathname
       PartialPathname
-        Identifier 'dut'
+        PathnameElement
+          Identifier 'dut'
         Dot
-        Identifier 'foo'
+        PathnameElement
+          Identifier 'foo'
     Colon
     SubtypeIndication
       Name

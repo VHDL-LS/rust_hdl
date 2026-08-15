@@ -193,8 +193,11 @@ impl Parser {
         },
         Circ, Identifier => {
             self.start_node(RelativePathname);
-            while self.opt_token(Circ) {
+            while self.next_is(Circ) {
+                self.start_node(UpLevel);
+                self.skip(); // Circ
                 self.expect_token(Dot);
+                self.end_node();
             }
             self.partial_pathname();
         });
@@ -203,21 +206,21 @@ impl Parser {
 
     fn partial_pathname(&mut self) {
         // LRM §8.7
-        // partial_pathname ::= { identifier [ `(` expression `)` ] `.` } identifier ;
+        // partial_pathname ::= { pathname_element `.` } object_simple_name ;
         self.start_node(PartialPathname);
+        self.separated_list(Parser::pathname_element, Dot);
+        self.end_node();
+    }
+
+    fn pathname_element(&mut self) {
+        self.start_node(PathnameElement);
         self.identifier();
-        loop {
-            if self.next_is(LeftPar) {
-                self.start_node(ParenthesizedExpressionOrAggregate);
-                self.expect_token(LeftPar);
-                self.expression();
-                self.expect_token(RightPar);
-                self.end_node();
-                self.expect_token(Dot);
-            } else if !self.opt_token(Dot) {
-                break;
-            }
-            self.identifier();
+        if self.next_is(LeftPar) {
+            self.start_node(ParenthesizedExpression);
+            self.expect_token(LeftPar);
+            self.expression();
+            self.expect_token(RightPar);
+            self.end_node();
         }
         self.end_node();
     }

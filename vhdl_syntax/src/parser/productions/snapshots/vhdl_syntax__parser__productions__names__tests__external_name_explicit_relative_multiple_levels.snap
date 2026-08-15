@@ -7,16 +7,21 @@ Name
     LtLt
     Keyword(Signal)
     RelativePathname
-      Circ
-      Dot
-      Circ
-      Dot
-      Circ
-      Dot
-      PartialPathname
-        Identifier 'dut'
+      UpLevel
+        Circ
         Dot
-        Identifier 'gen'
+      UpLevel
+        Circ
+        Dot
+      UpLevel
+        Circ
+        Dot
+      PartialPathname
+        PathnameElement
+          Identifier 'dut'
+        Dot
+        PathnameElement
+          Identifier 'gen'
     Colon
     SubtypeIndication
       Name

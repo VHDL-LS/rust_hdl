@@ -245,6 +245,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
             ParenthesizedProcessSensitivityListSyntax::META
         }
         NodeKind::PartialPathname => PartialPathnameSyntax::META,
+        NodeKind::PathnameElement => PathnameElementSyntax::META,
         NodeKind::PhysicalLiteral => PhysicalLiteralSyntax::META,
         NodeKind::PhysicalLiteralExpression => PhysicalLiteralExpressionSyntax::META,
         NodeKind::PhysicalTypeDefinition => PhysicalTypeDefinitionSyntax::META,
@@ -334,6 +335,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::UnaryExpression => UnaryExpressionSyntax::META,
         NodeKind::UnboundedArrayDefinition => UnboundedArrayDefinitionSyntax::META,
         NodeKind::UnitDeclarations => UnitDeclarationsSyntax::META,
+        NodeKind::UpLevel => UpLevelSyntax::META,
         NodeKind::UseClause => UseClauseSyntax::META,
         NodeKind::UseClauseContextItem => UseClauseContextItemSyntax::META,
         NodeKind::UseClauseDeclaration => UseClauseDeclarationSyntax::META,

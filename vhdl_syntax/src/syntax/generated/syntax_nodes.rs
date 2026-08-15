@@ -12583,14 +12583,14 @@ impl AstNode for PackagePathnameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "dot",
-                kind: LayoutItemKind::Token(TokenKind::Dot),
+                name: "simple_name",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "simple_name",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
+                name: "dot",
+                kind: LayoutItemKind::Token(TokenKind::Dot),
             },
         ],
     });
@@ -12608,15 +12608,15 @@ impl PackagePathnameSyntax {
             .filter(|token| token.kind() == TokenKind::CommAt)
             .nth(0)
     }
-    pub fn dot_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Dot)
-    }
     pub fn simple_name_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
+    }
+    pub fn dot_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Dot)
     }
 }
 #[derive(Debug, Clone)]
@@ -13118,8 +13118,8 @@ impl AstNode for PartialPathnameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "identifier",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
+                name: "pathname_elements",
+                kind: LayoutItemKind::Node(NodeKind::PathnameElement),
             },
             LayoutItem {
                 optional: false,
@@ -13137,15 +13137,54 @@ impl AstNode for PartialPathnameSyntax {
     }
 }
 impl PartialPathnameSyntax {
-    pub fn identifier_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
+    pub fn pathname_elements(&self) -> impl Iterator<Item = PathnameElementSyntax> + use<'_> {
+        self.0.children().filter_map(PathnameElementSyntax::cast)
     }
     pub fn dot_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Dot)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct PathnameElementSyntax(pub(crate) SyntaxNode);
+impl AstNode for PathnameElementSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PathnameElement,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "identifier",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "parenthesized_expression",
+                kind: LayoutItemKind::Node(NodeKind::ParenthesizedExpression),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PathnameElementSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PathnameElementSyntax {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Identifier)
+            .nth(0)
+    }
+    pub fn parenthesized_expression(&self) -> Option<ParenthesizedExpressionSyntax> {
+        self.0
+            .children()
+            .filter_map(ParenthesizedExpressionSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -14880,14 +14919,8 @@ impl AstNode for RelativePathnameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: true,
-                name: "circ",
-                kind: LayoutItemKind::Token(TokenKind::Circ),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: true,
-                name: "dot",
-                kind: LayoutItemKind::Token(TokenKind::Dot),
+                name: "up_levels",
+                kind: LayoutItemKind::Node(NodeKind::UpLevel),
             },
             LayoutItem {
                 optional: true,
@@ -14905,15 +14938,8 @@ impl AstNode for RelativePathnameSyntax {
     }
 }
 impl RelativePathnameSyntax {
-    pub fn circ_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Circ)
-    }
-    pub fn dot_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Dot)
+    pub fn up_levels(&self) -> impl Iterator<Item = UpLevelSyntax> + use<'_> {
+        self.0.children().filter_map(UpLevelSyntax::cast)
     }
     pub fn partial_pathname(&self) -> Option<PartialPathnameSyntax> {
         self.0
@@ -18341,6 +18367,47 @@ impl UnitDeclarationsSyntax {
         self.0
             .children()
             .filter_map(SecondaryUnitDeclarationSyntax::cast)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct UpLevelSyntax(pub(crate) SyntaxNode);
+impl AstNode for UpLevelSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::UpLevel,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "circ",
+                kind: LayoutItemKind::Token(TokenKind::Circ),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "dot",
+                kind: LayoutItemKind::Token(TokenKind::Dot),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        UpLevelSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl UpLevelSyntax {
+    pub fn circ_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Circ)
+            .nth(0)
+    }
+    pub fn dot_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Dot)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]

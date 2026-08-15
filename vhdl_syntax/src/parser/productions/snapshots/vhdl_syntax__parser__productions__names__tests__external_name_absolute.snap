@@ -9,9 +9,11 @@ Name
     AbsolutePathname
       Dot
       PartialPathname
-        Identifier 'dut'
+        PathnameElement
+          Identifier 'dut'
         Dot
-        Identifier 'gen'
+        PathnameElement
+          Identifier 'gen'
     Colon
     SubtypeIndication
       Name
