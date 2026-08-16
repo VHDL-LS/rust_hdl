@@ -6780,19 +6780,14 @@ impl From<GenerateStatementBodyBuilder> for GenerateStatementBodySyntax {
 }
 pub struct GenericClauseBuilder {
     generic_clause_preamble: GenericClausePreambleSyntax,
-    interface_list: Option<InterfaceListSyntax>,
+    interface_list: InterfaceListSyntax,
     generic_clause_epilogue: GenericClauseEpilogueSyntax,
 }
-impl Default for GenericClauseBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl GenericClauseBuilder {
-    pub fn new() -> Self {
+    pub fn new(interface_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
             generic_clause_preamble: GenericClausePreambleBuilder::default().build(),
-            interface_list: None,
+            interface_list: interface_list.into(),
             generic_clause_epilogue: GenericClauseEpilogueBuilder::default().build(),
         }
     }
@@ -6804,7 +6799,7 @@ impl GenericClauseBuilder {
         self
     }
     pub fn with_interface_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.interface_list = Some(n.into());
+        self.interface_list = n.into();
         self
     }
     pub fn with_generic_clause_epilogue(
@@ -6818,9 +6813,7 @@ impl GenericClauseBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::GenericClause);
         builder.push_node(self.generic_clause_preamble.raw().green().clone());
-        if let Some(n) = self.interface_list {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.interface_list.raw().green().clone());
         builder.push_node(self.generic_clause_epilogue.raw().green().clone());
         builder.end_node();
         let green = builder.end();
@@ -7044,15 +7037,10 @@ pub struct GenericPartBuilder {
     generic_clause: GenericClauseSyntax,
     generic_map: Option<GenericMapSyntax>,
 }
-impl Default for GenericPartBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl GenericPartBuilder {
-    pub fn new() -> Self {
+    pub fn new(generic_clause: impl Into<GenericClauseSyntax>) -> Self {
         Self {
-            generic_clause: GenericClauseBuilder::default().build(),
+            generic_clause: generic_clause.into(),
             generic_map: None,
         }
     }
@@ -10118,15 +10106,10 @@ pub struct PackageHeaderBuilder {
     generic_clause: GenericClauseSyntax,
     generic_map: Option<GenericMapSyntax>,
 }
-impl Default for PackageHeaderBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl PackageHeaderBuilder {
-    pub fn new() -> Self {
+    pub fn new(generic_clause: impl Into<GenericClauseSyntax>) -> Self {
         Self {
-            generic_clause: GenericClauseBuilder::default().build(),
+            generic_clause: generic_clause.into(),
             generic_map: None,
         }
     }
@@ -11092,19 +11075,14 @@ impl From<PhysicalTypeDefinitionEpilogueBuilder> for PhysicalTypeDefinitionEpilo
 }
 pub struct PortClauseBuilder {
     port_clause_preamble: PortClausePreambleSyntax,
-    interface_list: Option<InterfaceListSyntax>,
+    interface_list: InterfaceListSyntax,
     port_clause_epilogue: PortClauseEpilogueSyntax,
 }
-impl Default for PortClauseBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl PortClauseBuilder {
-    pub fn new() -> Self {
+    pub fn new(interface_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
             port_clause_preamble: PortClausePreambleBuilder::default().build(),
-            interface_list: None,
+            interface_list: interface_list.into(),
             port_clause_epilogue: PortClauseEpilogueBuilder::default().build(),
         }
     }
@@ -11113,7 +11091,7 @@ impl PortClauseBuilder {
         self
     }
     pub fn with_interface_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.interface_list = Some(n.into());
+        self.interface_list = n.into();
         self
     }
     pub fn with_port_clause_epilogue(mut self, n: impl Into<PortClauseEpilogueSyntax>) -> Self {
@@ -11124,9 +11102,7 @@ impl PortClauseBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::PortClause);
         builder.push_node(self.port_clause_preamble.raw().green().clone());
-        if let Some(n) = self.interface_list {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.interface_list.raw().green().clone());
         builder.push_node(self.port_clause_epilogue.raw().green().clone());
         builder.end_node();
         let green = builder.end();
@@ -11350,15 +11326,10 @@ pub struct PortPartBuilder {
     port_clause: PortClauseSyntax,
     port_map: Option<PortMapSyntax>,
 }
-impl Default for PortPartBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl PortPartBuilder {
-    pub fn new() -> Self {
+    pub fn new(port_clause: impl Into<PortClauseSyntax>) -> Self {
         Self {
-            port_clause: PortClauseBuilder::default().build(),
+            port_clause: port_clause.into(),
             port_map: None,
         }
     }
@@ -13255,52 +13226,6 @@ impl From<SelectedVariableAssignmentBuilder> for SelectedVariableAssignmentSynta
         value.build()
     }
 }
-pub struct SelectedWaveformBuilder {
-    waveform: WaveformSyntax,
-    when_token: Token,
-    choices: ChoicesSyntax,
-}
-impl SelectedWaveformBuilder {
-    pub fn new(waveform: impl Into<WaveformSyntax>, choices: impl Into<ChoicesSyntax>) -> Self {
-        Self {
-            waveform: waveform.into(),
-            when_token: Kw::When.canonical_token(),
-            choices: choices.into(),
-        }
-    }
-    pub fn with_waveform(mut self, n: impl Into<WaveformSyntax>) -> Self {
-        self.waveform = n.into();
-        self
-    }
-    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
-        self.when_token = t.into();
-        self
-    }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.when_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_choices(mut self, n: impl Into<ChoicesSyntax>) -> Self {
-        self.choices = n.into();
-        self
-    }
-    pub fn build(self) -> SelectedWaveformSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::SelectedWaveform);
-        builder.push_node(self.waveform.raw().green().clone());
-        builder.push(self.when_token);
-        builder.push_node(self.choices.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        SelectedWaveformSyntax::cast(node).unwrap()
-    }
-}
-impl From<SelectedWaveformBuilder> for SelectedWaveformSyntax {
-    fn from(value: SelectedWaveformBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct SelectedWaveformAssignmentBuilder {
     label: Option<LabelSyntax>,
     selected_assignment_preamble: SelectedAssignmentPreambleSyntax,
@@ -13387,6 +13312,52 @@ impl SelectedWaveformAssignmentBuilder {
 }
 impl From<SelectedWaveformAssignmentBuilder> for SelectedWaveformAssignmentSyntax {
     fn from(value: SelectedWaveformAssignmentBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct SelectedWaveformItemBuilder {
+    waveform: WaveformSyntax,
+    when_token: Token,
+    choices: ChoicesSyntax,
+}
+impl SelectedWaveformItemBuilder {
+    pub fn new(waveform: impl Into<WaveformSyntax>, choices: impl Into<ChoicesSyntax>) -> Self {
+        Self {
+            waveform: waveform.into(),
+            when_token: Kw::When.canonical_token(),
+            choices: choices.into(),
+        }
+    }
+    pub fn with_waveform(mut self, n: impl Into<WaveformSyntax>) -> Self {
+        self.waveform = n.into();
+        self
+    }
+    pub fn with_when_token(mut self, t: impl Into<Token>) -> Self {
+        self.when_token = t.into();
+        self
+    }
+    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.when_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_choices(mut self, n: impl Into<ChoicesSyntax>) -> Self {
+        self.choices = n.into();
+        self
+    }
+    pub fn build(self) -> SelectedWaveformItemSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::SelectedWaveformItem);
+        builder.push_node(self.waveform.raw().green().clone());
+        builder.push(self.when_token);
+        builder.push_node(self.choices.raw().green().clone());
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        SelectedWaveformItemSyntax::cast(node).unwrap()
+    }
+}
+impl From<SelectedWaveformItemBuilder> for SelectedWaveformItemSyntax {
+    fn from(value: SelectedWaveformItemBuilder) -> Self {
         value.build()
     }
 }
@@ -16366,21 +16337,21 @@ impl From<SelectedExpressionsBuilder> for SelectedExpressionsSyntax {
     }
 }
 pub struct SelectedWaveformsBuilder {
-    elements: Vec<SelectedWaveformSyntax>,
+    elements: Vec<SelectedWaveformItemSyntax>,
 }
 impl SelectedWaveformsBuilder {
-    pub fn new(first: impl Into<SelectedWaveformSyntax>) -> Self {
+    pub fn new(first: impl Into<SelectedWaveformItemSyntax>) -> Self {
         Self {
             elements: vec![first.into()],
         }
     }
-    pub fn push(mut self, element: impl Into<SelectedWaveformSyntax>) -> Self {
+    pub fn push(mut self, element: impl Into<SelectedWaveformItemSyntax>) -> Self {
         self.elements.push(element.into());
         self
     }
     pub fn extend(
         mut self,
-        elements: impl IntoIterator<Item = impl Into<SelectedWaveformSyntax>>,
+        elements: impl IntoIterator<Item = impl Into<SelectedWaveformItemSyntax>>,
     ) -> Self {
         self.elements.extend(elements.into_iter().map(|e| e.into()));
         self

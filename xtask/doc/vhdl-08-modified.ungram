@@ -278,7 +278,7 @@ FullTypeDeclaration =
 
 GenericClause =
   generic_clause_preamble:('generic' '(')
-  InterfaceList?
+  InterfaceList
   generic_clause_epilogue:(')' ';')
 
 GenericMapAspect =
@@ -379,7 +379,7 @@ Mode =
 
 PortClause =
   port_clause_preamble:('port' '(')
-  InterfaceList?
+  InterfaceList
   port_clause_epilogue:(')' ';')
 
 PortMapAspect =
@@ -869,11 +869,11 @@ SelectedForceAssignment =
   SelectedExpressions
   ';'
 
-SelectedWaveform =
+SelectedWaveformItem =
   Waveform 'when' Choices
 
 SelectedWaveforms =
-  SelectedWaveform (',' SelectedWaveform)*
+  SelectedWaveformItem (',' SelectedWaveformItem)*
 
 SelectedSignalAssignment =
   SelectedWaveformAssignment | SelectedForceAssignment

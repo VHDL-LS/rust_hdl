@@ -40,7 +40,7 @@ ConcurrentSelectedSignalAssignment
   TransportDelayMechanism
     Keyword(Transport)
   SelectedWaveforms
-    SelectedWaveform
+    SelectedWaveformItem
       WaveformElements
         WaveformElement
           NameExpression

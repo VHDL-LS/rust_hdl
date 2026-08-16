@@ -8460,7 +8460,7 @@ impl AstNode for GenericClauseSyntax {
                 kind: LayoutItemKind::Node(NodeKind::GenericClausePreamble),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "interface_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
@@ -13447,7 +13447,7 @@ impl AstNode for PortClauseSyntax {
                 kind: LayoutItemKind::Node(NodeKind::PortClausePreamble),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "interface_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
@@ -15926,56 +15926,6 @@ impl SelectedVariableAssignmentSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct SelectedWaveformSyntax(pub(crate) SyntaxNode);
-impl AstNode for SelectedWaveformSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::SelectedWaveform,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "waveform",
-                kind: LayoutItemKind::NodeChoice(&[
-                    NodeKind::WaveformElements,
-                    NodeKind::UnaffectedWaveform,
-                ]),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "when",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "choices",
-                kind: LayoutItemKind::Node(NodeKind::Choices),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        SelectedWaveformSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SelectedWaveformSyntax {
-    pub fn waveform(&self) -> Option<WaveformSyntax> {
-        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
-    }
-    pub fn when_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
-            .nth(0)
-    }
-    pub fn choices(&self) -> Option<ChoicesSyntax> {
-        self.0.children().filter_map(ChoicesSyntax::cast).nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct SelectedWaveformAssignmentSyntax(pub(crate) SyntaxNode);
 impl AstNode for SelectedWaveformAssignmentSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -16077,6 +16027,56 @@ impl SelectedWaveformAssignmentSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct SelectedWaveformItemSyntax(pub(crate) SyntaxNode);
+impl AstNode for SelectedWaveformItemSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SelectedWaveformItem,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "waveform",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::WaveformElements,
+                    NodeKind::UnaffectedWaveform,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "when",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::When)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "choices",
+                kind: LayoutItemKind::Node(NodeKind::Choices),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SelectedWaveformItemSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SelectedWaveformItemSyntax {
+    pub fn waveform(&self) -> Option<WaveformSyntax> {
+        self.0.children().filter_map(WaveformSyntax::cast).nth(0)
+    }
+    pub fn when_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
+            .nth(0)
+    }
+    pub fn choices(&self) -> Option<ChoicesSyntax> {
+        self.0.children().filter_map(ChoicesSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub struct SelectedWaveformsSyntax(pub(crate) SyntaxNode);
 impl AstNode for SelectedWaveformsSyntax {
     const META: &'static Layout = &Layout::List(List {
@@ -16084,8 +16084,8 @@ impl AstNode for SelectedWaveformsSyntax {
         element: &LayoutItem {
             optional: false,
             repeated: true,
-            name: "selected_waveforms",
-            kind: LayoutItemKind::Node(NodeKind::SelectedWaveform),
+            name: "selected_waveform_items",
+            kind: LayoutItemKind::Node(NodeKind::SelectedWaveformItem),
         },
         separator: &LayoutItem {
             optional: false,
@@ -16102,8 +16102,12 @@ impl AstNode for SelectedWaveformsSyntax {
     }
 }
 impl SelectedWaveformsSyntax {
-    pub fn selected_waveforms(&self) -> impl Iterator<Item = SelectedWaveformSyntax> + use<'_> {
-        self.0.children().filter_map(SelectedWaveformSyntax::cast)
+    pub fn selected_waveform_items(
+        &self,
+    ) -> impl Iterator<Item = SelectedWaveformItemSyntax> + use<'_> {
+        self.0
+            .children()
+            .filter_map(SelectedWaveformItemSyntax::cast)
     }
     pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0

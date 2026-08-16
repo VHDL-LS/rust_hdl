@@ -455,12 +455,6 @@ impl Parser {
     pub fn process_sensitivity_list(&mut self) {
         self.start_node(ParenthesizedProcessSensitivityList);
         self.expect_token(LeftPar);
-        if self.next_is(RightPar) {
-            // This is illegal, but considered only at the analysis stage
-            self.skip();
-            self.end_node();
-            return;
-        }
         if self.next_is(Keyword(Kw::All)) {
             self.skip_into_node(AllSensitivityList);
         } else {

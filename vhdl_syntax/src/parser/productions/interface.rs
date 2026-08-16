@@ -6,8 +6,30 @@
 
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
+use crate::syntax::NodeKind;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
+
+struct PortOrGenericSpec {
+    pub node_kind: NodeKind,
+    pub preamble_kind: NodeKind,
+    pub epilogue_kind: NodeKind,
+    pub keyword: Kw,
+}
+
+const PORT_SPEC: PortOrGenericSpec = PortOrGenericSpec {
+    node_kind: PortClause,
+    preamble_kind: PortClausePreamble,
+    epilogue_kind: PortClauseEpilogue,
+    keyword: Kw::Port,
+};
+
+const GENERIC_SPEC: PortOrGenericSpec = PortOrGenericSpec {
+    node_kind: GenericClause,
+    preamble_kind: GenericClausePreamble,
+    epilogue_kind: GenericClauseEpilogue,
+    keyword: Kw::Generic,
+};
 
 impl Parser {
     pub(crate) fn opt_generic_clause(&mut self) {
@@ -17,18 +39,7 @@ impl Parser {
     }
 
     pub fn generic_clause(&mut self) {
-        self.start_node(GenericClause);
-        self.start_node(GenericClausePreamble);
-        self.expect_kw(Kw::Generic);
-        self.expect_token(LeftPar);
-        self.end_node();
-        if !(self.next_is(RightPar)) {
-            self.interface_list();
-        }
-        self.start_node(GenericClauseEpilogue);
-        self.expect_tokens([RightPar, SemiColon]);
-        self.end_node();
-        self.end_node();
+        self.port_or_generic_clause(GENERIC_SPEC);
     }
 
     pub fn opt_port_clause(&mut self) {
@@ -38,15 +49,17 @@ impl Parser {
     }
 
     pub fn port_clause(&mut self) {
-        self.start_node(PortClause);
-        self.start_node(PortClausePreamble);
-        self.expect_kw(Kw::Port);
+        self.port_or_generic_clause(PORT_SPEC);
+    }
+
+    fn port_or_generic_clause(&mut self, kind: PortOrGenericSpec) {
+        self.start_node(kind.node_kind);
+        self.start_node(kind.preamble_kind);
+        self.expect_kw(kind.keyword);
         self.expect_token(LeftPar);
         self.end_node();
-        if !(self.next_is(RightPar)) {
-            self.interface_list();
-        }
-        self.start_node(PortClauseEpilogue);
+        self.interface_list();
+        self.start_node(kind.epilogue_kind);
         self.expect_tokens([RightPar, SemiColon]);
         self.end_node();
         self.end_node();
@@ -447,16 +460,6 @@ signal foo : in std_logic;
 constant bar : natural;
 variable xyz : var"
         ));
-    }
-
-    #[test]
-    fn empty_generic_clause() {
-        insta::assert_snapshot!(to_test_text(Parser::generic_clause, "generic();",));
-    }
-
-    #[test]
-    fn empty_port_clause() {
-        insta::assert_snapshot!(to_test_text(Parser::port_clause, "port();",));
     }
 
     #[test]

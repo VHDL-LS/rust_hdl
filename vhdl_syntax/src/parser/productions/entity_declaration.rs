@@ -85,47 +85,7 @@ end my_ent;
     }
 
     #[test]
-    fn parse_entity_with_generics() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::entity_declaration,
-            "\
-entity my_ent is
-    generic();
-begin
-end my_ent;
-",
-        ));
-    }
-
-    #[test]
-    fn parse_entity_with_ports() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::entity_declaration,
-            "\
-entity my_ent is
-    port();
-begin
-end my_ent;
-",
-        ));
-    }
-
-    #[test]
     fn parse_entity_with_generics_and_ports() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::entity_declaration,
-            "\
-entity my_ent is
-    generic();
-    port();
-begin
-end my_ent;
-",
-        ));
-    }
-
-    #[test]
-    fn parse_entity_with_filled_generics_and_ports() {
         insta::assert_snapshot!(to_test_text(
             Parser::entity_declaration,
             "\
