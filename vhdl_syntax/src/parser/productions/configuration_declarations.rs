@@ -127,9 +127,7 @@ impl Parser {
                     self.start_node_at(item_checkpoint, NodeKind::ComponentConfiguration);
                     self.start_node_at(item_checkpoint, NodeKind::ComponentConfigurationPreamble);
                     self.start_node(NodeKind::ComponentSpecification);
-                    self.start_node(NodeKind::InstantiationListList);
-                    self.separated_list(Parser::identifier, Comma);
-                    self.end_node();
+                    self.separated_list(NodeKind::InstantiationListList, Parser::identifier, Comma);
                     self.expect_token(Colon);
                     self.name();
                     self.end_node();

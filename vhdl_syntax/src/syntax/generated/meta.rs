@@ -99,6 +99,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::DesignUnit => DesignUnitSyntax::META,
         NodeKind::DisconnectionSpecification => DisconnectionSpecificationSyntax::META,
         NodeKind::ElementAssociation => ElementAssociationSyntax::META,
+        NodeKind::ElementAssociationList => ElementAssociationListSyntax::META,
         NodeKind::ElementChoices => ElementChoicesSyntax::META,
         NodeKind::ElementDeclaration => ElementDeclarationSyntax::META,
         NodeKind::ElementResolutionResolutionIndication => {
@@ -123,9 +124,11 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::EntityOpenAspect => EntityOpenAspectSyntax::META,
         NodeKind::EntitySpecification => EntitySpecificationSyntax::META,
         NodeKind::EntityStatementPart => EntityStatementPartSyntax::META,
+        NodeKind::EnumerationList => EnumerationListSyntax::META,
         NodeKind::EnumerationTypeDefinition => EnumerationTypeDefinitionSyntax::META,
         NodeKind::ExitStatement => ExitStatementSyntax::META,
         NodeKind::ExpressionChoice => ExpressionChoiceSyntax::META,
+        NodeKind::ExpressionList => ExpressionListSyntax::META,
         NodeKind::ExternalConstantName => ExternalConstantNameSyntax::META,
         NodeKind::ExternalSignalName => ExternalSignalNameSyntax::META,
         NodeKind::ExternalVariableName => ExternalVariableNameSyntax::META,
@@ -230,6 +233,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
             PackageInstantiationDeclarationPrimaryUnitSyntax::META
         }
         NodeKind::PackageInstantiationPreamble => PackageInstantiationPreambleSyntax::META,
+        NodeKind::PackagePath => PackagePathSyntax::META,
         NodeKind::PackagePathname => PackagePathnameSyntax::META,
         NodeKind::PackagePreamble => PackagePreambleSyntax::META,
         NodeKind::ParameterList => ParameterListSyntax::META,

@@ -19,8 +19,6 @@ impl Parser {
     }
 
     pub fn identifier_list(&mut self) {
-        self.start_node(IdentifierList);
-        self.separated_list(Parser::identifier, Comma);
-        self.end_node();
+        self.separated_list(IdentifierList, Parser::identifier, Comma);
     }
 }

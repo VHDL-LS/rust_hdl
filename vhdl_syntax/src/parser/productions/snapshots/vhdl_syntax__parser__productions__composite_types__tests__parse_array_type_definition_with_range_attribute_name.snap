@@ -10,13 +10,14 @@ FullTypeDeclaration
     Keyword(Array)
     IndexConstraint
       LeftPar
-      NameExpression
-        Name
-          NameDesignatorPrefix
-            Identifier 'arr_t'
-          AttributeName
-            Tick
-            Keyword(Range)
+      ExpressionList
+        NameExpression
+          Name
+            NameDesignatorPrefix
+              Identifier 'arr_t'
+            AttributeName
+              Tick
+              Keyword(Range)
       RightPar
     Keyword(Of)
     SubtypeIndication

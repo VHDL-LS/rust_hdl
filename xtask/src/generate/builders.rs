@@ -10,8 +10,8 @@ use crate::generate::naming::{
 };
 use crate::generate::Generator;
 use crate::model::{
-    Cardinality, ChoiceNode, Field, Model, Node, NodeKind, NodeOrTokenKind, NodesOrTokens,
-    SequenceNode, TokenKind,
+    Cardinality, ChoiceNode, Field, ListNode, Model, Node, NodeKind, NodeOrTokenKind,
+    NodesOrTokens, SequenceNode, TokenKind,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -49,6 +49,22 @@ impl Generator for BuilderGenerator {
             sequence_nodes
                 .iter()
                 .map(|node| generate_builder(node, model, &defaultable)),
+        );
+
+        // List builders (e.g., `struct InterfaceListBuilder`)
+        let mut list_nodes: Vec<&ListNode> = model
+            .all_nodes()
+            .filter_map(|n| match n {
+                Node::List(list) => Some(list),
+                _ => None,
+            })
+            .collect();
+        list_nodes.sort_by_key(|n| &n.kind);
+
+        token_stream.extend(
+            list_nodes
+                .iter()
+                .map(|list| generate_list_builder(list, model)),
         );
 
         // Token builders (e.g., `struct ForceToken`)
@@ -485,6 +501,121 @@ fn generate_builder(
                 let mut builder = NodeBuilder::new();
                 builder.start_node(NodeKind::#kind);
                 #(#build_stmts)*
+                builder.end_node();
+                let green = builder.end();
+                let node = SyntaxNode::new_root(green);
+                #syntax::cast(node).unwrap()
+            }
+        }
+
+        impl From<#builder> for #syntax {
+            fn from(value: #builder) -> Self {
+                value.build()
+            }
+        }
+    }
+}
+
+// MARK: List builder
+
+/// How the builder for a list stores, accepts and emits one element.
+struct ElementShape {
+    /// The type a caller hands in, behind `impl Into<_>`.
+    ty: TokenStream,
+    /// How one stored element is pushed onto the `NodeBuilder`.
+    push: TokenStream,
+}
+
+fn element_shape(element: &Field, model: &Model) -> ElementShape {
+    match &element.kind {
+        NodeOrTokenKind::Token(kind) => match domain_type(kind) {
+            Some(domain) => ElementShape {
+                ty: domain,
+                push: quote! { builder.push(element.into()); },
+            },
+            None => ElementShape {
+                ty: quote! { Token },
+                push: quote! { builder.push(element); },
+            },
+        },
+        // A token-choice child is a thin wrapper around a raw token.
+        NodeOrTokenKind::Node(kind) if model.is_token_choice(kind) => {
+            let ty = token_type_ident(kind);
+            ElementShape {
+                ty: quote! { #ty },
+                push: quote! { builder.push(element.0); },
+            }
+        }
+        NodeOrTokenKind::Node(kind) => {
+            let ty = syntax_type_ident(kind);
+            ElementShape {
+                ty: quote! { #ty },
+                push: quote! { builder.push_node(element.raw().green().clone()); },
+            }
+        }
+    }
+}
+
+/// Generates the builder for a separated-list node.
+///
+/// The separator is synthesized from its canonical text and interleaved by `build()`, so a
+/// caller only ever supplies elements and cannot get the ordering wrong. A list that may not
+/// be empty takes its first element in `new()`, which is also what keeps it out of
+/// [`compute_defaultable_nodes`].
+fn generate_list_builder(list: &ListNode, model: &Model) -> TokenStream {
+    let builder = builder_ident(&list.kind);
+    let syntax = syntax_type_ident(&list.kind);
+    let kind = node_kind_ident(&list.kind);
+
+    let separator_kind = list
+        .separator
+        .as_token_kind()
+        .unwrap_or_else(|| panic!("separator of list {} is not a token", list.kind));
+    assert!(
+        has_canonical_text(separator_kind),
+        "separator {separator_kind:?} of list {} has no canonical text, so `build()` cannot \
+         synthesize it",
+        list.kind
+    );
+    let separator_expr = token_default_expr(separator_kind);
+
+    let ElementShape { ty, push } = element_shape(&list.element, model);
+
+    quote! {
+        pub struct #builder {
+            elements: Vec<#ty>,
+        }
+
+        impl #builder {
+            pub fn new(first: impl Into<#ty>) -> Self {
+                Self { elements: vec![first.into()] }
+            }
+
+            pub fn push(mut self, element: impl Into<#ty>) -> Self {
+                self.elements.push(element.into());
+                self
+            }
+
+            pub fn extend(mut self, elements: impl IntoIterator<Item = impl Into<#ty>>) -> Self {
+                self.elements.extend(elements.into_iter().map(|e| e.into()));
+                self
+            }
+
+            pub fn build(self) -> #syntax {
+                let mut builder = NodeBuilder::new();
+                builder.start_node(NodeKind::#kind);
+                let mut first = true;
+                for element in self.elements {
+                    if !first {
+                        // Trivia is leading, so whitespace *after* a separator belongs to the
+                        // next element; the separator itself carries none.
+                        let mut separator = #separator_expr;
+                        separator.set_leading_trivia(Trivia::default());
+                        builder.push(separator);
+                    }
+                    first = false;
+                    #push
+                }
                 builder.end_node();
                 let green = builder.end();
                 let node = SyntaxNode::new_root(green);

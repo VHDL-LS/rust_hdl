@@ -1,7 +1,11 @@
 ---
 source: vhdl_syntax/src/parser/productions/interface.rs
-expression: "to_test_text(Parser::generic_clause, \"generic();\",)"
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
 ---
+== source ==
+generic();
+
+== tree ==
 GenericClause
   GenericClausePreamble
     Keyword(Generic)
@@ -9,3 +13,6 @@ GenericClause
   GenericClauseEpilogue
     RightPar
     SemiColon
+
+== diagnostics ==
+1:9 Expected([Keyword(Signal), Keyword(Constant), Keyword(Variable), Identifier, Keyword(File), Keyword(Type), Keyword(Function), Keyword(Procedure), Keyword(Impure), Keyword(Pure), Keyword(Package)])

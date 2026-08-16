@@ -101,9 +101,7 @@ impl Parser {
         self.start_node(SubprogramHeaderGenericClause);
         self.expect_kw(Kw::Generic);
         self.expect_token(LeftPar);
-        if !(self.next_is(RightPar)) {
-            self.interface_list();
-        }
+        self.interface_list();
         self.expect_token(RightPar);
         self.end_node();
     }

@@ -1,10 +1,17 @@
 ---
 source: vhdl_syntax/src/parser/productions/names.rs
-expression: "name_to_test_text(\"foo()\")"
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
 ---
+== source ==
+foo()
+
+== tree ==
 Name
   NameDesignatorPrefix
     Identifier 'foo'
   ParenthesizedName
     LeftPar
     RightPar
+
+== diagnostics ==
+1:5 Expected([Identifier, LtLt, BitStringLiteral, CharacterLiteral, StringLiteral, Keyword(Null), AbstractLiteral, LeftPar, Keyword(New)])

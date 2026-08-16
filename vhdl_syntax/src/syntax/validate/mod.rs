@@ -40,13 +40,16 @@ impl SyntaxNode {
 
 #[cfg(test)]
 mod tests {
+    use crate::fmt::write::FormatToExt;
     use crate::parser::builder::NodeBuilder;
     use crate::parser::{parse, parse_syntax, Parser};
     use crate::syntax::meta::LayoutItemKind;
     use crate::syntax::node::{SyntaxElement, SyntaxNode};
     use crate::syntax::node_kind::NodeKind;
     use crate::syntax::validate::error::Validation;
+    use crate::syntax::validate::validator::check_node;
     use crate::syntax::AstNode;
+    use crate::syntax::{InterfaceDeclarationSyntax, InterfaceListBuilder};
     use crate::tokens::{Keyword, Token, TokenKind, Trivia};
 
     fn tok(kind: TokenKind, text: &[u8]) -> Token {
@@ -109,9 +112,8 @@ mod tests {
 
     #[test]
     fn separated_list_with_multiple_elements_passes() {
-        // A port list `(clk : in bit; rst : in bit)` is an interleaved separated
-        // list `decl ; decl`, encoded as adjacent repeated items `[decl*, sep*]`.
-        // The cursor's repeated-run rewind must keep every member matchable.
+        // A port list `(clk : in bit; rst : in bit)` is an `InterfaceList`, which has a
+        // `Layout::List` and is therefore matched by `match_list`, not `match_children`.
         let (node, diagnostics) = parse(
             r#"
 entity foo is
@@ -124,6 +126,156 @@ end entity foo;
         );
         assert!(diagnostics.is_empty());
         assert!(&node.raw().validate().is_ok());
+    }
+
+    #[test]
+    fn adjacent_repeated_items_in_grammar_order_pass() {
+        let (node, diagnostics) = parse(
+            r#"
+configuration cfg of ent is
+    for rtl
+        use work.pkg.all;
+        use work.other.all;
+        for inst : comp
+            use entity work.e;
+        end for;
+        for other_inst : comp
+            use entity work.f;
+        end for;
+    end for;
+end configuration cfg;
+            "#,
+        );
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        assert!(node.raw().validate().is_ok());
+    }
+
+    // --- separated-list tests ---
+
+    /// Build an `InterfaceList` from a compact spec: `e` is an element, `;` a separator,
+    /// `x` a token that neither slot accepts. The elements are deliberately not valid
+    /// `InterfaceObjectDeclaration`s — these tests drive [`check_node`] directly so only
+    /// the list's own alternation is under test.
+    fn interface_list(spec: &str) -> SyntaxNode {
+        let mut b = NodeBuilder::new();
+        b.start_node(NodeKind::InterfaceList);
+        for (i, ch) in spec.chars().enumerate() {
+            match ch {
+                'e' => {
+                    let mut inner = NodeBuilder::new();
+                    inner.start_node(NodeKind::InterfaceObjectDeclaration);
+                    inner.push(tok(TokenKind::Identifier, format!("x{i}").as_bytes()));
+                    inner.end_node();
+                    b.push_node(inner.end());
+                }
+                ';' => b.push(tok(TokenKind::SemiColon, b";")),
+                'x' => b.push(tok(TokenKind::Comma, b",")),
+                other => panic!("bad spec char {other}"),
+            }
+        }
+        b.end_node();
+        SyntaxNode::new_root(b.end())
+    }
+
+    fn list_findings(spec: &str) -> Vec<Validation> {
+        let mut err = crate::syntax::validate::error::ValidationError::new();
+        check_node(&interface_list(spec), &mut err);
+        err.items().to_vec()
+    }
+
+    #[test]
+    fn well_formed_list_passes() {
+        assert!(list_findings("e").is_empty());
+        assert!(list_findings("e;e").is_empty());
+        assert!(list_findings("e;e;e").is_empty());
+    }
+
+    /// The whole point of the `List` layout: two adjacent repeated items could not tell
+    /// `a; b` from `a b`, because both are "some elements and some separators".
+    #[test]
+    fn adjacent_elements_report_a_missing_separator() {
+        let findings = list_findings("ee");
+        assert_eq!(findings.len(), 1);
+        match &findings[0] {
+            Validation::Missing(missing) => assert!(matches!(
+                missing.kind(),
+                LayoutItemKind::Token(TokenKind::SemiColon)
+            )),
+            other => panic!("expected a missing separator, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn adjacent_separators_report_a_missing_element() {
+        let findings = list_findings("e;;e");
+        assert_eq!(findings.len(), 1);
+        match &findings[0] {
+            Validation::Missing(missing) => {
+                assert!(matches!(missing.kind(), LayoutItemKind::NodeChoice(_)))
+            }
+            other => panic!("expected a missing element, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn trailing_separator_reports_a_missing_element() {
+        let findings = list_findings("e;e;");
+        assert_eq!(findings.len(), 1);
+        match &findings[0] {
+            Validation::Missing(missing) => {
+                assert!(matches!(missing.kind(), LayoutItemKind::NodeChoice(_)));
+                // The anchor is the dangling separator.
+                match missing.previous().expect("anchored on the separator") {
+                    SyntaxElement::Token(t) => assert_eq!(t.kind(), TokenKind::SemiColon),
+                    other => panic!("expected the separator token, got {other:?}"),
+                }
+            }
+            other => panic!("expected a missing element, got {other:?}"),
+        }
+    }
+
+    /// An empty list node never reaches the tree: `NodeBuilder::end_node` drops any node
+    /// that gained no children, so an empty-capable list shows up as *absent* from its
+    /// parent rather than as an empty node.
+    #[test]
+    fn empty_list_node_is_dropped_rather_than_built() {
+        let mut b = NodeBuilder::new();
+        b.start_node(NodeKind::InterfaceList);
+        b.end_node();
+        assert!(
+            std::panic::catch_unwind(move || b.end()).is_err(),
+            "an empty list node should not have been produced"
+        );
+    }
+
+    #[test]
+    fn foreign_child_in_a_list_is_extraneous() {
+        let findings = list_findings("e;ex");
+        assert_eq!(findings.len(), 1);
+        assert!(matches!(
+            &findings[0],
+            Validation::Extraneous(SyntaxElement::Token(_))
+        ));
+    }
+
+    /// The generated list builder interleaves separators itself, so a caller cannot
+    /// produce the `a b ;` ordering the old two-repeated-fields builder emitted.
+    #[test]
+    fn generated_list_builder_interleaves_separators() {
+        let (declaration, diagnostics) =
+            parse_syntax("clk : in bit", Parser::interface_declaration);
+        assert!(diagnostics.is_empty());
+        let element = InterfaceDeclarationSyntax::cast(declaration).expect("an interface decl");
+
+        let list = InterfaceListBuilder::new(element.clone())
+            .push(element)
+            .build();
+
+        assert_eq!(
+            list.raw().display().to_string(),
+            "clk : in bit;clk : in bit"
+        );
+        assert!(list.raw().validate().is_ok());
     }
 
     // --- missing-element tests ---

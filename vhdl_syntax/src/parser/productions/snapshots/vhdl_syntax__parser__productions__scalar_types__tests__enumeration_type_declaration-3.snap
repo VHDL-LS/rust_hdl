@@ -8,8 +8,9 @@ FullTypeDeclaration
   Keyword(Is)
   EnumerationTypeDefinition
     LeftPar
-    CharacterLiteral ''A''
-    Comma
-    CharacterLiteral ''B''
+    EnumerationList
+      CharacterLiteral ''A''
+      Comma
+      CharacterLiteral ''B''
     RightPar
   SemiColon

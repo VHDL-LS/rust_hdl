@@ -46,6 +46,7 @@ where
     fn can_cast(node: &SyntaxNode) -> bool {
         match Self::META {
             Layout::Sequence(seq) => node.kind() == seq.kind,
+            Layout::List(list) => node.kind() == list.kind,
             Layout::Choice(choice) => choice.options.contains(&node.kind()),
         }
     }

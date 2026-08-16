@@ -11,11 +11,12 @@ FullTypeDeclaration
   Identifier 'state_t'
   EnumerationTypeDefinition
     LeftPar
-    Identifier 'idle'
-    Comma
-    Identifier 'running'
-    Comma
-    Identifier 'done'
+    EnumerationList
+      Identifier 'idle'
+      Comma
+      Identifier 'running'
+      Comma
+      Identifier 'done'
     RightPar
   SemiColon
 

@@ -40,7 +40,7 @@ impl Parser {
     pub fn enumeration_type_definition(&mut self) {
         self.start_node(EnumerationTypeDefinition);
         self.expect_token(LeftPar);
-        self.separated_list(Parser::enumeration_literal, Comma);
+        self.separated_list(EnumerationList, Parser::enumeration_literal, Comma);
         self.expect_token(RightPar);
         self.end_node();
     }

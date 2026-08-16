@@ -97,9 +97,7 @@ impl Parser {
     }
 
     pub(crate) fn name_list(&mut self) {
-        self.start_node(NameList);
-        self.separated_list(Parser::name, Comma);
-        self.end_node();
+        self.separated_list(NameList, Parser::name, Comma);
     }
 
     fn suffix(&mut self) {
@@ -125,9 +123,7 @@ impl Parser {
             LeftPar => {
                 self.start_node(ParenthesizedName);
                 self.expect_token(LeftPar);
-                if !self.next_is(RightPar) {
-                    self.association_list();
-                }
+                self.association_list();
                 self.expect_token(RightPar);
                 self.end_node();
                 true
@@ -181,10 +177,7 @@ impl Parser {
         CommAt => {
             self.start_node(PackagePathname);
             self.skip();
-            self.identifier();
-            while self.opt_token(Dot) {
-                self.identifier();
-            }
+            self.separated_list(PackagePath, Parser::identifier, Dot);
         },
         Dot => {
             self.start_node(AbsolutePathname);
@@ -207,9 +200,7 @@ impl Parser {
     fn partial_pathname(&mut self) {
         // LRM §8.7
         // partial_pathname ::= { pathname_element `.` } object_simple_name ;
-        self.start_node(PartialPathname);
-        self.separated_list(Parser::pathname_element, Dot);
-        self.end_node();
+        self.separated_list(PartialPathname, Parser::pathname_element, Dot);
     }
 
     fn pathname_element(&mut self) {
@@ -226,9 +217,7 @@ impl Parser {
     }
 
     pub fn choices(&mut self) {
-        self.start_node(Choices);
-        self.separated_list(Parser::choice, Bar);
-        self.end_node();
+        self.separated_list(Choices, Parser::choice, Bar);
     }
 
     pub fn choice(&mut self) {
@@ -365,6 +354,6 @@ mod tests {
 
     #[test]
     fn empty_association_list() {
-        insta::assert_snapshot!(name_to_test_text("foo()"));
+        assert_recovery_snapshot!("foo()", Parser::name);
     }
 }

@@ -8,9 +8,10 @@ Name
     Keyword(Signal)
     PackagePathname
       CommAt
-      Identifier 'lib'
-      Dot
-      Identifier 'pkg'
+      PackagePath
+        Identifier 'lib'
+        Dot
+        Identifier 'pkg'
     Colon
     SubtypeIndication
       Name

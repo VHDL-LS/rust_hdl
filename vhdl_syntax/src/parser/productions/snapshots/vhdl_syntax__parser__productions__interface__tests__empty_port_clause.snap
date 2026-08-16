@@ -1,7 +1,11 @@
 ---
 source: vhdl_syntax/src/parser/productions/interface.rs
-expression: "to_test_text(Parser::port_clause, \"port();\",)"
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
 ---
+== source ==
+port();
+
+== tree ==
 PortClause
   PortClausePreamble
     Keyword(Port)
@@ -9,3 +13,6 @@ PortClause
   PortClauseEpilogue
     RightPar
     SemiColon
+
+== diagnostics ==
+1:6 Expected([Keyword(Signal), Keyword(Constant), Keyword(Variable), Identifier, Keyword(File), Keyword(Type), Keyword(Function), Keyword(Procedure), Keyword(Impure), Keyword(Pure), Keyword(Package)])

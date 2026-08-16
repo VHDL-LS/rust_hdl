@@ -18,9 +18,11 @@ impl Parser {
         if box_found {
             self.start_node_at(checkpoint, UnboundedArrayDefinition);
             self.expect_token(LeftPar);
-            self.start_node(IndexSubtypeDefinitionList);
-            self.separated_list(Parser::index_subtype_definition, Comma);
-            self.end_node();
+            self.separated_list(
+                IndexSubtypeDefinitionList,
+                Parser::index_subtype_definition,
+                Comma,
+            );
             self.expect_token(RightPar);
         } else {
             self.start_node_at(checkpoint, ConstrainedArrayDefinition);
@@ -69,7 +71,7 @@ impl Parser {
     pub fn index_constraint(&mut self) {
         self.start_node(IndexConstraint);
         self.expect_token(LeftPar);
-        self.separated_list(Parser::expression, Comma);
+        self.separated_list(ExpressionList, Parser::expression, Comma);
         self.expect_token(RightPar);
         self.end_node();
     }

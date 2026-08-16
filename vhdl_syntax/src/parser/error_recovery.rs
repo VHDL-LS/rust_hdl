@@ -121,13 +121,9 @@ impl Parser {
     }
 }
 
-/// set of whatever follows the `expected` slot inside `node`'s layout.
-fn continuation_first(node: NodeKind, expected: &[TokenKind]) -> Vec<TokenKind> {
-    let Layout::Sequence(seq) = layout_of(node) else {
-        return Vec::new();
-    };
-
-    let Some(pos) = seq.items.iter().position(|item| match item.kind {
+/// Whether `item` is the slot that `expected` is being parsed into
+fn item_is_expected(item: &LayoutItem, expected: &[TokenKind]) -> bool {
+    match item.kind {
         LayoutItemKind::Token(k) => expected.contains(&k),
         LayoutItemKind::TokenChoice(ks) => ks.iter().any(|k| expected.contains(k)),
         LayoutItemKind::Node(_) | LayoutItemKind::NodeChoice(_) => {
@@ -136,20 +132,45 @@ fn continuation_first(node: NodeKind, expected: &[TokenKind]) -> Vec<TokenKind> 
             first_of_item(item, &mut first, &mut visited);
             !expected.is_empty() && expected.iter().all(|k| first.contains(k))
         }
-    }) else {
-        return Vec::new();
-    };
-
-    let mut acc = Vec::new();
-    let mut visited = Vec::new();
-    for item in &seq.items[pos + 1..] {
-        first_of_item(item, &mut acc, &mut visited);
-        // A mandatory item bounds the continuation: nothing past it can come next.
-        if !item.optional {
-            break;
-        }
     }
-    acc
+}
+
+/// set of whatever follows the `expected` slot inside `node`'s layout
+fn continuation_first(node: NodeKind, expected: &[TokenKind]) -> Vec<TokenKind> {
+    match layout_of(node) {
+        Layout::Sequence(seq) => {
+            let Some(pos) = seq
+                .items
+                .iter()
+                .position(|item| item_is_expected(item, expected))
+            else {
+                return Vec::new();
+            };
+
+            let mut acc = Vec::new();
+            let mut visited = Vec::new();
+            for item in &seq.items[pos + 1..] {
+                first_of_item(item, &mut acc, &mut visited);
+                if !item.optional {
+                    break;
+                }
+            }
+            acc
+        }
+        // In `element (separator element)*` the two slots continue each other: an element is
+        // followed by a separator and a separator by the next element
+        Layout::List(list) => {
+            let mut acc = Vec::new();
+            let mut visited = Vec::new();
+            if item_is_expected(list.element, expected) {
+                first_of_item(list.separator, &mut acc, &mut visited);
+            } else if item_is_expected(list.separator, expected) {
+                first_of_item(list.element, &mut acc, &mut visited);
+            }
+            acc
+        }
+        Layout::Choice(_) => Vec::new(),
+    }
 }
 
 /// Accumulate the FIRST tokens of a single layout item into `acc`.
@@ -187,6 +208,9 @@ fn first_of_node(node: NodeKind, acc: &mut Vec<TokenKind>, visited: &mut Vec<Nod
                 }
             }
         }
+        Layout::List(list) => {
+            first_of_item(list.element, acc, visited);
+        }
     }
 }
 
@@ -201,6 +225,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::InstantiationListList
         | NodeKind::InstantiationListOthers
         | NodeKind::PackagePathname
+        | NodeKind::PackagePath
         | NodeKind::PartialPathname
         | NodeKind::RelativePathname
         | NodeKind::SignalListAll
@@ -244,7 +269,10 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::RecordResolution
         | NodeKind::RecordResolutionElementResolution
         | NodeKind::ResolutionIndicationElementResolution
-        | NodeKind::SensitivityList => &[RightPar],
+        | NodeKind::SensitivityList
+        | NodeKind::ExpressionList
+        | NodeKind::EnumerationList
+        | NodeKind::ElementAssociationList => &[RightPar],
         NodeKind::ArchitectureBody
         | NodeKind::ArchitectureEpilogue
         | NodeKind::ConfigurationDeclaration

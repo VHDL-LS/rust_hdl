@@ -6,21 +6,22 @@ ActualPart
   ActualPartExpression
     ParenthesizedExpressionOrAggregate
       LeftPar
-      ElementAssociation
-        NameExpression
-          Name
-            NameDesignatorPrefix
-              Identifier 'a'
-      Comma
-      ElementAssociation
-        NameExpression
-          Name
-            NameDesignatorPrefix
-              Identifier 'b'
-      Comma
-      ElementAssociation
-        NameExpression
-          Name
-            NameDesignatorPrefix
-              Identifier 'c'
+      ElementAssociationList
+        ElementAssociation
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'a'
+        Comma
+        ElementAssociation
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'b'
+        Comma
+        ElementAssociation
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'c'
       RightPar

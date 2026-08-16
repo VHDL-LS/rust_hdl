@@ -455,12 +455,6 @@ impl Parser {
     pub fn process_sensitivity_list(&mut self) {
         self.start_node(ParenthesizedProcessSensitivityList);
         self.expect_token(LeftPar);
-        if self.next_is(RightPar) {
-            // This is illegal, but considered only at the analysis stage
-            self.skip();
-            self.end_node();
-            return;
-        }
         if self.next_is(Keyword(Kw::All)) {
             self.skip_into_node(AllSensitivityList);
         } else {
@@ -471,9 +465,7 @@ impl Parser {
     }
 
     pub fn sensitivity_list(&mut self) {
-        self.start_node(SensitivityList);
-        self.separated_list(Parser::name, Comma);
-        self.end_node();
+        self.separated_list(SensitivityList, Parser::name, Comma);
     }
 }
 
@@ -563,6 +555,17 @@ end block;",
     }
 
     #[test]
+    fn process_statement_with_empty_sensitivity_list() {
+        assert_recovery_snapshot!(
+            "\
+process()
+begin
+end process;",
+            Parser::concurrent_statement
+        );
+    }
+
+    #[test]
     fn process_statement() {
         insta::assert_snapshot!(stmt_to_test_text(
             "\
@@ -617,16 +620,6 @@ end postponed process;",
         insta::assert_snapshot!(stmt_to_test_text(
             "\
 process (clk, vec(1)) is
-begin
-end process;",
-        ))
-    }
-
-    #[test]
-    fn process_empty_sensitivity() {
-        insta::assert_snapshot!(stmt_to_test_text(
-            "\
-process () is
 begin
 end process;",
         ))

@@ -201,7 +201,7 @@ impl Parser {
 
     pub(crate) fn aggregate_inner(&mut self) {
         self.expect_token(LeftPar);
-        self.separated_list(Parser::element_association, Comma);
+        self.separated_list(ElementAssociationList, Parser::element_association, Comma);
         self.expect_token(RightPar);
     }
 
@@ -286,9 +286,7 @@ impl Parser {
     }
 
     pub fn selected_expressions(&mut self) {
-        self.start_node(SelectedExpressions);
-        self.separated_list(Parser::selected_expression, Comma);
-        self.end_node();
+        self.separated_list(SelectedExpressions, Parser::selected_expression, Comma);
     }
 
     fn selected_expression(&mut self) {

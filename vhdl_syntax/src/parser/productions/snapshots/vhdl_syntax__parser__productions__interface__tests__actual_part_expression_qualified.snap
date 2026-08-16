@@ -11,15 +11,16 @@ ActualPart
       Tick
       ParenthesizedExpressionOrAggregate
         LeftPar
-        ElementAssociation
-          LiteralExpression
-            AbstractLiteral '1'
-        Comma
-        ElementAssociation
-          LiteralExpression
-            AbstractLiteral '2'
-        Comma
-        ElementAssociation
-          LiteralExpression
-            AbstractLiteral '3'
+        ElementAssociationList
+          ElementAssociation
+            LiteralExpression
+              AbstractLiteral '1'
+          Comma
+          ElementAssociation
+            LiteralExpression
+              AbstractLiteral '2'
+          Comma
+          ElementAssociation
+            LiteralExpression
+              AbstractLiteral '3'
         RightPar

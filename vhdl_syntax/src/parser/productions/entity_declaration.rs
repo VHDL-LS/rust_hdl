@@ -85,47 +85,7 @@ end my_ent;
     }
 
     #[test]
-    fn parse_entity_with_generics() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::entity_declaration,
-            "\
-entity my_ent is
-    generic();
-begin
-end my_ent;
-",
-        ));
-    }
-
-    #[test]
-    fn parse_entity_with_ports() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::entity_declaration,
-            "\
-entity my_ent is
-    port();
-begin
-end my_ent;
-",
-        ));
-    }
-
-    #[test]
     fn parse_entity_with_generics_and_ports() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::entity_declaration,
-            "\
-entity my_ent is
-    generic();
-    port();
-begin
-end my_ent;
-",
-        ));
-    }
-
-    #[test]
-    fn parse_entity_with_filled_generics_and_ports() {
         insta::assert_snapshot!(to_test_text(
             Parser::entity_declaration,
             "\
@@ -185,6 +145,51 @@ entity uart is
     clk : in std_logic;
     rst : in std_logic
 end entity;",
+            Parser::entity_declaration
+        );
+    }
+
+    /// An empty `generic ()` / `port ()` is a syntax error now that an `InterfaceList` cannot
+    /// be empty. Each empty clause must cost exactly one diagnostic and leave the rest of the
+    /// entity — including the second clause — parsed as usual.
+    #[test]
+    fn parse_entity_with_empty_generics() {
+        assert_recovery_snapshot!(
+            "\
+entity my_ent is
+    generic();
+begin
+end my_ent;
+",
+            Parser::entity_declaration
+        );
+    }
+
+    /// See [`parse_entity_with_empty_generics`].
+    #[test]
+    fn parse_entity_with_empty_ports() {
+        assert_recovery_snapshot!(
+            "\
+entity my_ent is
+    port();
+begin
+end my_ent;
+",
+            Parser::entity_declaration
+        );
+    }
+
+    /// See [`parse_entity_with_empty_generics`].
+    #[test]
+    fn parse_entity_with_empty_generics_and_ports() {
+        assert_recovery_snapshot!(
+            "\
+entity my_ent is
+    generic();
+    port();
+begin
+end my_ent;
+",
             Parser::entity_declaration
         );
     }

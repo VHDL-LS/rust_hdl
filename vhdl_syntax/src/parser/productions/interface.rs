@@ -6,8 +6,30 @@
 
 use crate::parser::Parser;
 use crate::syntax::node_kind::NodeKind::*;
+use crate::syntax::NodeKind;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
+
+struct PortOrGenericSpec {
+    pub node_kind: NodeKind,
+    pub preamble_kind: NodeKind,
+    pub epilogue_kind: NodeKind,
+    pub keyword: Kw,
+}
+
+const PORT_SPEC: PortOrGenericSpec = PortOrGenericSpec {
+    node_kind: PortClause,
+    preamble_kind: PortClausePreamble,
+    epilogue_kind: PortClauseEpilogue,
+    keyword: Kw::Port,
+};
+
+const GENERIC_SPEC: PortOrGenericSpec = PortOrGenericSpec {
+    node_kind: GenericClause,
+    preamble_kind: GenericClausePreamble,
+    epilogue_kind: GenericClauseEpilogue,
+    keyword: Kw::Generic,
+};
 
 impl Parser {
     pub(crate) fn opt_generic_clause(&mut self) {
@@ -17,18 +39,7 @@ impl Parser {
     }
 
     pub fn generic_clause(&mut self) {
-        self.start_node(GenericClause);
-        self.start_node(GenericClausePreamble);
-        self.expect_kw(Kw::Generic);
-        self.expect_token(LeftPar);
-        self.end_node();
-        if !(self.next_is(RightPar)) {
-            self.interface_list();
-        }
-        self.start_node(GenericClauseEpilogue);
-        self.expect_tokens([RightPar, SemiColon]);
-        self.end_node();
-        self.end_node();
+        self.port_or_generic_clause(GENERIC_SPEC);
     }
 
     pub fn opt_port_clause(&mut self) {
@@ -38,24 +49,24 @@ impl Parser {
     }
 
     pub fn port_clause(&mut self) {
-        self.start_node(PortClause);
-        self.start_node(PortClausePreamble);
-        self.expect_kw(Kw::Port);
+        self.port_or_generic_clause(PORT_SPEC);
+    }
+
+    fn port_or_generic_clause(&mut self, spec: PortOrGenericSpec) {
+        self.start_node(spec.node_kind);
+        self.start_node(spec.preamble_kind);
+        self.expect_kw(spec.keyword);
         self.expect_token(LeftPar);
         self.end_node();
-        if !(self.next_is(RightPar)) {
-            self.interface_list();
-        }
-        self.start_node(PortClauseEpilogue);
+        self.interface_list();
+        self.start_node(spec.epilogue_kind);
         self.expect_tokens([RightPar, SemiColon]);
         self.end_node();
         self.end_node();
     }
 
     pub fn interface_list(&mut self) {
-        self.start_node(InterfaceList);
-        self.separated_list(Parser::interface_declaration, SemiColon);
-        self.end_node();
+        self.separated_list(InterfaceList, Parser::interface_declaration, SemiColon);
     }
 
     pub fn interface_declaration(&mut self) {
@@ -211,8 +222,8 @@ impl Parser {
     }
 
     pub fn association_list(&mut self) {
-        self.start_node(AssociationList);
         self.separated_list(
+            AssociationList,
             |parser| {
                 let end_of_element_idx =
                     match parser.lookahead_max_token_index(usize::MAX, [Comma, RightPar]) {
@@ -223,7 +234,6 @@ impl Parser {
             },
             Comma,
         );
-        self.end_node();
     }
 
     fn association_element_bounded(&mut self, max_index: usize) {
@@ -453,16 +463,6 @@ variable xyz : var"
     }
 
     #[test]
-    fn empty_generic_clause() {
-        insta::assert_snapshot!(to_test_text(Parser::generic_clause, "generic();",));
-    }
-
-    #[test]
-    fn empty_port_clause() {
-        insta::assert_snapshot!(to_test_text(Parser::port_clause, "port();",));
-    }
-
-    #[test]
     fn object_declaration() {
         insta::assert_snapshot!(to_test_text(
             Parser::interface_declaration,
@@ -609,6 +609,24 @@ package foo is new lib.pkg
     #[test]
     fn generic_clause_unclosed_paren() {
         assert_recovery_snapshot!("generic (width : integer", Parser::generic_clause);
+    }
+
+    #[test]
+    fn empty_generic_clause() {
+        assert_recovery_snapshot!("generic();", Parser::generic_clause);
+    }
+
+    #[test]
+    fn empty_port_clause() {
+        assert_recovery_snapshot!("port();", Parser::port_clause);
+    }
+
+    #[test]
+    fn interface_list_doubled_separator() {
+        assert_recovery_snapshot!(
+            "port (clk : in std_logic;; rst : in std_logic);",
+            Parser::port_clause
+        );
     }
 
     #[ignore = "missing list separator is silently mis-parsed (resolution-indication \

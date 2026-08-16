@@ -209,6 +209,7 @@ impl From<TokenKind> for Field {
 pub enum Node {
     Items(SequenceNode),
     Choices(ChoiceNode),
+    List(ListNode),
 }
 
 impl Node {
@@ -216,6 +217,7 @@ impl Node {
         match self {
             Node::Items(items) => &items.name,
             Node::Choices(choices) => &choices.name,
+            Node::List(list) => &list.kind,
         }
     }
 
@@ -232,7 +234,7 @@ impl Node {
     pub fn as_sequence(&self) -> Option<&SequenceNode> {
         match self {
             Node::Items(seq) => Some(seq),
-            Node::Choices(_) => None,
+            Node::Choices(_) | Node::List(_) => None,
         }
     }
 }
@@ -246,6 +248,12 @@ impl From<SequenceNode> for Node {
 impl From<ChoiceNode> for Node {
     fn from(value: ChoiceNode) -> Self {
         Node::Choices(value)
+    }
+}
+
+impl From<ListNode> for Node {
+    fn from(value: ListNode) -> Self {
+        Node::List(value)
     }
 }
 
@@ -292,6 +300,13 @@ impl FromIterator<TokenKind> for NodesOrTokens {
 pub struct ChoiceNode {
     pub name: NodeKind,
     pub items: NodesOrTokens,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct ListNode {
+    pub kind: NodeKind,
+    pub element: Field,
+    pub separator: Field,
 }
 
 #[derive(Debug, Default)]
@@ -427,6 +442,8 @@ impl Model {
                             }
                         }
                     }
+                    // Lists are never empty-capable
+                    Node::List(_) => {}
                 }
             }
             if empty_capable.len() == prev_size {
@@ -443,12 +460,6 @@ impl Model {
     /// node is a modelling error: the child will sometimes be absent but the parent doesn't
     /// declare it as optional.
     pub fn check_empty_capable_nodes_marked_optional(&self) {
-        // Known limitation: the model has no "one-or-more" (required-non-empty list) concept.
-        // A node whose items are all repeated (e.g. NameList, PartialPathname) is structurally
-        // empty-capable even when the VHDL grammar guarantees ≥1 element at that use site. Such
-        // nodes must still be marked optional (`?`) in the grammar so that their accessor returns
-        // `Option<T>` rather than causing a model inconsistency. The semantic "must be present"
-        // constraint is enforced by the parser and the analysis layer.
         let empty_capable = self.compute_empty_capable_nodes();
         let mut violations: Vec<(&NodeKind, &NodeKind)> = vec![];
         for node in self.all_nodes() {
@@ -474,14 +485,18 @@ impl Model {
     pub fn check_no_duplicates(&self) {
         for node in self.all_nodes() {
             let mut seen = HashSet::new();
+            let mut check_field = |field: &Field| {
+                let name = field.getter_name();
+                if seen.contains(&name) {
+                    panic!("Duplicate node {} in node {}", name, node.name())
+                }
+                seen.insert(name);
+            };
+
             match node {
                 Node::Items(seq_node) => {
                     for item in &seq_node.items {
-                        let name = item.getter_name();
-                        if seen.contains(&name) {
-                            panic!("Duplicate node {} in node {}", name, node.name())
-                        }
-                        seen.insert(name);
+                        check_field(item);
                     }
                 }
                 Node::Choices(choices_node) => match &choices_node.items {
@@ -504,6 +519,10 @@ impl Model {
                         }
                     }
                 },
+                Node::List(list) => {
+                    check_field(&list.element);
+                    check_field(&list.separator);
+                }
             }
         }
     }
@@ -533,7 +552,7 @@ impl Model {
         let mut found_nodes = HashSet::new();
         for node in self.all_nodes() {
             match node {
-                Node::Items(_) => {}
+                Node::Items(_) | Node::List(_) => {}
                 Node::Choices(choice) => match &choice.items {
                     NodesOrTokens::Nodes(nodes) => {
                         for node in nodes {
@@ -567,6 +586,14 @@ impl Model {
                     }
                     NodesOrTokens::Tokens(_) => {}
                 },
+                Node::List(list) => {
+                    if list.element.as_node_kind() == Some(kind) {
+                        uses += 1;
+                    }
+                    if list.separator.as_node_kind() == Some(kind) {
+                        uses += 1;
+                    }
+                }
             }
         }
         uses
@@ -621,6 +648,14 @@ impl Model {
                         referenced.extend(nodes.iter().cloned());
                     }
                 }
+                Node::List(list) => {
+                    if let Some(kind) = list.element.as_node_kind() {
+                        referenced.insert(kind.clone());
+                    }
+                    if let Some(kind) = list.separator.as_node_kind() {
+                        referenced.insert(kind.clone());
+                    }
+                }
             }
         }
         referenced
@@ -630,9 +665,12 @@ impl Model {
         self.all_nodes().map(|node| node.name().clone()).collect()
     }
 
-    pub fn collect_all_sequence_node_kinds(&self) -> HashSet<NodeKind> {
+    /// The kinds that the parser actually materializes as green nodes: sequences and lists.
+    /// A choice is abstract — the parser emits one of its options, never the choice itself —
+    /// so choice kinds are deliberately absent from the generated `NodeKind` enum.
+    pub fn collect_all_materialized_node_kinds(&self) -> HashSet<NodeKind> {
         self.all_nodes()
-            .filter(|node| matches!(node, Node::Items(_)))
+            .filter(|node| matches!(node, Node::Items(_) | Node::List(_)))
             .map(|node| node.name().clone())
             .collect()
     }
