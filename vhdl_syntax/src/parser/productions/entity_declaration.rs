@@ -149,6 +149,51 @@ end entity;",
         );
     }
 
+    /// An empty `generic ()` / `port ()` is a syntax error now that an `InterfaceList` cannot
+    /// be empty. Each empty clause must cost exactly one diagnostic and leave the rest of the
+    /// entity — including the second clause — parsed as usual.
+    #[test]
+    fn parse_entity_with_empty_generics() {
+        assert_recovery_snapshot!(
+            "\
+entity my_ent is
+    generic();
+begin
+end my_ent;
+",
+            Parser::entity_declaration
+        );
+    }
+
+    /// See [`parse_entity_with_empty_generics`].
+    #[test]
+    fn parse_entity_with_empty_ports() {
+        assert_recovery_snapshot!(
+            "\
+entity my_ent is
+    port();
+begin
+end my_ent;
+",
+            Parser::entity_declaration
+        );
+    }
+
+    /// See [`parse_entity_with_empty_generics`].
+    #[test]
+    fn parse_entity_with_empty_generics_and_ports() {
+        assert_recovery_snapshot!(
+            "\
+entity my_ent is
+    generic();
+    port();
+begin
+end my_ent;
+",
+            Parser::entity_declaration
+        );
+    }
+
     #[test]
     fn entity_missing_trailing_semicolon() {
         assert_recovery_snapshot!(

@@ -611,6 +611,24 @@ package foo is new lib.pkg
         assert_recovery_snapshot!("generic (width : integer", Parser::generic_clause);
     }
 
+    #[test]
+    fn empty_generic_clause() {
+        assert_recovery_snapshot!("generic();", Parser::generic_clause);
+    }
+
+    #[test]
+    fn empty_port_clause() {
+        assert_recovery_snapshot!("port();", Parser::port_clause);
+    }
+
+    #[test]
+    fn interface_list_doubled_separator() {
+        assert_recovery_snapshot!(
+            "port (clk : in std_logic;; rst : in std_logic);",
+            Parser::port_clause
+        );
+    }
+
     #[ignore = "missing list separator is silently mis-parsed (resolution-indication \
         ambiguity + unanchored separated_list); needs more resilient parsing"]
     #[test]

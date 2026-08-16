@@ -1,7 +1,15 @@
 ---
 source: vhdl_syntax/src/parser/productions/entity_declaration.rs
-expression: "to_test_text(Parser::entity_declaration,\n\"\\\nentity my_ent is\n    generic();\nbegin\nend my_ent;\n\",)"
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
 ---
+== source ==
+entity my_ent is
+    generic();
+begin
+end my_ent;
+
+
+== tree ==
 EntityDeclaration
   EntityDeclarationPreamble
     Keyword(Entity)
@@ -22,3 +30,6 @@ EntityDeclaration
     Keyword(End)
     Identifier 'my_ent'
     SemiColon
+
+== diagnostics ==
+2:13 Expected([Keyword(Signal), Keyword(Constant), Keyword(Variable), Identifier, Keyword(File), Keyword(Type), Keyword(Function), Keyword(Procedure), Keyword(Impure), Keyword(Pure), Keyword(Package)])
