@@ -212,14 +212,19 @@ ActualPart =
   'inertial'? ActualPartBody
 
 AliasDeclaration =
-  'alias' AliasDesignator alias_subtype:(':' SubtypeIndication)? 'is' Name Signature? ';'
+  'alias'
+  AliasDesignator
+  alias_subtype:(':' SubtypeIndication)?
+  'is'
+  Name
+  Signature?
+  ';'
 
 AliasDesignator =
   '#identifier' | '#character_literal' | '#string_literal'
 
 AssociationElement =
-  formal:(FormalPart '=>')?
-  ActualPart
+  formal:(FormalPart '=>')? ActualPart
 
 AssociationList =
   AssociationElement (',' AssociationElement)*
@@ -354,7 +359,8 @@ InterfaceProcedureSpecification =
   parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
 
 InterfaceSubprogramDeclaration =
-  InterfaceSubprogramSpecification subprogram_default:('is' InterfaceSubprogramDefault)?
+  InterfaceSubprogramSpecification
+  subprogram_default:('is' InterfaceSubprogramDefault)?
 
 InterfaceSubprogramDefaultName =
   Name
@@ -548,7 +554,9 @@ Literal =
 | 'null'
 
 ParenthesizedExpressionOrAggregate =
-  '(' element_association_list:(ElementAssociation (',' ElementAssociation)*) ')'
+  '('
+  element_association_list:(ElementAssociation (',' ElementAssociation)*)
+  ')'
 
 UnaryOperator =
   '??'
@@ -631,7 +639,9 @@ Expression =
 | QualifiedExpression
 
 Aggregate =
-  '(' element_association_list:(ElementAssociation (',' ElementAssociation)*) ')'
+  '('
+  element_association_list:(ElementAssociation (',' ElementAssociation)*)
+  ')'
 
 // LRM has `new subtype_indication | new qualified_expression`. Additionally:
 // "A subtype indication that is part of an allocator shall not include a resolution indication" (LRM 9.3.7)
@@ -656,8 +666,7 @@ Choices =
   Choice ('|' Choice)*
 
 ElementAssociation =
-  element_choices:(Choices '=>')?
-  Expression
+  element_choices:(Choices '=>')? Expression
 
 //==============================================================================
 // § 8: Names
@@ -818,7 +827,8 @@ IfStatement =
   if_statement_epilogue:('end' 'if' '#identifier'? ';')
 
 IterationScheme =
-  while_scheme:('while' Expression) | for_scheme:('for' ParameterSpecification)
+  while_scheme:('while' Expression)
+| for_scheme:('for' ParameterSpecification)
 
 LoopStatement =
   loop_statement_preamble:(Label? IterationScheme? 'loop')
@@ -843,7 +853,8 @@ ReportStatement =
 ReturnStatement =
   Label? 'return' Expression? ';'
 
-SelectedExpressionItem = Expression 'when' Choices
+SelectedExpressionItem =
+  Expression 'when' Choices
 
 SelectedExpressions =
   SelectedExpressionItem (',' SelectedExpressionItem)*
@@ -858,7 +869,8 @@ SelectedForceAssignment =
   SelectedExpressions
   ';'
 
-SelectedWaveform = Waveform 'when' Choices
+SelectedWaveform =
+  Waveform 'when' Choices
 
 SelectedWaveforms =
   SelectedWaveform (',' SelectedWaveform)*
@@ -1130,8 +1142,7 @@ Package =
   package_epilogue:('end' 'package'? '#identifier'? ';')
 
 PackageHeader =
-  GenericClause
-  generic_map:(GenericMapAspect ';')?
+  GenericClause generic_map:(GenericMapAspect ';')?
 
 PackageBody =
   package_body_preamble:('package' 'body' name:'#identifier' 'is')

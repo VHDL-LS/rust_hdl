@@ -9,7 +9,12 @@ use crate::syntax::NodeKind;
 use crate::tokens::TokenKind;
 
 impl Parser {
-    pub(crate) fn separated_list(&mut self, node: NodeKind, element: impl Fn(&mut Parser), separator: TokenKind) {
+    pub(crate) fn separated_list(
+        &mut self,
+        node: NodeKind,
+        element: impl Fn(&mut Parser),
+        separator: TokenKind,
+    ) {
         self.start_node(node);
         element(self);
         while self.opt_token(separator) {

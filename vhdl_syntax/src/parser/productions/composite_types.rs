@@ -18,7 +18,11 @@ impl Parser {
         if box_found {
             self.start_node_at(checkpoint, UnboundedArrayDefinition);
             self.expect_token(LeftPar);
-            self.separated_list(IndexSubtypeDefinitionList, Parser::index_subtype_definition, Comma);
+            self.separated_list(
+                IndexSubtypeDefinitionList,
+                Parser::index_subtype_definition,
+                Comma,
+            );
             self.expect_token(RightPar);
         } else {
             self.start_node_at(checkpoint, ConstrainedArrayDefinition);
