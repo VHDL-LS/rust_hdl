@@ -110,10 +110,12 @@ fn enum_choices(node: &ChoiceNode, model: &Model) -> Vec<TokenStream> {
                 quote! { #variant(#syntax) }
             })
             .collect(),
-        NodesOrTokens::Tokens(tokens) => tokens
+        NodesOrTokens::Tokens(alternatives) => alternatives
             .iter()
-            .map(|kind| {
-                let variant = variant_ident(kind.default_name());
+            .map(|alternative| {
+                // Likewise: the alternative names the variant, whether it is a token or renames
+                // one. Either way the variant holds the bare token.
+                let variant = variant_ident(&alternative.name);
                 quote! { #variant(SyntaxToken) }
             })
             .collect(),
@@ -206,19 +208,19 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
                 }
             }
         }
-        NodesOrTokens::Tokens(tokens) => {
-            let cast_branches: Vec<_> = tokens
+        NodesOrTokens::Tokens(alternatives) => {
+            let cast_branches: Vec<_> = alternatives
                 .iter()
-                .map(|kind| {
-                    let kind_expr = token_kind_path(kind);
-                    let variant = variant_ident(kind.default_name());
+                .map(|alternative| {
+                    let kind_expr = token_kind_path(&model.alternative_token(alternative));
+                    let variant = variant_ident(&alternative.name);
                     quote! { #kind_expr => Some(#enum_name::#variant(token)) }
                 })
                 .collect();
-            let raw_branches: Vec<_> = tokens
+            let raw_branches: Vec<_> = alternatives
                 .iter()
-                .map(|kind| {
-                    let variant = variant_ident(kind.default_name());
+                .map(|alternative| {
+                    let variant = variant_ident(&alternative.name);
                     quote! { #enum_name::#variant(token) => token.clone() }
                 })
                 .collect();
@@ -344,8 +346,11 @@ fn layout_item_kind_for_node_ref(node_kind: &NodeKind, model: &Model) -> TokenSt
                 let nks = collect_concrete_node_kinds(node_kind, model, &mut HashSet::new());
                 quote! { LayoutItemKind::NodeChoice(&[#(#nks),*]) }
             }
-            NodesOrTokens::Tokens(toks) => {
-                let tks: Vec<TokenStream> = toks.iter().map(token_kind_path).collect();
+            NodesOrTokens::Tokens(alternatives) => {
+                let tks: Vec<TokenStream> = alternatives
+                    .iter()
+                    .map(|alternative| token_kind_path(&model.alternative_token(alternative)))
+                    .collect();
                 quote! { LayoutItemKind::TokenChoice(&[#(#tks),*]) }
             }
         },
@@ -498,7 +503,10 @@ mod tests {
         // A token-choice node: RelOp -> { EQ | NE }
         let choice = ChoiceNode {
             name: NodeKind::from("RelOp"),
-            items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
+            items: NodesOrTokens::Tokens(vec![
+                Field::token(TokenKind::EQ),
+                Field::token(TokenKind::NE),
+            ]),
         };
         model.push_node(Node::Choices(choice));
 

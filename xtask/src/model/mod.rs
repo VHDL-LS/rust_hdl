@@ -131,6 +131,32 @@ fn assert_bare_alternative(production: &str, kind: &str, item: &Field) {
     );
 }
 
+/// The name an alternative is spelled with: the node kind it references, or the token's own name.
+fn alternative_name(alternative: &Field) -> String {
+    match &alternative.kind {
+        NodeOrTokenKind::Node(kind) => kind.as_str().to_owned(),
+        NodeOrTokenKind::Token(kind) => kind.default_name(),
+    }
+}
+
+/// Whether an alternative of an alternation denotes a token: either it is one, or it references a
+/// production that renames one (`OperatorSymbol = '#string_literal'`), through as many renames as
+/// it takes.
+///
+/// This asks the grammar rather than the model, because the model is still being built and the
+/// renaming production may not have been mapped yet.
+fn alternative_denotes_token(rule: &Rule, grammar: &ungrammar::Grammar, fuel: usize) -> bool {
+    match rule {
+        Rule::Token(_) => true,
+        // `fuel` runs out on a cycle (`A = B` / `B = A`); the alternation is then not a token
+        // choice, and `Model::resolve_alias` reports the cycle itself.
+        Rule::Node(node) if fuel > 0 => {
+            alternative_denotes_token(&grammar[*node].rule, grammar, fuel - 1)
+        }
+        _ => false,
+    }
+}
+
 fn map_rule(
     name: NodeKind,
     rule: &ungrammar::Rule,
@@ -194,22 +220,32 @@ fn map_rule(
                 .iter()
                 .map(|rule| map_single(name.as_str(), rule, grammar, model))
                 .collect::<Vec<_>>();
-            let result: NodesOrTokens = if mapped.iter().all(|rule| rule.as_node_kind().is_some()) {
+            // A choice is a token choice when every alternative *denotes* a token, whether it is
+            // one or renames one — so it is decided before the alternatives are resolved, and an
+            // alternative that renames a token keeps its name.
+            let fuel = grammar.iter().count();
+            let all_tokens = rules
+                .iter()
+                .all(|rule| alternative_denotes_token(rule, grammar, fuel));
+            let result: NodesOrTokens = if all_tokens {
+                mapped
+                    .iter()
+                    .map(|alternative| {
+                        assert_bare_alternative(
+                            name.as_str(),
+                            &alternative_name(alternative),
+                            alternative,
+                        );
+                        alternative.clone()
+                    })
+                    .collect()
+            } else if mapped.iter().all(|rule| rule.as_node_kind().is_some()) {
                 mapped
                     .iter()
                     .map(|rule| {
                         let kind = rule.as_node_kind().expect("checked above");
                         assert_bare_alternative(name.as_str(), kind.as_str(), rule);
                         kind.to_owned()
-                    })
-                    .collect()
-            } else if mapped.iter().all(|rule| rule.as_token_kind().is_some()) {
-                mapped
-                    .iter()
-                    .map(|rule| {
-                        let kind = *rule.as_token_kind().expect("checked above");
-                        assert_bare_alternative(name.as_str(), &kind.default_name(), rule);
-                        kind
                     })
                     .collect()
             } else {
@@ -262,6 +298,53 @@ mod tests {
             .contains("OthersChoice"));
     }
 
+    /// An alternation is a token choice when every alternative *denotes* a token, so one that
+    /// renames a token stands beside bare tokens — under its own name.
+    #[test]
+    fn an_alternation_mixing_tokens_and_renamed_tokens_is_a_token_choice() {
+        let model = model_of(
+            "
+            DesignFile = AliasDesignator
+            OperatorSymbol = '#string_literal'
+            AliasDesignator = '#identifier' | '#character_literal' | OperatorSymbol
+            ",
+        );
+        let Some(Node::Choices(choice)) = model.node(&"AliasDesignator".into()) else {
+            panic!("AliasDesignator should be a choice node")
+        };
+        let NodesOrTokens::Tokens(alternatives) = &choice.items else {
+            panic!(
+                "AliasDesignator should be a token choice, got {:?}",
+                choice.items
+            )
+        };
+        let named: Vec<(&str, TokenKind)> = alternatives
+            .iter()
+            .map(|alternative| {
+                (
+                    alternative.name.as_str(),
+                    model.alternative_token(alternative),
+                )
+            })
+            .collect();
+        assert_eq!(
+            named,
+            [
+                ("Identifier", str_to_token_kind("identifier").unwrap()),
+                (
+                    "CharacterLiteral",
+                    str_to_token_kind("character_literal").unwrap()
+                ),
+                (
+                    "OperatorSymbol",
+                    str_to_token_kind("string_literal").unwrap()
+                ),
+            ]
+        );
+        // The renaming production is a use site, so it does not look unreferenced.
+        model.check_all_nodes_exist();
+    }
+
     /// An alias and the node it renames are one kind in the tree, so the ordinals run across
     /// both: `expression()` reaches the first child, `condition()` the second.
     #[test]
@@ -310,9 +393,11 @@ mod tests {
         }
     }
 
-    /// A label on a single reference names that reference, which is exactly what an alias is.
+    /// A label on a single reference wraps it in a node of its own, named after the label — the
+    /// label names a place in the tree, where a production that is a single reference names the
+    /// same node twice.
     #[test]
-    fn a_labelled_single_reference_becomes_an_alias() {
+    fn a_labelled_single_reference_becomes_a_wrapper_node() {
         let model = model_of(
             "
             DesignFile = ';' condition:Expression
@@ -321,7 +406,10 @@ mod tests {
         );
         assert_eq!(
             model.node(&"Condition".into()),
-            Some(&Node::Alias(AliasNode::node("Condition", "Expression")))
+            Some(&Node::Items(SequenceNode::new(
+                "Condition",
+                vec![Field::node("Expression")]
+            )))
         );
         let Some(Node::Items(design_file)) = model.node(&"DesignFile".into()) else {
             panic!("DesignFile should be a sequence node")
@@ -329,8 +417,7 @@ mod tests {
         assert_eq!(design_file.items[1].getter_name(), "condition");
         assert_eq!(
             design_file.items[1].kind,
-            NodeOrTokenKind::Node("Condition".into()),
-            "the field references the alias; the alias is what resolves to Expression"
+            NodeOrTokenKind::Node("Condition".into())
         );
     }
 }

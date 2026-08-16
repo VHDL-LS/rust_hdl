@@ -79,10 +79,10 @@ impl Generator for BuilderGenerator {
 
         // Token choice nodes (e.g., `ForceModeToken`)
         token_stream.extend(choice_nodes.iter().map(|c| {
-            let NodesOrTokens::Tokens(tokens) = &c.items else {
+            let NodesOrTokens::Tokens(alternatives) = &c.items else {
                 unreachable!()
             };
-            generate_token_choice_token(&c.name, tokens)
+            generate_token_choice_token(&c.name, alternatives, model)
         }));
 
         vec![("builders".to_string(), token_stream)]
@@ -638,15 +638,22 @@ fn generate_list_builder(list: &ListNode, model: &Model) -> TokenStream {
 
 /// Generates `pub struct XyzToken(pub(crate) Token)` with named constructors and
 /// `From` impls for each token-choice choice node.
-fn generate_token_choice_token(name: &NodeKind, tokens: &[TokenKind]) -> TokenStream {
+fn generate_token_choice_token(
+    name: &NodeKind,
+    alternatives: &[Field],
+    model: &Model,
+) -> TokenStream {
     let token_name = token_type_ident(name);
     let syntax_name = syntax_type_ident(name);
 
     // For ForceModeToken: `fn in() -> ForceModeToken` and `fn out() -> ForceModeToken`
-    let constructors: Vec<TokenStream> = tokens
+    let constructors: Vec<TokenStream> = alternatives
         .iter()
-        .map(|kind| {
-            let method = method_ident(kind.default_name());
+        .map(|alternative| {
+            // The alternative names the constructor — an alternative that renames a token
+            // (`OperatorSymbol = '#string_literal'`) is built as `operator_symbol()`.
+            let method = method_ident(&alternative.name);
+            let kind = &model.alternative_token(alternative);
             if let Some(domain) = domain_type(kind) {
                 quote! {
                     pub fn #method(v: impl Into<#domain>) -> Self {
@@ -675,11 +682,11 @@ fn generate_token_choice_token(name: &NodeKind, tokens: &[TokenKind]) -> TokenSt
 
     // For ForceModeToken: no impl.
     // For `LiteralToken`: From<BitStringLiteral>, From<CharLiteral>, From<StringLiteral>
-    let from_domain_impls: Vec<TokenStream> = tokens
+    let from_domain_impls: Vec<TokenStream> = alternatives
         .iter()
-        .filter_map(|kind| {
-            let domain = domain_type(kind)?;
-            let method = method_ident(kind.default_name());
+        .filter_map(|alternative| {
+            let domain = domain_type(&model.alternative_token(alternative))?;
+            let method = method_ident(&alternative.name);
             Some(quote! {
                 impl From<#domain> for #token_name {
                     fn from(v: #domain) -> Self {
@@ -712,7 +719,10 @@ mod tests {
         // A token-choice node (no builder generated for this, but used as a child)
         let choice = ChoiceNode {
             name: NodeKind::from("RelOp"),
-            items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
+            items: NodesOrTokens::Tokens(vec![
+                Field::token(TokenKind::EQ),
+                Field::token(TokenKind::NE),
+            ]),
         };
         model.push_node(Node::Choices(choice));
 

@@ -319,11 +319,13 @@ impl SequenceNode {
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum NodesOrTokens {
-    /// The alternatives of a node choice, as node kinds.
+    /// The alternatives of a node choice, as node kinds. An alternative is always a bare node
+    /// reference, so the kind is also the name.
     Nodes(Vec<NodeKind>),
-    /// The alternatives of a token choice, as token kinds. Same rule as [`NodesOrTokens::Nodes`]:
-    /// an alternative is always a bare token reference.
-    Tokens(Vec<TokenKind>),
+    /// The alternatives of a token choice, as spelled: a bare token, or a reference to a
+    /// production that renames one (`OperatorSymbol = '#string_literal'`). The name of the
+    /// alternative names the variant, [`Model::alternative_token`] gives the token it denotes.
+    Tokens(Vec<Field>),
 }
 
 impl FromIterator<NodeKind> for NodesOrTokens {
@@ -332,8 +334,8 @@ impl FromIterator<NodeKind> for NodesOrTokens {
     }
 }
 
-impl FromIterator<TokenKind> for NodesOrTokens {
-    fn from_iter<T: IntoIterator<Item = TokenKind>>(iter: T) -> Self {
+impl FromIterator<Field> for NodesOrTokens {
+    fn from_iter<T: IntoIterator<Item = Field>>(iter: T) -> Self {
         NodesOrTokens::Tokens(iter.into_iter().collect())
     }
 }
@@ -437,6 +439,17 @@ impl Model {
             }
         }
         panic!("alias {kind} is part of a cycle: following it never reaches a node or a token");
+    }
+
+    /// The token an alternative of a token choice denotes: the token it is, or the token it
+    /// renames.
+    pub fn alternative_token(&self, alternative: &Field) -> TokenKind {
+        match self.resolved_kind(alternative) {
+            NodeOrTokenKind::Token(kind) => kind,
+            NodeOrTokenKind::Node(kind) => {
+                unreachable!("alternative {kind} of a token choice does not denote a token")
+            }
+        }
     }
 
     /// The kind a field addresses in the tree, i.e. its own with any alias resolved.
@@ -867,7 +880,11 @@ fn uses_of_node(node: &Node, kind: &NodeKind) -> usize {
             .count(),
         Node::Choices(choices) => match &choices.items {
             NodesOrTokens::Nodes(nodes) => nodes.iter().filter(|node| *node == kind).count(),
-            NodesOrTokens::Tokens(_) => 0,
+            // An alternative of a token choice may still be a reference: one that renames a token.
+            NodesOrTokens::Tokens(alternatives) => alternatives
+                .iter()
+                .filter(|alternative| alternative.as_node_kind() == Some(kind))
+                .count(),
         },
         Node::List(list) => {
             usize::from(list.element.as_node_kind() == Some(kind))
@@ -888,11 +905,16 @@ fn collect_referenced_nodes_of(node: &Node, referenced: &mut HashSet<NodeKind>) 
                 }
             }
         }
-        Node::Choices(choices_node) => {
-            if let NodesOrTokens::Nodes(nodes) = &choices_node.items {
-                referenced.extend(nodes.iter().cloned());
-            }
-        }
+        Node::Choices(choices_node) => match &choices_node.items {
+            NodesOrTokens::Nodes(nodes) => referenced.extend(nodes.iter().cloned()),
+            // An alternative that renames a token references that renaming production.
+            NodesOrTokens::Tokens(alternatives) => referenced.extend(
+                alternatives
+                    .iter()
+                    .filter_map(|alternative| alternative.as_node_kind())
+                    .cloned(),
+            ),
+        },
         Node::List(list) => {
             if let Some(kind) = list.element.as_node_kind() {
                 referenced.insert(kind.clone());
@@ -920,7 +942,10 @@ mod tests {
         // Add a token-choice node: RelationalOperator -> { EQ | NE | LT }
         let choice = ChoiceNode {
             name: NodeKind::from("RelationalOperator"),
-            items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
+            items: NodesOrTokens::Tokens(vec![
+                Field::token(TokenKind::EQ),
+                Field::token(TokenKind::NE),
+            ]),
         };
         model.push_node(Node::Choices(choice));
         // Add a sequence node that references the choice node
