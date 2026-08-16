@@ -555,6 +555,17 @@ end block;",
     }
 
     #[test]
+    fn process_statement_with_empty_sensitivity_list() {
+        assert_recovery_snapshot!(
+            "\
+process()
+begin
+end process;",
+            Parser::concurrent_statement
+        );
+    }
+
+    #[test]
     fn process_statement() {
         insta::assert_snapshot!(stmt_to_test_text(
             "\

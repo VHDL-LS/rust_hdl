@@ -123,9 +123,7 @@ impl Parser {
             LeftPar => {
                 self.start_node(ParenthesizedName);
                 self.expect_token(LeftPar);
-                if !self.next_is(RightPar) {
-                    self.association_list();
-                }
+                self.association_list();
                 self.expect_token(RightPar);
                 self.end_node();
                 true
@@ -356,6 +354,6 @@ mod tests {
 
     #[test]
     fn empty_association_list() {
-        insta::assert_snapshot!(name_to_test_text("foo()"));
+        assert_recovery_snapshot!("foo()", Parser::name);
     }
 }

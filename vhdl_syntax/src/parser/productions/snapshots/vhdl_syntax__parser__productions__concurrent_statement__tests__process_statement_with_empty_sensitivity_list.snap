@@ -1,0 +1,25 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+process()
+begin
+end process;
+
+== tree ==
+ProcessStatement
+  ProcessPreamble
+    Keyword(Process)
+    ParenthesizedProcessSensitivityList
+      LeftPar
+      RightPar
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  ProcessEpilogue
+    Keyword(End)
+    Keyword(Process)
+    SemiColon
+
+== diagnostics ==
+1:9 Expected([Identifier, StringLiteral, CharacterLiteral])
