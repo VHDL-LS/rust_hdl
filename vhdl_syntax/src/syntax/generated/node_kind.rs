@@ -126,7 +126,6 @@ pub enum NodeKind {
     ForGenerateStatement,
     ForScheme,
     Formal,
-    FormalPart,
     FullTypeDeclaration,
     FunctionSpecification,
     GenerateBodyDeclarations,

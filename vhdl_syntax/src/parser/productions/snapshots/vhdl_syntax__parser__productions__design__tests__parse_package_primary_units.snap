@@ -48,10 +48,9 @@ DesignFile
           AssociationList
             AssociationElement
               Formal
-                FormalPart
-                  Name
-                    NameDesignatorPrefix
-                      Identifier 'g'
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'g'
                 RightArrow
               ActualPart
                 ActualPartExpression

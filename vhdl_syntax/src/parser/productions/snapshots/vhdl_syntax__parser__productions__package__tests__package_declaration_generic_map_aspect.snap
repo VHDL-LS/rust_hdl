@@ -27,10 +27,9 @@ Package
         AssociationList
           AssociationElement
             Formal
-              FormalPart
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'foo'
+              Name
+                NameDesignatorPrefix
+                  Identifier 'foo'
               RightArrow
             ActualPart
               ActualPartExpression

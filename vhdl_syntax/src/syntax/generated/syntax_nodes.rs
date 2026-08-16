@@ -7997,7 +7997,7 @@ impl AstNode for FormalSyntax {
                 optional: false,
                 repeated: false,
                 name: "formal_part",
-                kind: LayoutItemKind::Node(NodeKind::FormalPart),
+                kind: LayoutItemKind::Node(NodeKind::Name),
             },
             LayoutItem {
                 optional: false,
@@ -8015,38 +8015,14 @@ impl AstNode for FormalSyntax {
     }
 }
 impl FormalSyntax {
-    pub fn formal_part(&self) -> Option<FormalPartSyntax> {
-        self.0.children().filter_map(FormalPartSyntax::cast).nth(0)
+    pub fn formal_part(&self) -> Option<NameSyntax> {
+        self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
     pub fn right_arrow_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::RightArrow)
             .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct FormalPartSyntax(pub(crate) SyntaxNode);
-impl AstNode for FormalPartSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::FormalPart,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: false,
-            name: "name",
-            kind: LayoutItemKind::Node(NodeKind::Name),
-        }],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        FormalPartSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl FormalPartSyntax {
-    pub fn name(&self) -> Option<NameSyntax> {
-        self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
 }
 #[derive(Debug, Clone)]

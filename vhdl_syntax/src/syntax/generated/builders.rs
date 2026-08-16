@@ -6298,17 +6298,17 @@ impl From<ForSchemeBuilder> for ForSchemeSyntax {
     }
 }
 pub struct FormalBuilder {
-    formal_part: FormalPartSyntax,
+    formal_part: NameSyntax,
     right_arrow_token: Token,
 }
 impl FormalBuilder {
-    pub fn new(formal_part: impl Into<FormalPartSyntax>) -> Self {
+    pub fn new(formal_part: impl Into<NameSyntax>) -> Self {
         Self {
             formal_part: formal_part.into(),
             right_arrow_token: TokenKind::RightArrow.canonical_token().unwrap(),
         }
     }
-    pub fn with_formal_part(mut self, n: impl Into<FormalPartSyntax>) -> Self {
+    pub fn with_formal_part(mut self, n: impl Into<NameSyntax>) -> Self {
         self.formal_part = n.into();
         self
     }
@@ -6333,32 +6333,6 @@ impl FormalBuilder {
 }
 impl From<FormalBuilder> for FormalSyntax {
     fn from(value: FormalBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct FormalPartBuilder {
-    name: NameSyntax,
-}
-impl FormalPartBuilder {
-    pub fn new(name: impl Into<NameSyntax>) -> Self {
-        Self { name: name.into() }
-    }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
-        self
-    }
-    pub fn build(self) -> FormalPartSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::FormalPart);
-        builder.push_node(self.name.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        FormalPartSyntax::cast(node).unwrap()
-    }
-}
-impl From<FormalPartBuilder> for FormalPartSyntax {
-    fn from(value: FormalPartBuilder) -> Self {
         value.build()
     }
 }

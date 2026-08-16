@@ -5,10 +5,9 @@ expression: "to_test_text(Parser::association_list, \"p1 => 1, std_ulogic(p2)=> 
 AssociationList
   AssociationElement
     Formal
-      FormalPart
-        Name
-          NameDesignatorPrefix
-            Identifier 'p1'
+      Name
+        NameDesignatorPrefix
+          Identifier 'p1'
       RightArrow
     ActualPart
       ActualPartExpression
@@ -17,21 +16,20 @@ AssociationList
   Comma
   AssociationElement
     Formal
-      FormalPart
-        Name
-          NameDesignatorPrefix
-            Identifier 'std_ulogic'
-          ParenthesizedName
-            LeftPar
-            AssociationList
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    NameExpression
-                      Name
-                        NameDesignatorPrefix
-                          Identifier 'p2'
-            RightPar
+      Name
+        NameDesignatorPrefix
+          Identifier 'std_ulogic'
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  NameExpression
+                    Name
+                      NameDesignatorPrefix
+                        Identifier 'p2'
+          RightPar
       RightArrow
     ActualPart
       ActualPartExpression

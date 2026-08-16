@@ -24,10 +24,9 @@ ComponentInstantiationStatement
     AssociationList
       AssociationElement
         Formal
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'const'
+          Name
+            NameDesignatorPrefix
+              Identifier 'const'
           RightArrow
         ActualPart
           ActualPartExpression
@@ -41,10 +40,9 @@ ComponentInstantiationStatement
     AssociationList
       AssociationElement
         Formal
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'clk'
+          Name
+            NameDesignatorPrefix
+              Identifier 'clk'
           RightArrow
         ActualPart
           ActualPartExpression

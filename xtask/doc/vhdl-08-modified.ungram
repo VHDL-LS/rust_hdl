@@ -201,11 +201,13 @@ OperatorSymbol =
 AliasDesignator =
   '#identifier' | '#character_literal' | OperatorSymbol
 
+FormalPart = Name
+
 // LRM has `name | name "(" formal_designator ")" | type_mark "(" formal_designator ")"`.
 // The `name "(" ... ")"` and `type_mark "(" ... ")"` forms reduce to a `Name`
 // with a `ParenthesizedName` tail, so a plain `Name` covers all cases.
 AssociationElement =
-  formal:(formal_part:Name '=>')? ActualPart
+  formal:(FormalPart '=>')? ActualPart
 
 AssociationList =
   AssociationElement (',' AssociationElement)*

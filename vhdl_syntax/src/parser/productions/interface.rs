@@ -255,10 +255,8 @@ impl Parser {
     }
 
     pub fn formal_part(&mut self) {
-        self.start_node(FormalPart);
-        self.name();
         // Note: `self.name()` will already consume any trailing parenthesized names!
-        self.end_node();
+        self.name();
     }
 
     pub fn actual_part(&mut self) {

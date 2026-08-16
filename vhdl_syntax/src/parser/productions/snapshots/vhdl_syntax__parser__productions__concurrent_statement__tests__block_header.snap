@@ -39,10 +39,9 @@ BlockStatement
           AssociationList
             AssociationElement
               Formal
-                FormalPart
-                  Name
-                    NameDesignatorPrefix
-                      Identifier 'gen'
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'gen'
                 RightArrow
               ActualPart
                 ActualPartExpression
@@ -79,10 +78,9 @@ BlockStatement
           AssociationList
             AssociationElement
               Formal
-                FormalPart
-                  Name
-                    NameDesignatorPrefix
-                      Identifier 'prt'
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'prt'
                 RightArrow
               ActualPart
                 ActualPartExpression
