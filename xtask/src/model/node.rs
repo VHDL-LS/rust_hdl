@@ -442,7 +442,7 @@ impl Model {
                             }
                         }
                     }
-                    // Lists are always non-optional
+                    // Lists are never empty-capable
                     Node::List(_) => {}
                 }
             }

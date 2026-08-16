@@ -52,14 +52,14 @@ impl Parser {
         self.port_or_generic_clause(PORT_SPEC);
     }
 
-    fn port_or_generic_clause(&mut self, kind: PortOrGenericSpec) {
-        self.start_node(kind.node_kind);
-        self.start_node(kind.preamble_kind);
-        self.expect_kw(kind.keyword);
+    fn port_or_generic_clause(&mut self, spec: PortOrGenericSpec) {
+        self.start_node(spec.node_kind);
+        self.start_node(spec.preamble_kind);
+        self.expect_kw(spec.keyword);
         self.expect_token(LeftPar);
         self.end_node();
         self.interface_list();
-        self.start_node(kind.epilogue_kind);
+        self.start_node(spec.epilogue_kind);
         self.expect_tokens([RightPar, SemiColon]);
         self.end_node();
         self.end_node();

@@ -250,7 +250,7 @@ ResolutionIndicationElementResolution =
   ResolutionIndication
 
 RecordResolutionElementResolution =
-  RecordResolution?
+  RecordResolution
 
 ElementResolution =
   ResolutionIndicationElementResolution | RecordResolutionElementResolution
@@ -1262,7 +1262,7 @@ IndexConstraint =
 UnboundedArrayDefinition =
   'array'
   '('
-  index_subtype_definition_list:(IndexSubtypeDefinition (',' IndexSubtypeDefinition)*)?
+  index_subtype_definition_list:(IndexSubtypeDefinition (',' IndexSubtypeDefinition)*)
   ')'
   'of'
   SubtypeIndication

@@ -5753,7 +5753,7 @@ impl AstNode for ElementResolutionResolutionIndicationSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::ElementResolutionResolutionIndication,
         items: &[LayoutItem {
-            optional: true,
+            optional: false,
             repeated: false,
             name: "element_resolution",
             kind: LayoutItemKind::NodeChoice(&[
@@ -12869,7 +12869,7 @@ impl AstNode for ParenthesizedElementResolutionSyntax {
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "element_resolution_resolution_indication",
                 kind: LayoutItemKind::Node(NodeKind::ElementResolutionResolutionIndication),
@@ -14781,7 +14781,7 @@ impl AstNode for RecordResolutionElementResolutionSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::RecordResolutionElementResolution,
         items: &[LayoutItem {
-            optional: true,
+            optional: false,
             repeated: false,
             name: "record_resolution",
             kind: LayoutItemKind::Node(NodeKind::RecordResolution),
@@ -18309,7 +18309,7 @@ impl AstNode for UnboundedArrayDefinitionSyntax {
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "index_subtype_definition_list",
                 kind: LayoutItemKind::Node(NodeKind::IndexSubtypeDefinitionList),

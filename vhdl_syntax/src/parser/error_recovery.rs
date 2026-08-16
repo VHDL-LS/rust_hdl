@@ -225,6 +225,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::InstantiationListList
         | NodeKind::InstantiationListOthers
         | NodeKind::PackagePathname
+        | NodeKind::PackagePath
         | NodeKind::PartialPathname
         | NodeKind::RelativePathname
         | NodeKind::SignalListAll

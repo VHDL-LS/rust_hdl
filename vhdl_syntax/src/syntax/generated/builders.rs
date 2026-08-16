@@ -4690,29 +4690,22 @@ impl From<ElementDeclarationBuilder> for ElementDeclarationSyntax {
     }
 }
 pub struct ElementResolutionResolutionIndicationBuilder {
-    element_resolution: Option<ElementResolutionSyntax>,
-}
-impl Default for ElementResolutionResolutionIndicationBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+    element_resolution: ElementResolutionSyntax,
 }
 impl ElementResolutionResolutionIndicationBuilder {
-    pub fn new() -> Self {
+    pub fn new(element_resolution: impl Into<ElementResolutionSyntax>) -> Self {
         Self {
-            element_resolution: None,
+            element_resolution: element_resolution.into(),
         }
     }
     pub fn with_element_resolution(mut self, n: impl Into<ElementResolutionSyntax>) -> Self {
-        self.element_resolution = Some(n.into());
+        self.element_resolution = n.into();
         self
     }
     pub fn build(self) -> ElementResolutionResolutionIndicationSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ElementResolutionResolutionIndication);
-        if let Some(n) = self.element_resolution {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.element_resolution.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -10513,19 +10506,17 @@ impl From<ParameterSpecificationBuilder> for ParameterSpecificationSyntax {
 }
 pub struct ParenthesizedElementResolutionBuilder {
     left_par_token: Token,
-    element_resolution_resolution_indication: Option<ElementResolutionResolutionIndicationSyntax>,
+    element_resolution_resolution_indication: ElementResolutionResolutionIndicationSyntax,
     right_par_token: Token,
 }
-impl Default for ParenthesizedElementResolutionBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl ParenthesizedElementResolutionBuilder {
-    pub fn new() -> Self {
+    pub fn new(
+        element_resolution_resolution_indication: impl Into<ElementResolutionResolutionIndicationSyntax>,
+    ) -> Self {
         Self {
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
-            element_resolution_resolution_indication: None,
+            element_resolution_resolution_indication: element_resolution_resolution_indication
+                .into(),
             right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
@@ -10541,7 +10532,7 @@ impl ParenthesizedElementResolutionBuilder {
         mut self,
         n: impl Into<ElementResolutionResolutionIndicationSyntax>,
     ) -> Self {
-        self.element_resolution_resolution_indication = Some(n.into());
+        self.element_resolution_resolution_indication = n.into();
         self
     }
     pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -10556,9 +10547,12 @@ impl ParenthesizedElementResolutionBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ParenthesizedElementResolution);
         builder.push(self.left_par_token);
-        if let Some(n) = self.element_resolution_resolution_indication {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(
+            self.element_resolution_resolution_indication
+                .raw()
+                .green()
+                .clone(),
+        );
         builder.push(self.right_par_token);
         builder.end_node();
         let green = builder.end();
@@ -12279,29 +12273,22 @@ impl From<RecordElementResolutionBuilder> for RecordElementResolutionSyntax {
     }
 }
 pub struct RecordResolutionElementResolutionBuilder {
-    record_resolution: Option<RecordResolutionSyntax>,
-}
-impl Default for RecordResolutionElementResolutionBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+    record_resolution: RecordResolutionSyntax,
 }
 impl RecordResolutionElementResolutionBuilder {
-    pub fn new() -> Self {
+    pub fn new(record_resolution: impl Into<RecordResolutionSyntax>) -> Self {
         Self {
-            record_resolution: None,
+            record_resolution: record_resolution.into(),
         }
     }
     pub fn with_record_resolution(mut self, n: impl Into<RecordResolutionSyntax>) -> Self {
-        self.record_resolution = Some(n.into());
+        self.record_resolution = n.into();
         self
     }
     pub fn build(self) -> RecordResolutionElementResolutionSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::RecordResolutionElementResolution);
-        if let Some(n) = self.record_resolution {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.record_resolution.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -14832,17 +14819,20 @@ impl From<UnaryExpressionBuilder> for UnaryExpressionSyntax {
 pub struct UnboundedArrayDefinitionBuilder {
     array_token: Token,
     left_par_token: Token,
-    index_subtype_definition_list: Option<IndexSubtypeDefinitionListSyntax>,
+    index_subtype_definition_list: IndexSubtypeDefinitionListSyntax,
     right_par_token: Token,
     of_token: Token,
     subtype_indication: SubtypeIndicationSyntax,
 }
 impl UnboundedArrayDefinitionBuilder {
-    pub fn new(subtype_indication: impl Into<SubtypeIndicationSyntax>) -> Self {
+    pub fn new(
+        index_subtype_definition_list: impl Into<IndexSubtypeDefinitionListSyntax>,
+        subtype_indication: impl Into<SubtypeIndicationSyntax>,
+    ) -> Self {
         Self {
             array_token: Kw::Array.canonical_token(),
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
-            index_subtype_definition_list: None,
+            index_subtype_definition_list: index_subtype_definition_list.into(),
             right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
             of_token: Kw::Of.canonical_token(),
             subtype_indication: subtype_indication.into(),
@@ -14868,7 +14858,7 @@ impl UnboundedArrayDefinitionBuilder {
         mut self,
         n: impl Into<IndexSubtypeDefinitionListSyntax>,
     ) -> Self {
-        self.index_subtype_definition_list = Some(n.into());
+        self.index_subtype_definition_list = n.into();
         self
     }
     pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -14896,9 +14886,7 @@ impl UnboundedArrayDefinitionBuilder {
         builder.start_node(NodeKind::UnboundedArrayDefinition);
         builder.push(self.array_token);
         builder.push(self.left_par_token);
-        if let Some(n) = self.index_subtype_definition_list {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.index_subtype_definition_list.raw().green().clone());
         builder.push(self.right_par_token);
         builder.push(self.of_token);
         builder.push_node(self.subtype_indication.raw().green().clone());
