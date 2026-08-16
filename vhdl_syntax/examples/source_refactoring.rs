@@ -68,7 +68,7 @@ end foobar;
             Some(ent)
                 if ent
                     .entity_declaration_preamble()
-                    .and_then(|preamble| preamble.name_token())
+                    .and_then(|preamble| preamble.identifier_token())
                     .is_some_and(|tok| tok.text() == "foo") =>
             {
                 RewriteAction::Change(SyntaxElement::Node(replacement_entity.raw()))

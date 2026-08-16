@@ -78,24 +78,11 @@ fn map_single(
             let (inner, marker) = match rule.as_ref() {
                 ungrammar::Rule::Opt(inner) => (inner, GroupMarker::Optional),
                 ungrammar::Rule::Rep(inner) => (inner, GroupMarker::Repeated),
-                ungrammar::Rule::Token(token) => {
+                ungrammar::Rule::Token(_) | ungrammar::Rule::Node(_) => {
                     let kind: NodeKind = label.to_case(Case::Pascal).into();
                     let node = Node::Items(SequenceNode {
                         name: kind.clone(),
-                        items: vec![Field::token(
-                            str_to_token_kind(&grammar[*token].name).unwrap(),
-                        )],
-                    });
-                    model.push_node(node);
-                    return Field::node(kind);
-                }
-                ungrammar::Rule::Node(node) => {
-                    let kind: NodeKind = label.to_case(Case::Pascal).into();
-                    let node = Node::Items(SequenceNode {
-                        name: kind.clone(),
-                        items: vec![Field::node(
-                            grammar[*node].name.to_case(Case::Pascal),
-                        )],
+                        items: vec![map_single(production, rule, grammar, model)],
                     });
                     model.push_node(node);
                     return Field::node(kind);

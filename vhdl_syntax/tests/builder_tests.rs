@@ -123,7 +123,7 @@ fn roundtrip_entity_preamble_name_from_parsed_ast() {
         .entity_declaration_preamble()
         .expect("missing entity_declaration_preamble");
 
-    let name_tok = preamble.name_token().expect("missing name token");
+    let name_tok = preamble.identifier_token().expect("missing name token");
 
     // Rebuild using the builder, passing the parsed Token directly.
     // Token implements Into<Identifier> via From<Token> for Identifier.

@@ -65,7 +65,7 @@ fn extract_entity_declaration(event: WalkEvent<SyntaxNode>) -> Option<EntityDecl
 fn extract_entity_name(entity: &EntityDeclarationSyntax) -> String {
     entity
         .entity_declaration_preamble()
-        .and_then(|p| p.name_token())
+        .and_then(|p| p.identifier_token())
         .map(|t| t.text().to_string())
         .expect("Invalid VHDL")
 }

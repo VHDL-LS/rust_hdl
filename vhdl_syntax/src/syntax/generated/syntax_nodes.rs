@@ -785,7 +785,7 @@ impl AstNode for ArchitecturePreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -797,7 +797,7 @@ impl AstNode for ArchitecturePreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "entity_name",
+                name: "name",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
             LayoutItem {
@@ -822,7 +822,7 @@ impl ArchitecturePreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Architecture))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -834,7 +834,7 @@ impl ArchitecturePreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Of))
             .nth(0)
     }
-    pub fn entity_name(&self) -> Option<NameSyntax> {
+    pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
@@ -1185,7 +1185,7 @@ impl AstNode for AttributeNameSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "attribute_designator_token",
+                name: "attribute_designator",
                 kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
                     TokenKind::Keyword(Kw::Range),
@@ -1211,7 +1211,7 @@ impl AttributeNameSyntax {
             .filter(|token| token.kind() == TokenKind::Tick)
             .nth(0)
     }
-    pub fn attribute_designator_token(&self) -> Option<AttributeDesignatorSyntax> {
+    pub fn attribute_designator(&self) -> Option<AttributeDesignatorSyntax> {
         self.0
             .tokens()
             .filter_map(AttributeDesignatorSyntax::cast)
@@ -1233,7 +1233,7 @@ impl AstNode for AttributeSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "attribute_designator_token",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -1291,7 +1291,7 @@ impl AttributeSpecificationSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Attribute))
             .nth(0)
     }
-    pub fn attribute_designator_token_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -1349,7 +1349,7 @@ impl AstNode for BinaryExpressionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "op",
+                name: "binary_operator",
                 kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Keyword(Kw::And),
                     TokenKind::Keyword(Kw::Or),
@@ -1415,7 +1415,7 @@ impl BinaryExpressionSyntax {
     pub fn lhs(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
-    pub fn op(&self) -> Option<BinaryOperatorSyntax> {
+    pub fn binary_operator(&self) -> Option<BinaryOperatorSyntax> {
         self.0
             .tokens()
             .filter_map(BinaryOperatorSyntax::cast)
@@ -2979,7 +2979,7 @@ impl AstNode for ComponentDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -3004,7 +3004,7 @@ impl ComponentDeclarationPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Component))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -4470,7 +4470,7 @@ impl AstNode for ConfigurationDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -4482,7 +4482,7 @@ impl AstNode for ConfigurationDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "entity_name",
+                name: "name",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
             LayoutItem {
@@ -4507,7 +4507,7 @@ impl ConfigurationDeclarationPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Configuration))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -4519,7 +4519,7 @@ impl ConfigurationDeclarationPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Of))
             .nth(0)
     }
-    pub fn entity_name(&self) -> Option<NameSyntax> {
+    pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
@@ -4918,7 +4918,7 @@ impl AstNode for ContextDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -4943,7 +4943,7 @@ impl ContextDeclarationPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Context))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -6415,7 +6415,7 @@ impl AstNode for EntityDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -6440,7 +6440,7 @@ impl EntityDeclarationPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Entity))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -7031,7 +7031,7 @@ impl ExitStatementSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Exit))
             .nth(0)
     }
-    pub fn loop_label_token(&self) -> Option<SyntaxToken> {
+    pub fn loop_label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -11916,7 +11916,7 @@ impl NextStatementSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Next))
             .nth(0)
     }
-    pub fn loop_label_token(&self) -> Option<SyntaxToken> {
+    pub fn loop_label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -12276,7 +12276,7 @@ impl AstNode for PackageBodyPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -12307,7 +12307,7 @@ impl PackageBodyPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Body))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -12569,7 +12569,7 @@ impl AstNode for PackageInstantiationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -12606,7 +12606,7 @@ impl PackageInstantiationPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Package))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -12718,7 +12718,7 @@ impl AstNode for PackagePreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -12743,7 +12743,7 @@ impl PackagePreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Package))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -13402,7 +13402,7 @@ impl AstNode for PhysicalTypeDefinitionEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
         ],
@@ -13427,7 +13427,7 @@ impl PhysicalTypeDefinitionEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Units))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -14327,7 +14327,7 @@ impl AstNode for ProtectedTypeBodyEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
         ],
@@ -14358,7 +14358,7 @@ impl ProtectedTypeBodyEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Body))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -14482,7 +14482,7 @@ impl AstNode for ProtectedTypeDeclarationEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
         ],
@@ -14507,7 +14507,7 @@ impl ProtectedTypeDeclarationEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Protected))
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -14701,7 +14701,7 @@ impl AstNode for RecordElementResolutionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -14723,7 +14723,7 @@ impl AstNode for RecordElementResolutionSyntax {
     }
 }
 impl RecordElementResolutionSyntax {
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -17692,7 +17692,7 @@ impl AstNode for SubprogramInstantiationDeclarationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "identifier",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -17735,7 +17735,7 @@ impl SubprogramInstantiationDeclarationPreambleSyntax {
             .filter_map(SubprogramKindSyntax::cast)
             .nth(0)
     }
-    pub fn name_token(&self) -> Option<SyntaxToken> {
+    pub fn identifier_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -18196,7 +18196,7 @@ impl AstNode for UnaryExpressionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "op",
+                name: "unary_operator",
                 kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::QueQue,
                     TokenKind::Plus,
@@ -18236,7 +18236,7 @@ impl AstNode for UnaryExpressionSyntax {
     }
 }
 impl UnaryExpressionSyntax {
-    pub fn op(&self) -> Option<UnaryOperatorSyntax> {
+    pub fn unary_operator(&self) -> Option<UnaryOperatorSyntax> {
         self.0.tokens().filter_map(UnaryOperatorSyntax::cast).nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
