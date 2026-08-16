@@ -30,7 +30,9 @@ fn generate_meta(model: &Model) -> TokenStream {
         .filter_map(|node| match node {
             Node::Items(seq) => Some(seq.name.clone()),
             Node::List(list) => Some(list.kind.clone()),
-            Node::Choices(_) => None,
+            // Neither has a `NodeKind` variant: a choice is abstract, an alias is a second
+            // name for a node that carries its own layout.
+            Node::Choices(_) | Node::Alias(_) => None,
         })
         .collect();
     entries.sort();

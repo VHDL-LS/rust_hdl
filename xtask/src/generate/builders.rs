@@ -124,13 +124,14 @@ fn domain_type(kind: &TokenKind) -> Option<TokenStream> {
 /// Returns true when a sequence item can be default-constructed: optional and repeated items
 /// default to absent/empty, tokens with canonical text to that text and node references to the
 /// referenced node's own default (when it has one).
-fn is_defaultable_item(item: &Field, defaultable: &HashSet<NodeKind>) -> bool {
+fn is_defaultable_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -> bool {
     if item.may_be_absent() {
         return true;
     }
-    match &item.kind {
-        NodeOrTokenKind::Token(kind) => has_canonical_text(kind),
-        NodeOrTokenKind::Node(kind) => defaultable.contains(kind),
+    // Only a materialized node has a builder, so ask under the kind the reference resolves to.
+    match model.resolved_kind(item) {
+        NodeOrTokenKind::Token(kind) => has_canonical_text(&kind),
+        NodeOrTokenKind::Node(kind) => defaultable.contains(&kind),
     }
 }
 
@@ -155,7 +156,7 @@ fn compute_defaultable_nodes(model: &Model) -> HashSet<NodeKind> {
                 let is_defaultable = seq
                     .items
                     .iter()
-                    .all(|item| is_defaultable_item(item, &defaultable));
+                    .all(|item| is_defaultable_item(item, model, &defaultable));
 
                 if is_defaultable {
                     defaultable.insert(seq.name.clone());
@@ -242,8 +243,10 @@ struct ItemDescriptor {
 }
 
 fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -> ItemDescriptor {
-    let is_ctor_arg = !is_defaultable_item(item, defaultable);
-    match &item.kind {
+    let is_ctor_arg = !is_defaultable_item(item, model, defaultable);
+    // The field keeps its own name — the alias, where the reference is to one — while what the
+    // reference resolves to decides the type it holds.
+    match &model.resolved_kind(item) {
         NodeOrTokenKind::Token(token_kind) => {
             let field = format_ident!("{}", item.getter_name());
 
@@ -527,7 +530,7 @@ struct ElementShape {
 }
 
 fn element_shape(element: &Field, model: &Model) -> ElementShape {
-    match &element.kind {
+    match &model.resolved_kind(element) {
         NodeOrTokenKind::Token(kind) => match domain_type(kind) {
             Some(domain) => ElementShape {
                 ty: domain,
@@ -701,7 +704,7 @@ fn generate_token_choice_token(name: &NodeKind, tokens: &[TokenKind]) -> TokenSt
 mod tests {
     use super::*;
     use crate::model::token::TokenKind;
-    use crate::model::{ChoiceNode, Field, Node, NodeKind, NodesOrTokens, SequenceNode};
+    use crate::model::{AliasNode, ChoiceNode, Field, Node, NodeKind, NodesOrTokens, SequenceNode};
 
     fn make_test_model() -> Model {
         let mut model = Model::default();
@@ -805,6 +808,41 @@ mod tests {
         assert!(
             !defaultable.contains("ParentNode"),
             "ParentNode (has Identifier arg) should not be defaultable"
+        );
+    }
+
+    /// The builder field is named after the alias but typed and defaulted with the aliased node.
+    #[test]
+    fn builder_field_for_an_alias_uses_the_aliased_node() {
+        let mut model = Model::default();
+        model.push_node(SequenceNode::new(
+            "Expression",
+            vec![Field::token(TokenKind::SemiColon)],
+        ));
+        model.push_node(AliasNode::node("Condition", "Expression"));
+        model.push_node(SequenceNode::new(
+            "DesignFile",
+            vec![Field::node("Condition")],
+        ));
+        model.do_postprocessing();
+
+        let code = BuilderGenerator.generate_files(&model)[0].1.to_string();
+        let design_file = code
+            .split("pub struct DesignFileBuilder")
+            .nth(1)
+            .expect("DesignFileBuilder not found");
+        assert!(
+            design_file.contains("condition : ExpressionSyntax"),
+            "expected a `condition` field of the aliased type:\n{design_file}"
+        );
+        // Expression is defaultable, so the field is initialized from the aliased node's builder.
+        assert!(
+            design_file.contains("ExpressionBuilder :: default ()"),
+            "expected the aliased node's builder to supply the default:\n{design_file}"
+        );
+        assert!(
+            !code.contains("ConditionBuilder"),
+            "an alias must not get a builder of its own:\n{code}"
         );
     }
 

@@ -19,9 +19,6 @@
 //==============================================================================
 // § 11: Concurrent Statements
 //==============================================================================
-DeclarationStatementSeparator =
-  'begin'
-
 BlockHeader =
   generic_part:(GenericClause generic_map:(GenericMapAspect ';')?)?
   port_part:(PortClause port_map:(PortMapAspect ';')?)?
@@ -31,7 +28,7 @@ BlockStatement =
   block_preamble:('block' parenthesized_expression:('(' Expression ')')? 'is'?)
   BlockHeader
   Declarations
-  DeclarationStatementSeparator
+  declaration_statement_separator:'begin'
   ConcurrentStatements
   block_epilogue:('end' 'block' '#identifier'? ';')
 
@@ -103,7 +100,7 @@ ForGenerateStatement =
   generate_epilogue:('end' 'generate' '#identifier'? ';')
 
 GenerateStatementBody =
-  generate_body_declarations:(Declarations? DeclarationStatementSeparator)?
+  generate_body_declarations:(Declarations? declaration_statement_separator:'begin')?
   ConcurrentStatements
   generate_body_epilogue:('end' '#identifier'? ';')?
 
@@ -121,14 +118,11 @@ InstantiatedUnit =
 | instantiated_entity:('entity' Name)
 | instantiated_configuration:('configuration' Name)
 
-AllSensitivityList =
-  'all'
-
 SensitivityList =
   Name (',' Name)*
 
 ProcessSensitivityList =
-  AllSensitivityList | SensitivityList
+  all_sensitivity_list:'all' | SensitivityList
 
 ProcessStatement =
   Label?
@@ -139,7 +133,7 @@ ProcessStatement =
     'is'?
   )
   Declarations
-  DeclarationStatementSeparator
+  declaration_statement_separator:'begin'
   SequentialStatements
   process_epilogue:('end' 'postponed'? 'process' '#identifier'? ';')
 
@@ -150,9 +144,9 @@ Declaration =
   SubprogramDeclaration
 | SubprogramBody
 | SubprogramInstantiationDeclaration
-| PackageDeclaration
-| PackageBodyDeclaration
-| PackageInstantiationDeclaration
+| package_declaration:Package
+| package_body_declaration:PackageBody
+| package_instantiation_declaration:PackageInstantiation
 | TypeDeclaration
 | SubtypeDeclaration
 | FileDeclaration
@@ -162,7 +156,7 @@ Declaration =
 | AttributeSpecification
 | ConfigurationSpecification
 | DisconnectionSpecification
-| UseClauseDeclaration
+| use_clause_declaration:UseClause
 | GroupTemplateDeclaration
 | GroupDeclaration
 | ConstantDeclaration
@@ -172,17 +166,6 @@ Declaration =
 // | PslPropertyDeclaration  -- add here if PSL is supported
 // | PslSequenceDeclaration  -- add here if PSL is supported
 // | PslClockDeclaration     -- add here if PSL is supported
-PackageDeclaration =
-  Package
-
-PackageInstantiationDeclaration =
-  PackageInstantiation
-
-PackageBodyDeclaration =
-  PackageBody
-
-UseClauseDeclaration =
-  UseClause
 
 // LRM:
 //   actual_part       ::= actual_designator | name "(" actual_designator ")"
@@ -196,17 +179,9 @@ UseClauseDeclaration =
 // `name "(" actual_designator ")"` forms collapse into `Expression`
 // because `Name` accepts a `ParenthesizedName` tail; analysis disambiguates
 // type conversions / resolution functions later.
-ActualPartExpression =
-  Expression
-
-ActualPartSubtypeIndication =
-  SubtypeIndication
-
-ActualPartOpen =
-  'open'
 
 ActualPartBody =
-  ActualPartExpression | ActualPartSubtypeIndication | ActualPartOpen
+  actual_part_expression:Expression | actual_part_subtype_indication:SubtypeIndication | actual_part_open:'open'
 
 ActualPart =
   'inertial'? ActualPartBody
@@ -223,8 +198,11 @@ AliasDeclaration =
 AliasDesignator =
   '#identifier' | '#character_literal' | '#string_literal'
 
+// LRM has `name | name "(" formal_designator ")" | type_mark "(" formal_designator ")"`.
+// The `name "(" ... ")"` and `type_mark "(" ... ")"` forms reduce to a `Name`
+// with a `ParenthesizedName` tail, so a plain `Name` covers all cases.
 AssociationElement =
-  formal:(FormalPart '=>')? ActualPart
+  formal:(formal_part:Name '=>')? ActualPart
 
 AssociationList =
   AssociationElement (',' AssociationElement)*
@@ -233,7 +211,7 @@ AttributeDeclaration =
   'attribute' '#identifier' ':' Name ';'
 
 ComponentDeclaration =
-  component_declaration_preamble:('component' name:'#identifier' 'is'?)
+  component_declaration_preamble:('component' '#identifier' 'is'?)
   GenericClause?
   PortClause?
   component_declaration_epilogue:('end' 'component' '#identifier'? ';')
@@ -246,14 +224,8 @@ ConstantDeclaration =
   initial_value:(':=' Expression)?
   ';'
 
-ResolutionIndicationElementResolution =
-  ResolutionIndication
-
-RecordResolutionElementResolution =
-  RecordResolution
-
 ElementResolution =
-  ResolutionIndicationElementResolution | RecordResolutionElementResolution
+  resolution_indication_element_resolution:ResolutionIndication | record_resolution_element_resolution:RecordResolution
 
 EntityClassEntry =
   EntityClass '<>'?
@@ -266,12 +238,6 @@ FileDeclaration =
 
 FileOpenInformation =
   file_open_kind:('open' Expression)? 'is' Expression
-
-// LRM has `name | name "(" formal_designator ")" | type_mark "(" formal_designator ")"`.
-// The `name "(" ... ")"` and `type_mark "(" ... ")"` forms reduce to a `Name`
-// with a `ParenthesizedName` tail, so a plain `Name` covers all cases.
-FormalPart =
-  Name
 
 FullTypeDeclaration =
   'type' '#identifier' 'is' TypeDefinition ';'
@@ -339,19 +305,10 @@ InterfacePackageDeclaration =
 InterfacePackageGenericMapAspect =
   'generic' 'map' '(' InterfacePackageGenericMapAspectInner ')'
 
-InterfacePackageGenericMapAspectBox =
-  '<>'
-
-InterfacePackageGenericMapAspectDefault =
-  'default'
-
-InterfacePackageGenericMapAspectAssociations =
-  AssociationList
-
 InterfacePackageGenericMapAspectInner =
-  InterfacePackageGenericMapAspectBox
-| InterfacePackageGenericMapAspectDefault
-| InterfacePackageGenericMapAspectAssociations
+  interface_package_generic_map_aspect_box:'<>'
+| interface_package_generic_map_aspect_default:'default'
+| interface_package_generic_map_aspect_associations:AssociationList
 
 InterfaceProcedureSpecification =
   'procedure'
@@ -362,14 +319,8 @@ InterfaceSubprogramDeclaration =
   InterfaceSubprogramSpecification
   subprogram_default:('is' InterfaceSubprogramDefault)?
 
-InterfaceSubprogramDefaultName =
-  Name
-
-InterfaceSubprogramDefaultBox =
-  '<>'
-
 InterfaceSubprogramDefault =
-  InterfaceSubprogramDefaultName | InterfaceSubprogramDefaultBox
+  interface_subprogram_default_name:Name | interface_subprogram_default_box:'<>'
 
 InterfaceSubprogramSpecification =
   InterfaceProcedureSpecification | InterfaceFunctionSpecification
@@ -386,21 +337,15 @@ PortMapAspect =
   'port' 'map' '(' AssociationList ')'
 
 RecordElementResolution =
-  name:'#identifier' ResolutionIndication
+  '#identifier' ResolutionIndication
 
 RecordResolution =
   RecordElementResolution (',' RecordElementResolution)*
 
-NameResolutionIndication =
-  Name
-
-// TODO: Is this required? (Could potentially be replaced by Element Resolution)
-ElementResolutionResolutionIndication =
-  ElementResolution
-
+// TODO: Is the 'element_resolution_resolution_indication' required? (Could potentially be replaced by Element Resolution directly)
 ResolutionIndication =
-  NameResolutionIndication
-| parenthesized_element_resolution:('(' ElementResolutionResolutionIndication ')')
+  name_resolution_indication:Name
+| parenthesized_element_resolution:('(' element_resolution_resolution_indication:ElementResolution ')')
 
 SignalDeclaration =
   'signal'
@@ -449,17 +394,14 @@ Declarations =
 // § 3: Design entities and configuration
 //==============================================================================
 ArchitectureBody =
-  architecture_preamble:('architecture' name:'#identifier' 'of' entity_name:Name 'is')
+  architecture_preamble:('architecture' '#identifier' 'of' Name 'is')
   Declarations
-  DeclarationStatementSeparator
+  declaration_statement_separator:'begin'
   ConcurrentStatements
   architecture_epilogue:('end' 'architecture'? '#identifier'? ';')
 
-BlockConfigurationItem =
-  BlockConfiguration
-
 ConfigurationItem =
-  BlockConfigurationItem | ComponentConfiguration
+  block_configuration_item:BlockConfiguration | ComponentConfiguration
 
 BlockConfiguration =
   block_configuration_preamble:('for' Name)
@@ -475,17 +417,17 @@ ComponentConfiguration =
   component_configuration_epilogue:('end' 'for' ';')
 
 ConfigurationDeclaration =
-  configuration_declaration_preamble:('configuration' name:'#identifier' 'of' entity_name:Name 'is')
+  configuration_declaration_preamble:('configuration' '#identifier' 'of' Name 'is')
   Declarations
   verification_unit_binding:(VerificationUnitBindingIndication ';')*
   BlockConfiguration
   configuration_declaration_epilogue:('end' 'configuration'? '#identifier'? ';')
 
 EntityDeclaration =
-  entity_declaration_preamble:('entity' name:'#identifier' 'is')
+  entity_declaration_preamble:('entity' '#identifier' 'is')
   EntityHeader
   Declarations
-  entity_statement_part:(DeclarationStatementSeparator ConcurrentStatements)?
+  entity_statement_part:(declaration_statement_separator:'begin' ConcurrentStatements)?
   entity_declaration_epilogue:('end' 'entity'? '#identifier'? ';')
 
 EntityHeader =
@@ -498,18 +440,15 @@ ContextClause =
   ContextItem*
 
 ContextDeclaration =
-  context_declaration_preamble:('context' name:'#identifier' 'is')
+  context_declaration_preamble:('context' '#identifier' 'is')
   ContextClause
   context_declaration_epilogue:('end' 'context'? '#identifier'? ';')
-
-UseClauseContextItem =
-  UseClause
 
 ContextReference =
   'context' NameList ';'
 
 ContextItem =
-  LibraryClause | UseClauseContextItem | ContextReference
+  LibraryClause | use_clause_context_item:UseClause | ContextReference
 
 DesignFile =
   DesignUnit* '#eof'
@@ -523,25 +462,17 @@ LibraryClause =
 LibraryUnit =
   PrimaryUnit | SecondaryUnit
 
-PrimaryUnitPackageDeclaration =
-  Package
-
-PackageInstantiationDeclarationPrimaryUnit =
-  PackageInstantiation
-
 PrimaryUnit =
   EntityDeclaration
 | ConfigurationDeclaration
-| PrimaryUnitPackageDeclaration
-| PackageInstantiationDeclarationPrimaryUnit
+| primary_unit_package_declaration:Package
+| package_instantiation_declaration_primary_unit:PackageInstantiation
 | ContextDeclaration
 
 // PslVerificationUnit -- add here if PSL is supported
-SecondaryUnitPackageBody =
-  PackageBody
 
 SecondaryUnit =
-  ArchitectureBody | SecondaryUnitPackageBody
+  ArchitectureBody | secondary_unit_package_body:PackageBody
 
 //==============================================================================
 // § 9: Expression
@@ -572,7 +503,7 @@ UnaryOperator =
 | 'xnor'
 
 UnaryExpression =
-  op:UnaryOperator Expression
+  UnaryOperator Expression
 
 BinaryOperator =
   'and'
@@ -613,29 +544,23 @@ BinaryOperator =
 | 'to'
 | 'downto'
 
+Lhs = Expression
+Rhs = Expression
+
 BinaryExpression =
-  lhs:Expression op:BinaryOperator rhs:Expression
-
-LiteralExpression =
-  Literal
-
-PhysicalLiteralExpression =
-  PhysicalLiteral
-
-NameExpression =
-  Name
+  Lhs BinaryOperator Rhs
 
 QualifiedExpression =
   Name '\'' ParenthesizedExpressionOrAggregate
 
 Expression =
-  LiteralExpression
-| PhysicalLiteralExpression
+  literal_expression:Literal
+| physical_literal_expression:PhysicalLiteral
 | UnaryExpression
 | BinaryExpression
 | ParenthesizedExpressionOrAggregate
 | Allocator
-| NameExpression
+| name_expression:Name
 | QualifiedExpression
 
 Aggregate =
@@ -653,14 +578,8 @@ Aggregate =
 Allocator =
   'new' Expression
 
-OthersChoice =
-  'others'
-
-ExpressionChoice =
-  Expression
-
 Choice =
-  ExpressionChoice | OthersChoice
+  expression_choice:Expression | others_choice:'others'
 
 Choices =
   Choice ('|' Choice)*
@@ -678,7 +597,7 @@ AbsolutePathname =
 // `ParenthesizedName` tail on the enclosing `Name`. The signature brackets
 // are also a name tail position; analysis associates them with this attribute.
 AttributeName =
-  Signature? '\'' attribute_designator_token:AttributeDesignator
+  Signature? '\'' AttributeDesignator
 
 // `range` and `subtype` are reserved words yet are valid attribute designators.
 AttributeDesignator =
@@ -731,11 +650,8 @@ Name =
   // see the comment on `SubtypeIndication`.
   RangeConstraint?
 
-NameDesignatorPrefix =
-  NameDesignator
-
 NamePrefix =
-  ExternalName | NameDesignatorPrefix
+  ExternalName | name_designator_prefix:NameDesignator
 
 Suffix =
   '#identifier' | '#string_literal' | '#character_literal' | 'all'
@@ -782,9 +698,11 @@ CaseStatement =
 ConditionClause =
   'until' Expression
 
+Condition = Expression
+
 ConditionalExpressions =
-  when_expression:(Expression 'when' condition:Expression)
-  else_when_expression:('else' Expression 'when' condition:Expression)*
+  when_expression:(Expression 'when' Condition)
+  else_when_expression:('else' Expression 'when' Condition)*
   else_expression:('else' Expression)?
 
 ConditionalForceAssignment =
@@ -800,18 +718,15 @@ ConditionalWaveformAssignment =
   Target '<=' DelayMechanism? ConditionalWaveforms ';'
 
 ConditionalWaveforms =
-  when_waveform:(Waveform 'when' condition:Expression)
-  else_when_waveform:('else' Waveform 'when' condition:Expression)*
+  when_waveform:(Waveform 'when' Condition)
+  else_when_waveform:('else' Waveform 'when' Condition)*
   else_waveform:('else' Waveform)?
-
-TransportDelayMechanism =
-  'transport'
 
 InertialDelayMechanism =
   reject_clause:('reject' Expression)? 'inertial'
 
 DelayMechanism =
-  TransportDelayMechanism | InertialDelayMechanism
+  transport_delay_mechanism:'transport' | InertialDelayMechanism
 
 ExitStatement =
   Label? 'exit' loop_label:'#identifier'? when_clause:('when' Expression)? ';'
@@ -933,14 +848,8 @@ SimpleSignalAssignment =
 SimpleVariableAssignment =
   Label? Target ':=' Expression ';'
 
-NameTarget =
-  Name
-
-AggregateTarget =
-  Aggregate
-
 Target =
-  NameTarget | AggregateTarget
+  name_target:Name | aggregate_target:Aggregate
 
 TimeoutClause =
   'for' Expression
@@ -959,11 +868,8 @@ WaveformElement =
 WaveformElements =
   WaveformElement (',' WaveformElement)*
 
-UnaffectedWaveform =
-  'unaffected'
-
 Waveform =
-  WaveformElements | UnaffectedWaveform
+  WaveformElements | unaffected_waveform:'unaffected'
 
 SequentialStatements =
   SequentialStatement*
@@ -973,7 +879,7 @@ SequentialStatements =
 //==============================================================================
 AttributeSpecification =
   'attribute'
-  attribute_designator_token:'#identifier'
+  '#identifier'
   'of'
   EntitySpecification
   'is'
@@ -1005,11 +911,8 @@ EntityEntityAspect =
 EntityConfigurationAspect =
   'configuration' Name
 
-EntityOpenAspect =
-  'open'
-
 EntityAspect =
-  EntityEntityAspect | EntityConfigurationAspect | EntityOpenAspect
+  EntityEntityAspect | EntityConfigurationAspect | entity_open_aspect:'open'
 
 EntityClass =
   'entity'
@@ -1038,14 +941,8 @@ EntityDesignator =
 EntityDesignatorList =
   EntityDesignator (',' EntityDesignator)*
 
-EntityNameListAll =
-  'all'
-
-EntityNameListOthers =
-  'others'
-
 EntityNameList =
-  EntityDesignatorList | EntityNameListAll | EntityNameListOthers
+  EntityDesignatorList | entity_name_list_all:'all' | entity_name_list_others:'others'
 
 EntitySpecification =
   EntityNameList ':' EntityClass
@@ -1059,26 +956,14 @@ GuardedSignalSpecification =
 InstantiationListList =
   '#identifier' (',' '#identifier')*
 
-InstantiationListAll =
-  'all'
-
-InstantiationListOthers =
-  'others'
-
 InstantiationList =
-  InstantiationListList | InstantiationListAll | InstantiationListOthers
+  InstantiationListList | instantiation_list_all:'all' | instantiation_list_others:'others'
 
 SignalListList =
   Name (',' Name)*
 
-SignalListAll =
-  'all'
-
-SignalListOthers =
-  'others'
-
 SignalList =
-  SignalListList | SignalListAll | SignalListOthers
+  SignalListList | signal_list_all:'all' | signal_list_others:'others'
 
 SimpleConfigurationSpecification =
   component_configuration_preamble:('for' ComponentSpecification)
@@ -1123,7 +1008,7 @@ SubprogramHeader =
 SubprogramBody =
   subprogram_body_preamble:(SubprogramSpecification 'is')
   Declarations
-  DeclarationStatementSeparator
+  declaration_statement_separator:'begin'
   SequentialStatements
   subprogram_body_epilogue:('end' SubprogramKind? Designator? ';')
 
@@ -1131,12 +1016,12 @@ SubprogramKind =
   'procedure' | 'function'
 
 SubprogramInstantiationDeclaration =
-  subprogram_instantiation_declaration_preamble:(SubprogramKind name:'#identifier' 'is' 'new' Name Signature?)
+  subprogram_instantiation_declaration_preamble:(SubprogramKind '#identifier' 'is' 'new' Name Signature?)
   GenericMapAspect?
   ';'
 
 Package =
-  package_preamble:('package' name:'#identifier' 'is')
+  package_preamble:('package' '#identifier' 'is')
   PackageHeader?
   Declarations
   package_epilogue:('end' 'package'? '#identifier'? ';')
@@ -1145,12 +1030,12 @@ PackageHeader =
   GenericClause generic_map:(GenericMapAspect ';')?
 
 PackageBody =
-  package_body_preamble:('package' 'body' name:'#identifier' 'is')
+  package_body_preamble:('package' 'body' '#identifier' 'is')
   Declarations
   package_body_epilogue:('end' 'package'? 'body'? '#identifier'? ';')
 
 PackageInstantiation =
-  package_instantiation_preamble:('package' name:'#identifier' 'is' 'new' Name)
+  package_instantiation_preamble:('package' '#identifier' 'is' 'new' Name)
   GenericMapAspect?
   ';'
 
@@ -1210,7 +1095,7 @@ PhysicalLiteral =
 PhysicalTypeDefinition =
   RangeConstraint
   unit_declarations:('units' PrimaryUnitDeclaration SecondaryUnitDeclaration*)
-  physical_type_definition_epilogue:('end' 'units' name:'#identifier'?)
+  physical_type_definition_epilogue:('end' 'units' '#identifier'?)
 
 PrimaryUnitDeclaration =
   '#identifier' ';'
@@ -1218,15 +1103,12 @@ PrimaryUnitDeclaration =
 ProtectedTypeBody =
   protected_type_body_preamble:('protected' 'body')
   Declarations
-  protected_type_body_epilogue:('end' 'protected' 'body' name:'#identifier'?)
+  protected_type_body_epilogue:('end' 'protected' 'body' '#identifier'?)
 
 ProtectedTypeDeclaration =
-  ProtectedPreamble
+  protected_preamble:'protected'
   Declarations
-  protected_type_declaration_epilogue:('end' 'protected' name:'#identifier'?)
-
-ProtectedPreamble =
-  'protected'
+  protected_type_declaration_epilogue:('end' 'protected' '#identifier'?)
 
 ProtectedTypeDefinition =
   ProtectedTypeDeclaration | ProtectedTypeBody
@@ -1237,21 +1119,15 @@ RangeConstraint =
   'range' Expression
 
 RecordTypeDefinition =
-  RecordTypeDefinitionPreamble
+  record_type_definition_preamble:'record'
   RecordElementDeclarations
   record_type_definition_epilogue:('end' 'record' '#identifier'?)
 
 RecordElementDeclarations =
   ElementDeclaration*
 
-RecordTypeDefinitionPreamble =
-  'record'
-
-NumericTypeDefinition =
-  RangeConstraint
-
 ScalarTypeDefinition =
-  EnumerationTypeDefinition | NumericTypeDefinition | PhysicalTypeDefinition
+  EnumerationTypeDefinition | numeric_type_definition:RangeConstraint | PhysicalTypeDefinition
 
 SecondaryUnitDeclaration =
   '#identifier' '=' PhysicalLiteral ';'

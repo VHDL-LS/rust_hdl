@@ -38,7 +38,7 @@ impl Generator for SyntaxNodeGenerator {
         nodes.sort_by_key(|node| node.name());
 
         for node in nodes {
-            stream.extend(generate_rust_struct(node));
+            stream.extend(generate_rust_struct(node, model));
             stream.extend(generate_ast_node_rust_impl(node, model));
             stream.extend(generate_rust_impl_getters(node, model));
         }
@@ -53,11 +53,14 @@ impl Generator for SyntaxNodeGenerator {
 
 // MARK: Struct/enum definitions
 
-fn generate_rust_struct(node: &Node) -> TokenStream {
+fn generate_rust_struct(node: &Node, model: &Model) -> TokenStream {
     match node {
         Node::Items(seq) => generate_syntax_node_struct(&seq.name),
         Node::List(list) => generate_syntax_node_struct(&list.kind),
-        Node::Choices(choice) => generate_choice_enum(choice),
+        Node::Choices(choice) => generate_choice_enum(choice, model),
+        // An alias is a second name for another node, not a node of its own: the tree holds
+        // the aliased node and `FooSyntax` already exists for it.
+        Node::Alias(_) => quote! {},
     }
 }
 
@@ -71,9 +74,9 @@ fn generate_syntax_node_struct(name: &NodeKind) -> TokenStream {
 }
 
 /// Generate the choice enum `enum FooSyntax { /* elements of Foo */ }`
-fn generate_choice_enum(node: &ChoiceNode) -> TokenStream {
+fn generate_choice_enum(node: &ChoiceNode, model: &Model) -> TokenStream {
     let name = syntax_type_ident(&node.name);
-    let choices = enum_choices(node);
+    let choices = enum_choices(node, model);
     quote! {
         #[derive(Debug, Clone)]
         pub enum #name {
@@ -82,14 +85,28 @@ fn generate_choice_enum(node: &ChoiceNode) -> TokenStream {
     }
 }
 
+/// The node kind a choice alternative resolves to.
+///
+/// `Model::check_choice_alternatives_are_nodes` has already ruled out an alternative that
+/// renames a token, so this only has to peel aliases.
+fn resolved_alternative(kind: &NodeKind, model: &Model) -> NodeKind {
+    match model.resolve_alias(kind) {
+        NodeOrTokenKind::Node(kind) => kind,
+        NodeOrTokenKind::Token(_) => {
+            unreachable!("choice alternative {kind} renames a token")
+        }
+    }
+}
+
 /// Generate all choices (elements) of a choice enum
-fn enum_choices(node: &ChoiceNode) -> Vec<TokenStream> {
+fn enum_choices(node: &ChoiceNode, model: &Model) -> Vec<TokenStream> {
     match &node.items {
         NodesOrTokens::Nodes(nodes) => nodes
             .iter()
             .map(|kind| {
+                // An alternative names the variant; the type it wraps is the aliased node's.
                 let variant = variant_ident(kind);
-                let syntax = syntax_type_ident(kind);
+                let syntax = syntax_type_ident(resolved_alternative(kind, model));
                 quote! { #variant(#syntax) }
             })
             .collect(),
@@ -121,6 +138,8 @@ fn generate_ast_node_rust_impl(node: &Node, model: &Model) -> TokenStream {
             &layout_item_ts(&list.separator, model),
         ),
         Node::Choices(choice) => generate_choice_ast_impl(choice, model),
+        // No struct, so nothing to implement `AstNode` for.
+        Node::Alias(_) => quote! {},
     }
 }
 
@@ -155,7 +174,7 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
                 .iter()
                 .map(|kind| {
                     let variant = variant_ident(kind);
-                    let syntax = syntax_type_ident(kind);
+                    let syntax = syntax_type_ident(resolved_alternative(kind, model));
                     quote! {
                         if #syntax::can_cast(&node) {
                             return #enum_name::#variant(#syntax::cast_unchecked(node));
@@ -256,16 +275,20 @@ fn collect_concrete_node_kinds(
     model: &Model,
     visited: &mut HashSet<NodeKind>,
 ) -> Vec<TokenStream> {
-    if !visited.insert(name.to_owned()) {
+    // An alias materializes nothing of its own, so it stands for whatever it renames.
+    let NodeOrTokenKind::Node(name) = model.resolve_alias(name) else {
+        return vec![]; // an alias of a token contributes no NodeKind entry
+    };
+    if !visited.insert(name.clone()) {
         return vec![];
     }
     let node = model
-        .node(name)
-        .unwrap_or_else(|| panic!("node '{}' not found in model", name));
+        .node(&name)
+        .unwrap_or_else(|| panic!("node '{name}' not found in model"));
     match node {
         // Both are materialized by the parser as a node of exactly this kind.
         Node::Items(_) | Node::List(_) => {
-            let nk = node_kind_ident(name);
+            let nk = node_kind_ident(&name);
             vec![quote! { NodeKind::#nk }]
         }
         Node::Choices(choice) => match &choice.items {
@@ -275,6 +298,7 @@ fn collect_concrete_node_kinds(
                 .collect(),
             NodesOrTokens::Tokens(_) => vec![], // token-choices don't produce NodeKind entries
         },
+        Node::Alias(_) => unreachable!("resolve_alias never yields an alias"),
     }
 }
 
@@ -285,12 +309,13 @@ fn layout_item_ts(item: &Field, model: &Model) -> TokenStream {
     let optional = item.is_optional();
     let repeated = item.is_repeated();
     let name_str = item.name.to_case(Case::Snake);
-    let kind_expr = match &item.kind {
+    // A reference through an alias describes whatever the alias resolves to.
+    let kind_expr = match model.resolved_kind(item) {
         NodeOrTokenKind::Token(token_kind) => {
-            let kind_expr = token_kind_path(token_kind);
+            let kind_expr = token_kind_path(&token_kind);
             quote! { LayoutItemKind::Token(#kind_expr) }
         }
-        NodeOrTokenKind::Node(node_kind) => layout_item_kind_for_node_ref(node_kind, model),
+        NodeOrTokenKind::Node(node_kind) => layout_item_kind_for_node_ref(&node_kind, model),
     };
     quote! {
         LayoutItem {
@@ -302,7 +327,8 @@ fn layout_item_ts(item: &Field, model: &Model) -> TokenStream {
     }
 }
 
-/// Produce the `LayoutItemKind::…` expression for a node reference.
+/// Produce the `LayoutItemKind::…` expression for a reference to `node_kind`, which has already
+/// been resolved through any alias.
 fn layout_item_kind_for_node_ref(node_kind: &NodeKind, model: &Model) -> TokenStream {
     let target = model
         .node(node_kind)
@@ -323,6 +349,7 @@ fn layout_item_kind_for_node_ref(node_kind: &NodeKind, model: &Model) -> TokenSt
                 quote! { LayoutItemKind::TokenChoice(&[#(#tks),*]) }
             }
         },
+        Node::Alias(_) => unreachable!("resolve_alias never yields an alias"),
     }
 }
 
@@ -333,6 +360,8 @@ fn generate_rust_impl_getters(node: &Node, model: &Model) -> TokenStream {
         Node::Items(seq) => generate_sequence_getters(seq, model),
         Node::List(list) => generate_list_getters(list, model),
         Node::Choices(_) => quote! {},
+        // The aliased node owns the getters; an alias only renames them at the use site.
+        Node::Alias(_) => quote! {},
     }
 }
 
@@ -362,10 +391,12 @@ fn generate_list_getters(list: &ListNode, model: &Model) -> TokenStream {
     }
 }
 
+/// The field's *name* — the alias, where the reference is to one — names the getter; what it
+/// resolves to decides the getter's shape, down to whether it is a node or a token getter.
 fn build_getter(item: &Field, model: &Model) -> TokenStream {
-    match &item.kind {
-        NodeOrTokenKind::Node(node_kind) => build_node_getter(item, node_kind, model),
-        NodeOrTokenKind::Token(token_kind) => build_token_getter(item, token_kind),
+    match model.resolved_kind(item) {
+        NodeOrTokenKind::Node(node_kind) => build_node_getter(item, &node_kind, model),
+        NodeOrTokenKind::Token(token_kind) => build_token_getter(item, &token_kind),
     }
 }
 
@@ -457,7 +488,9 @@ fn generate_mod() -> TokenStream {
 mod tests {
     use super::*;
     use crate::model::token::TokenKind;
-    use crate::model::{ChoiceNode, Field, Model, Node, NodeKind, NodesOrTokens, SequenceNode};
+    use crate::model::{
+        AliasNode, ChoiceNode, Field, Model, Node, NodeKind, NodesOrTokens, SequenceNode,
+    };
 
     fn make_test_model() -> Model {
         let mut model = Model::default();
@@ -528,5 +561,80 @@ mod tests {
         let files = gen.generate_files(&model);
         let test_file = files.iter().find(|(s, _)| s == "syntax_nodes").unwrap();
         insta::assert_snapshot!(test_file.1.to_string());
+    }
+
+    /// `Condition` aliases `Expression`, and `DesignFile` references the alias.
+    fn make_alias_model() -> Model {
+        let mut model = Model::default();
+        model.push_node(SequenceNode::new(
+            "Expression",
+            vec![Field::token(TokenKind::Identifier)],
+        ));
+        model.push_node(AliasNode::node("Condition", "Expression"));
+        model.push_node(SequenceNode::new(
+            "DesignFile",
+            vec![Field::node("Condition")],
+        ));
+        model.do_postprocessing();
+        model
+    }
+
+    fn generated_syntax_nodes(model: &Model) -> String {
+        let files = SyntaxNodeGenerator.generate_files(model);
+        files
+            .iter()
+            .find(|(stem, _)| stem == "syntax_nodes")
+            .unwrap()
+            .1
+            .to_string()
+    }
+
+    /// The alias renames the getter; everything else about it is the aliased node's.
+    #[test]
+    fn alias_renames_the_getter_and_keeps_the_aliased_type() {
+        let code = generated_syntax_nodes(&make_alias_model());
+        assert!(
+            code.contains("pub fn condition (& self) -> Option < ExpressionSyntax >"),
+            "expected a `condition` getter returning `ExpressionSyntax`, got:\n{code}"
+        );
+        assert!(
+            !code.contains("ConditionSyntax"),
+            "an alias must not get a syntax type of its own, got:\n{code}"
+        );
+    }
+
+    /// An alias is not a node in the tree, so it contributes no `NodeKind` variant and no layout.
+    #[test]
+    fn alias_contributes_no_node_kind() {
+        let model = make_alias_model();
+        let files = SyntaxNodeGenerator.generate_files(&model);
+        let code = files
+            .iter()
+            .find(|(stem, _)| stem == "node_kind")
+            .unwrap()
+            .1
+            .to_string();
+        assert!(code.contains("Expression"), "Expression missing:\n{code}");
+        assert!(
+            !code.contains("Condition"),
+            "an alias must not become a NodeKind, got:\n{code}"
+        );
+    }
+
+    /// A reference through several aliases lands on the node at the bottom.
+    #[test]
+    fn nested_alias_resolves_to_the_non_aliased_node() {
+        let mut model = make_alias_model();
+        model.push_node(AliasNode::node("Guard", "Condition"));
+        model.push_node(SequenceNode::new(
+            "GuardedThing",
+            vec![Field::node("Guard")],
+        ));
+
+        let code = generated_syntax_nodes(&model);
+        assert!(
+            code.contains("pub fn guard (& self) -> Option < ExpressionSyntax >"),
+            "expected a `guard` getter returning `ExpressionSyntax`, got:\n{code}"
+        );
     }
 }
