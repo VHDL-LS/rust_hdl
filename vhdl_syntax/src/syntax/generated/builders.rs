@@ -4276,19 +4276,14 @@ impl From<ContextDeclarationPreambleBuilder> for ContextDeclarationPreambleSynta
 }
 pub struct ContextReferenceBuilder {
     context_token: Token,
-    name_list: Option<NameListSyntax>,
+    name_list: NameListSyntax,
     semi_colon_token: Token,
 }
-impl Default for ContextReferenceBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl ContextReferenceBuilder {
-    pub fn new() -> Self {
+    pub fn new(name_list: impl Into<NameListSyntax>) -> Self {
         Self {
             context_token: Kw::Context.canonical_token(),
-            name_list: None,
+            name_list: name_list.into(),
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
@@ -4301,7 +4296,7 @@ impl ContextReferenceBuilder {
         self
     }
     pub fn with_name_list(mut self, n: impl Into<NameListSyntax>) -> Self {
-        self.name_list = Some(n.into());
+        self.name_list = n.into();
         self
     }
     pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
@@ -4316,9 +4311,7 @@ impl ContextReferenceBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ContextReference);
         builder.push(self.context_token);
-        if let Some(n) = self.name_list {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.name_list.raw().green().clone());
         builder.push(self.semi_colon_token);
         builder.end_node();
         let green = builder.end();
@@ -10733,19 +10726,14 @@ impl From<ParenthesizedInterfaceListBuilder> for ParenthesizedInterfaceListSynta
 }
 pub struct ParenthesizedNameBuilder {
     left_par_token: Token,
-    association_list: Option<AssociationListSyntax>,
+    association_list: AssociationListSyntax,
     right_par_token: Token,
 }
-impl Default for ParenthesizedNameBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl ParenthesizedNameBuilder {
-    pub fn new() -> Self {
+    pub fn new(association_list: impl Into<AssociationListSyntax>) -> Self {
         Self {
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
-            association_list: None,
+            association_list: association_list.into(),
             right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
@@ -10758,7 +10746,7 @@ impl ParenthesizedNameBuilder {
         self
     }
     pub fn with_association_list(mut self, n: impl Into<AssociationListSyntax>) -> Self {
-        self.association_list = Some(n.into());
+        self.association_list = n.into();
         self
     }
     pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -10773,9 +10761,7 @@ impl ParenthesizedNameBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ParenthesizedName);
         builder.push(self.left_par_token);
-        if let Some(n) = self.association_list {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.association_list.raw().green().clone());
         builder.push(self.right_par_token);
         builder.end_node();
         let green = builder.end();
@@ -14340,16 +14326,12 @@ pub struct SubprogramHeaderBuilder {
     subprogram_header_generic_clause: SubprogramHeaderGenericClauseSyntax,
     generic_map_aspect: Option<GenericMapAspectSyntax>,
 }
-impl Default for SubprogramHeaderBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl SubprogramHeaderBuilder {
-    pub fn new() -> Self {
+    pub fn new(
+        subprogram_header_generic_clause: impl Into<SubprogramHeaderGenericClauseSyntax>,
+    ) -> Self {
         Self {
-            subprogram_header_generic_clause: SubprogramHeaderGenericClauseBuilder::default()
-                .build(),
+            subprogram_header_generic_clause: subprogram_header_generic_clause.into(),
             generic_map_aspect: None,
         }
     }
@@ -14385,20 +14367,15 @@ impl From<SubprogramHeaderBuilder> for SubprogramHeaderSyntax {
 pub struct SubprogramHeaderGenericClauseBuilder {
     generic_token: Token,
     left_par_token: Token,
-    interface_list: Option<InterfaceListSyntax>,
+    interface_list: InterfaceListSyntax,
     right_par_token: Token,
 }
-impl Default for SubprogramHeaderGenericClauseBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl SubprogramHeaderGenericClauseBuilder {
-    pub fn new() -> Self {
+    pub fn new(interface_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
             generic_token: Kw::Generic.canonical_token(),
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
-            interface_list: None,
+            interface_list: interface_list.into(),
             right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
@@ -14419,7 +14396,7 @@ impl SubprogramHeaderGenericClauseBuilder {
         self
     }
     pub fn with_interface_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.interface_list = Some(n.into());
+        self.interface_list = n.into();
         self
     }
     pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -14435,9 +14412,7 @@ impl SubprogramHeaderGenericClauseBuilder {
         builder.start_node(NodeKind::SubprogramHeaderGenericClause);
         builder.push(self.generic_token);
         builder.push(self.left_par_token);
-        if let Some(n) = self.interface_list {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.interface_list.raw().green().clone());
         builder.push(self.right_par_token);
         builder.end_node();
         let green = builder.end();

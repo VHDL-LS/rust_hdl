@@ -506,7 +506,7 @@ UseClauseContextItem =
   UseClause
 
 ContextReference =
-  'context' NameList? ';'
+  'context' NameList ';'
 
 ContextItem =
   LibraryClause | UseClauseContextItem | ContextReference
@@ -747,7 +747,7 @@ SelectedName =
 // `group_constituent_list` of a group declaration all collapse to this
 // parenthesized association list. Analysis decides which one it is.
 ParenthesizedName =
-  '(' AssociationList? ')'
+  '(' AssociationList ')'
 
 NameTail =
   SelectedName | ParenthesizedName | AttributeName
@@ -1117,7 +1117,7 @@ FunctionSpecification =
   Name
 
 SubprogramHeader =
-  subprogram_header_generic_clause:('generic' '(' InterfaceList? ')')
+  subprogram_header_generic_clause:('generic' '(' InterfaceList ')')
   GenericMapAspect?
 
 SubprogramBody =

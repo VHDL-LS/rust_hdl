@@ -53,8 +53,7 @@ pub fn str_to_token_kind(s: &str) -> Result<TokenKind, strum::ParseError> {
         "=>" => RightArrow,
         _ => {
             return TokenKind::from_str(&s.to_case(Case::UpperCamel)).or_else(|_| {
-                crate::model::token::Keyword::from_str(&s.to_case(Case::UpperCamel))
-                    .map(TokenKind::Keyword)
+                super::Keyword::from_str(&s.to_case(Case::UpperCamel)).map(TokenKind::Keyword)
             })
         }
     })

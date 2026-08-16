@@ -460,12 +460,6 @@ impl Model {
     /// node is a modelling error: the child will sometimes be absent but the parent doesn't
     /// declare it as optional.
     pub fn check_empty_capable_nodes_marked_optional(&self) {
-        // Known limitation: the model has no "one-or-more" (required-non-empty list) concept.
-        // A node whose items are all repeated (e.g. NameList, PartialPathname) is structurally
-        // empty-capable even when the VHDL grammar guarantees ≥1 element at that use site. Such
-        // nodes must still be marked optional (`?`) in the grammar so that their accessor returns
-        // `Option<T>` rather than causing a model inconsistency. The semantic "must be present"
-        // constraint is enforced by the parser and the analysis layer.
         let empty_capable = self.compute_empty_capable_nodes();
         let mut violations: Vec<(&NodeKind, &NodeKind)> = vec![];
         for node in self.all_nodes() {

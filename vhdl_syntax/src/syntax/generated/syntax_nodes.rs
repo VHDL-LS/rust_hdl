@@ -5010,7 +5010,7 @@ impl AstNode for ContextReferenceSyntax {
                 kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Context)),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "name_list",
                 kind: LayoutItemKind::Node(NodeKind::NameList),
@@ -13089,7 +13089,7 @@ impl AstNode for ParenthesizedNameSyntax {
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "association_list",
                 kind: LayoutItemKind::Node(NodeKind::AssociationList),
@@ -17573,7 +17573,7 @@ impl AstNode for SubprogramHeaderGenericClauseSyntax {
                 kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "interface_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
