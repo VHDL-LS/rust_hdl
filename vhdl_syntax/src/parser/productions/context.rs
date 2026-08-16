@@ -1,4 +1,5 @@
 use crate::parser::Parser;
+use crate::syntax::NodeKind::LogicalNameList;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
@@ -7,7 +8,7 @@ impl Parser {
     pub fn library_clause(&mut self) {
         self.start_node(NodeKind::LibraryClause);
         self.expect_kw(Kw::Library);
-        self.identifier_list();
+        self.separated_list(LogicalNameList, Parser::identifier, Comma);
         self.expect_token(SemiColon);
         self.end_node();
     }

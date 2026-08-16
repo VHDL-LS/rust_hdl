@@ -333,7 +333,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::FunctionSpecification | NodeKind::ProcedureSpecification => {
             &[Keyword(Kw::Is), SemiColon]
         }
-        NodeKind::IdentifierList => &[Colon, SemiColon],
+        NodeKind::IdentifierList | NodeKind::LogicalNameList => &[Colon, SemiColon],
         NodeKind::IfGenerateElsif | NodeKind::IfStatementElsif => {
             &[Keyword(Kw::Else), Keyword(Kw::End)]
         }

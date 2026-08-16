@@ -7,7 +7,7 @@ DesignFile
     ContextClause
       LibraryClause
         Keyword(Library)
-        IdentifierList
+        LogicalNameList
           Identifier 'lib'
         SemiColon
       UseClauseContextItem

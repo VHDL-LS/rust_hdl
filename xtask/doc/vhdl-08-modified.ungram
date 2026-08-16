@@ -166,7 +166,6 @@ Declaration =
 // | PslPropertyDeclaration  -- add here if PSL is supported
 // | PslSequenceDeclaration  -- add here if PSL is supported
 // | PslClockDeclaration     -- add here if PSL is supported
-
 // LRM:
 //   actual_part       ::= actual_designator | name "(" actual_designator ")"
 //                       | type_mark "(" actual_designator ")"
@@ -179,9 +178,10 @@ Declaration =
 // `name "(" actual_designator ")"` forms collapse into `Expression`
 // because `Name` accepts a `ParenthesizedName` tail; analysis disambiguates
 // type conversions / resolution functions later.
-
 ActualPartBody =
-  actual_part_expression:Expression | actual_part_subtype_indication:SubtypeIndication | actual_part_open:'open'
+  actual_part_expression:Expression
+| actual_part_subtype_indication:SubtypeIndication
+| actual_part_open:'open'
 
 ActualPart =
   'inertial'? ActualPartBody
@@ -195,8 +195,11 @@ AliasDeclaration =
   Signature?
   ';'
 
+OperatorSymbol =
+  '#string_literal'
+
 AliasDesignator =
-  '#identifier' | '#character_literal' | '#string_literal'
+  '#identifier' | '#character_literal' | OperatorSymbol
 
 // LRM has `name | name "(" formal_designator ")" | type_mark "(" formal_designator ")"`.
 // The `name "(" ... ")"` and `type_mark "(" ... ")"` forms reduce to a `Name`
@@ -207,8 +210,11 @@ AssociationElement =
 AssociationList =
   AssociationElement (',' AssociationElement)*
 
+TypeMark =
+  Name
+
 AttributeDeclaration =
-  'attribute' '#identifier' ':' Name ';'
+  'attribute' '#identifier' ':' TypeMark ';'
 
 ComponentDeclaration =
   component_declaration_preamble:('component' '#identifier' 'is'?)
@@ -225,7 +231,8 @@ ConstantDeclaration =
   ';'
 
 ElementResolution =
-  resolution_indication_element_resolution:ResolutionIndication | record_resolution_element_resolution:RecordResolution
+  resolution_indication_element_resolution:ResolutionIndication
+| record_resolution_element_resolution:RecordResolution
 
 EntityClassEntry =
   EntityClass '<>'?
@@ -236,8 +243,11 @@ EntityClassEntryList =
 FileDeclaration =
   'file' IdentifierList ':' SubtypeIndication FileOpenInformation? ';'
 
+FileLogicalName =
+  Expression
+
 FileOpenInformation =
-  file_open_kind:('open' Expression)? 'is' Expression
+  file_open_kind:('open' Expression)? 'is' FileLogicalName
 
 FullTypeDeclaration =
   'type' '#identifier' 'is' TypeDefinition ';'
@@ -281,7 +291,10 @@ InterfaceIncompleteTypeDeclaration =
   'type' '#identifier'
 
 InterfaceList =
-  InterfaceDeclaration (';' InterfaceDeclaration)*
+  InterfaceElement (';' InterfaceElement)*
+
+InterfaceElement =
+  InterfaceDeclaration
 
 // A non-file interface object (constant/signal/variable)
 InterfaceObjectDeclaration =
@@ -320,7 +333,8 @@ InterfaceSubprogramDeclaration =
   subprogram_default:('is' InterfaceSubprogramDefault)?
 
 InterfaceSubprogramDefault =
-  interface_subprogram_default_name:Name | interface_subprogram_default_box:'<>'
+  interface_subprogram_default_name:Name
+| interface_subprogram_default_box:'<>'
 
 InterfaceSubprogramSpecification =
   InterfaceProcedureSpecification | InterfaceFunctionSpecification
@@ -456,8 +470,14 @@ DesignFile =
 DesignUnit =
   ContextClause LibraryUnit
 
+LogicalName =
+  '#identifier'
+
+LogicalNameList =
+  LogicalName (',' LogicalName)*
+
 LibraryClause =
-  'library' IdentifierList ';'
+  'library' LogicalNameList ';'
 
 LibraryUnit =
   PrimaryUnit | SecondaryUnit
@@ -470,7 +490,6 @@ PrimaryUnit =
 | ContextDeclaration
 
 // PslVerificationUnit -- add here if PSL is supported
-
 SecondaryUnit =
   ArchitectureBody | secondary_unit_package_body:PackageBody
 
@@ -544,8 +563,11 @@ BinaryOperator =
 | 'to'
 | 'downto'
 
-Lhs = Expression
-Rhs = Expression
+Lhs =
+  Expression
+
+Rhs =
+  Expression
 
 BinaryExpression =
   Lhs BinaryOperator Rhs
@@ -637,7 +659,7 @@ Label =
   '#identifier' ':'
 
 Designator =
-  '#identifier' | '#string_literal'
+  '#identifier' | OperatorSymbol
 
 NameDesignator =
   '#identifier' | '#string_literal' | '#character_literal'
@@ -679,7 +701,7 @@ UseClause =
 //==============================================================================
 Assertion =
   'assert'
-  Expression
+  Condition
   report_clause:('report' Expression)?
   severity_clause:('severity' Expression)?
 
@@ -698,7 +720,8 @@ CaseStatement =
 ConditionClause =
   'until' Expression
 
-Condition = Expression
+Condition =
+  Expression
 
 ConditionalExpressions =
   when_expression:(Expression 'when' Condition)
@@ -722,14 +745,12 @@ ConditionalWaveforms =
   else_when_waveform:('else' Waveform 'when' Condition)*
   else_waveform:('else' Waveform)?
 
-InertialDelayMechanism =
-  reject_clause:('reject' Expression)? 'inertial'
-
 DelayMechanism =
-  transport_delay_mechanism:'transport' | InertialDelayMechanism
+  transport_delay_mechanism:'transport'
+| inertial_delay_mechanism:(reject_clause:('reject' Expression)? 'inertial')
 
 ExitStatement =
-  Label? 'exit' loop_label:'#identifier'? when_clause:('when' Expression)? ';'
+  Label? 'exit' loop_label:'#identifier'? when_clause:('when' Condition)? ';'
 
 ForceMode =
   'in' | 'out'
@@ -742,8 +763,7 @@ IfStatement =
   if_statement_epilogue:('end' 'if' '#identifier'? ';')
 
 IterationScheme =
-  while_scheme:('while' Expression)
-| for_scheme:('for' ParameterSpecification)
+  while_scheme:('while' Condition) | for_scheme:('for' ParameterSpecification)
 
 LoopStatement =
   loop_statement_preamble:(Label? IterationScheme? 'loop')
@@ -751,7 +771,7 @@ LoopStatement =
   loop_statement_epilogue:('end' 'loop' '#identifier'? ';')
 
 NextStatement =
-  Label? 'next' loop_label:'#identifier'? when_clause:('when' Expression)? ';'
+  Label? 'next' loop_label:'#identifier'? when_clause:('when' Condition)? ';'
 
 NullStatement =
   Label? 'null' ';'
@@ -865,11 +885,9 @@ WaitStatement =
 WaveformElement =
   Expression after_clause:('after' Expression)?
 
-WaveformElements =
-  WaveformElement (',' WaveformElement)*
-
 Waveform =
-  WaveformElements | unaffected_waveform:'unaffected'
+  waveform_elements:(WaveformElement (',' WaveformElement)*)
+| unaffected_waveform:'unaffected'
 
 SequentialStatements =
   SequentialStatement*
@@ -878,13 +896,7 @@ SequentialStatements =
 // § 7: Specification
 //==============================================================================
 AttributeSpecification =
-  'attribute'
-  '#identifier'
-  'of'
-  EntitySpecification
-  'is'
-  Expression
-  ';'
+  'attribute' '#identifier' 'of' EntitySpecification 'is' Expression ';'
 
 BindingIndication =
   binding_use_clause:('use' EntityAspect)? GenericMapAspect? PortMapAspect?
@@ -905,14 +917,10 @@ ConfigurationSpecification =
 DisconnectionSpecification =
   'disconnect' GuardedSignalSpecification 'after' Expression ';'
 
-EntityEntityAspect =
-  'entity' Name
-
-EntityConfigurationAspect =
-  'configuration' Name
-
 EntityAspect =
-  EntityEntityAspect | EntityConfigurationAspect | entity_open_aspect:'open'
+  entity_entity_aspect:('entity' Name)
+| entity_configuration_aspect:('configuration' Name)
+| entity_open_aspect:'open'
 
 EntityClass =
   'entity'
@@ -938,32 +946,32 @@ EntityClass =
 EntityDesignator =
   EntityTag Signature?
 
-EntityDesignatorList =
-  EntityDesignator (',' EntityDesignator)*
-
 EntityNameList =
-  EntityDesignatorList | entity_name_list_all:'all' | entity_name_list_others:'others'
+  entity_designator_list:(EntityDesignator (',' EntityDesignator)*)
+| entity_name_list_all:'all'
+| entity_name_list_others:'others'
 
 EntitySpecification =
   EntityNameList ':' EntityClass
 
+SimpleName =
+  '#identifier'
+
 EntityTag =
-  '#identifier' | '#character_literal' | '#string_literal'
+  SimpleName | '#character_literal' | OperatorSymbol
 
 GuardedSignalSpecification =
-  SignalList ':' Name
-
-InstantiationListList =
-  '#identifier' (',' '#identifier')*
+  SignalList ':' TypeMark
 
 InstantiationList =
-  InstantiationListList | instantiation_list_all:'all' | instantiation_list_others:'others'
-
-SignalListList =
-  Name (',' Name)*
+  instantiation_list_list:('#identifier' (',' '#identifier')*)
+| instantiation_list_all:'all'
+| instantiation_list_others:'others'
 
 SignalList =
-  SignalListList | signal_list_all:'all' | signal_list_others:'others'
+  signal_list_list:(Name (',' Name)*)
+| signal_list_all:'all'
+| signal_list_others:'others'
 
 SimpleConfigurationSpecification =
   component_configuration_preamble:('for' ComponentSpecification)
@@ -1069,7 +1077,10 @@ ConstrainedArrayDefinition =
 // - range ::= range_attribute_name | simple_expression direction simple_expression
 //   * As part of the broadening strategy, the second form (expression direction expression) is absorbed into expression
 ElementDeclaration =
-  IdentifierList ':' SubtypeIndication ';'
+  IdentifierList ':' ElementSubtypeDefinition ';'
+
+ElementSubtypeDefinition =
+  SubtypeIndication
 
 EnumerationLiteral =
   '#identifier' | '#character_literal'
@@ -1078,7 +1089,7 @@ EnumerationTypeDefinition =
   '(' enumeration_list:(EnumerationLiteral (',' EnumerationLiteral)*) ')'
 
 FileTypeDefinition =
-  'file' 'of' Name
+  'file' 'of' TypeMark
 
 IdentifierList =
   '#identifier' (',' '#identifier')*
@@ -1087,7 +1098,7 @@ IncompleteTypeDeclaration =
   'type' '#identifier' ';'
 
 IndexSubtypeDefinition =
-  Name 'range' '<>'
+  TypeMark 'range' '<>'
 
 PhysicalLiteral =
   '#abstract_literal'? Name
@@ -1127,7 +1138,9 @@ RecordElementDeclarations =
   ElementDeclaration*
 
 ScalarTypeDefinition =
-  EnumerationTypeDefinition | numeric_type_definition:RangeConstraint | PhysicalTypeDefinition
+  EnumerationTypeDefinition
+| numeric_type_definition:RangeConstraint
+| PhysicalTypeDefinition
 
 SecondaryUnitDeclaration =
   '#identifier' '=' PhysicalLiteral ';'

@@ -494,14 +494,14 @@ impl AliasDeclarationSyntax {
 pub enum AliasDesignatorSyntax {
     Identifier(SyntaxToken),
     CharacterLiteral(SyntaxToken),
-    StringLiteral(SyntaxToken),
+    OperatorSymbol(SyntaxToken),
 }
 impl AliasDesignatorSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
             TokenKind::Identifier => Some(AliasDesignatorSyntax::Identifier(token)),
             TokenKind::CharacterLiteral => Some(AliasDesignatorSyntax::CharacterLiteral(token)),
-            TokenKind::StringLiteral => Some(AliasDesignatorSyntax::StringLiteral(token)),
+            TokenKind::StringLiteral => Some(AliasDesignatorSyntax::OperatorSymbol(token)),
             _ => None,
         }
     }
@@ -509,7 +509,7 @@ impl AliasDesignatorSyntax {
         match self {
             AliasDesignatorSyntax::Identifier(token) => token.clone(),
             AliasDesignatorSyntax::CharacterLiteral(token) => token.clone(),
-            AliasDesignatorSyntax::StringLiteral(token) => token.clone(),
+            AliasDesignatorSyntax::OperatorSymbol(token) => token.clone(),
         }
     }
 }
@@ -894,7 +894,7 @@ impl AstNode for AssertionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "expression",
+                name: "condition",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -934,7 +934,7 @@ impl AssertionSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Assert))
             .nth(0)
     }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn report_clause(&self) -> Option<ReportClauseSyntax> {
@@ -1094,7 +1094,7 @@ impl AstNode for AttributeDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "type_mark",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
             LayoutItem {
@@ -1131,7 +1131,7 @@ impl AttributeDeclarationSyntax {
             .filter(|token| token.kind() == TokenKind::Colon)
             .nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn type_mark(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
@@ -5427,20 +5427,20 @@ impl DesignUnitSyntax {
 #[derive(Debug, Clone)]
 pub enum DesignatorSyntax {
     Identifier(SyntaxToken),
-    StringLiteral(SyntaxToken),
+    OperatorSymbol(SyntaxToken),
 }
 impl DesignatorSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
             TokenKind::Identifier => Some(DesignatorSyntax::Identifier(token)),
-            TokenKind::StringLiteral => Some(DesignatorSyntax::StringLiteral(token)),
+            TokenKind::StringLiteral => Some(DesignatorSyntax::OperatorSymbol(token)),
             _ => None,
         }
     }
     pub fn raw(&self) -> SyntaxToken {
         match self {
             DesignatorSyntax::Identifier(token) => token.clone(),
-            DesignatorSyntax::StringLiteral(token) => token.clone(),
+            DesignatorSyntax::OperatorSymbol(token) => token.clone(),
         }
     }
 }
@@ -5668,7 +5668,7 @@ impl AstNode for ElementDeclarationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "subtype_indication",
+                name: "element_subtype_definition",
                 kind: LayoutItemKind::Node(NodeKind::SubtypeIndication),
             },
             LayoutItem {
@@ -5699,7 +5699,7 @@ impl ElementDeclarationSyntax {
             .filter(|token| token.kind() == TokenKind::Colon)
             .nth(0)
     }
-    pub fn subtype_indication(&self) -> Option<SubtypeIndicationSyntax> {
+    pub fn element_subtype_definition(&self) -> Option<SubtypeIndicationSyntax> {
         self.0
             .children()
             .filter_map(SubtypeIndicationSyntax::cast)
@@ -6844,24 +6844,24 @@ impl EntityStatementPartSyntax {
 }
 #[derive(Debug, Clone)]
 pub enum EntityTagSyntax {
-    Identifier(SyntaxToken),
+    SimpleName(SyntaxToken),
     CharacterLiteral(SyntaxToken),
-    StringLiteral(SyntaxToken),
+    OperatorSymbol(SyntaxToken),
 }
 impl EntityTagSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            TokenKind::Identifier => Some(EntityTagSyntax::Identifier(token)),
+            TokenKind::Identifier => Some(EntityTagSyntax::SimpleName(token)),
             TokenKind::CharacterLiteral => Some(EntityTagSyntax::CharacterLiteral(token)),
-            TokenKind::StringLiteral => Some(EntityTagSyntax::StringLiteral(token)),
+            TokenKind::StringLiteral => Some(EntityTagSyntax::OperatorSymbol(token)),
             _ => None,
         }
     }
     pub fn raw(&self) -> SyntaxToken {
         match self {
-            EntityTagSyntax::Identifier(token) => token.clone(),
+            EntityTagSyntax::SimpleName(token) => token.clone(),
             EntityTagSyntax::CharacterLiteral(token) => token.clone(),
-            EntityTagSyntax::StringLiteral(token) => token.clone(),
+            EntityTagSyntax::OperatorSymbol(token) => token.clone(),
         }
     }
 }
@@ -7676,7 +7676,7 @@ impl AstNode for FileOpenInformationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "expression",
+                name: "file_logical_name",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -7710,7 +7710,7 @@ impl FileOpenInformationSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Is))
             .nth(0)
     }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
+    pub fn file_logical_name(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
@@ -7782,7 +7782,7 @@ impl AstNode for FileTypeDefinitionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "type_mark",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
         ],
@@ -7807,7 +7807,7 @@ impl FileTypeDefinitionSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Of))
             .nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn type_mark(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
 }
@@ -8938,7 +8938,7 @@ impl AstNode for GuardedSignalSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "type_mark",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
         ],
@@ -8960,7 +8960,7 @@ impl GuardedSignalSpecificationSyntax {
             .filter(|token| token.kind() == TokenKind::Colon)
             .nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn type_mark(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
 }
@@ -9728,7 +9728,7 @@ impl AstNode for IndexSubtypeDefinitionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "type_mark",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
             LayoutItem {
@@ -9753,7 +9753,7 @@ impl AstNode for IndexSubtypeDefinitionSyntax {
     }
 }
 impl IndexSubtypeDefinitionSyntax {
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn type_mark(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
     pub fn range_token(&self) -> Option<SyntaxToken> {
@@ -10446,7 +10446,7 @@ impl AstNode for InterfaceListSyntax {
         element: &LayoutItem {
             optional: false,
             repeated: true,
-            name: "interface_declarations",
+            name: "interface_elements",
             kind: LayoutItemKind::NodeChoice(&[
                 NodeKind::InterfaceObjectDeclaration,
                 NodeKind::InterfaceFileDeclaration,
@@ -10470,9 +10470,7 @@ impl AstNode for InterfaceListSyntax {
     }
 }
 impl InterfaceListSyntax {
-    pub fn interface_declarations(
-        &self,
-    ) -> impl Iterator<Item = InterfaceDeclarationSyntax> + use<'_> {
+    pub fn interface_elements(&self) -> impl Iterator<Item = InterfaceDeclarationSyntax> + use<'_> {
         self.0
             .children()
             .filter_map(InterfaceDeclarationSyntax::cast)
@@ -11240,8 +11238,8 @@ impl AstNode for LibraryClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "identifier_list",
-                kind: LayoutItemKind::Node(NodeKind::IdentifierList),
+                name: "logical_name_list",
+                kind: LayoutItemKind::Node(NodeKind::LogicalNameList),
             },
             LayoutItem {
                 optional: false,
@@ -11265,10 +11263,10 @@ impl LibraryClauseSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Library))
             .nth(0)
     }
-    pub fn identifier_list(&self) -> Option<IdentifierListSyntax> {
+    pub fn logical_name_list(&self) -> Option<LogicalNameListSyntax> {
         self.0
             .children()
-            .filter_map(IdentifierListSyntax::cast)
+            .filter_map(LogicalNameListSyntax::cast)
             .nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
@@ -11371,6 +11369,43 @@ impl AstNode for LiteralExpressionSyntax {
 impl LiteralExpressionSyntax {
     pub fn literal(&self) -> Option<LiteralSyntax> {
         self.0.tokens().filter_map(LiteralSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct LogicalNameListSyntax(pub(crate) SyntaxNode);
+impl AstNode for LogicalNameListSyntax {
+    const META: &'static Layout = &Layout::List(List {
+        kind: NodeKind::LogicalNameList,
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "logical_names",
+            kind: LayoutItemKind::Token(TokenKind::Identifier),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        LogicalNameListSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl LogicalNameListSyntax {
+    pub fn logical_names(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Identifier)
+    }
+    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]
@@ -19057,7 +19092,7 @@ impl AstNode for WhenClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "expression",
+                name: "condition",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -19085,7 +19120,7 @@ impl WhenClauseSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
@@ -19228,7 +19263,7 @@ impl AstNode for WhileSchemeSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "expression",
+                name: "condition",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -19256,7 +19291,7 @@ impl WhileSchemeSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::While))
             .nth(0)
     }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }

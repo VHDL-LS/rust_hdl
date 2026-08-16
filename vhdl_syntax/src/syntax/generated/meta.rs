@@ -206,6 +206,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::Label => LabelSyntax::META,
         NodeKind::LibraryClause => LibraryClauseSyntax::META,
         NodeKind::LiteralExpression => LiteralExpressionSyntax::META,
+        NodeKind::LogicalNameList => LogicalNameListSyntax::META,
         NodeKind::LoopStatement => LoopStatementSyntax::META,
         NodeKind::LoopStatementEpilogue => LoopStatementEpilogueSyntax::META,
         NodeKind::LoopStatementPreamble => LoopStatementPreambleSyntax::META,

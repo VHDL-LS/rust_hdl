@@ -182,6 +182,7 @@ pub enum NodeKind {
     Label,
     LibraryClause,
     LiteralExpression,
+    LogicalNameList,
     LoopStatement,
     LoopStatementEpilogue,
     LoopStatementPreamble,

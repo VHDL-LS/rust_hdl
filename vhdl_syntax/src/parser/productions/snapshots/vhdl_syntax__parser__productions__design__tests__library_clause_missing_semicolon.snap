@@ -11,7 +11,7 @@ DesignFile
     ContextClause
       LibraryClause
         Keyword(Library)
-        IdentifierList
+        LogicalNameList
           Identifier 'ieee'
   Eof
 
