@@ -169,7 +169,7 @@ fn continuation_first(node: NodeKind, expected: &[TokenKind]) -> Vec<TokenKind> 
             }
             acc
         }
-        Layout::Choice(_) => return Vec::new(),
+        Layout::Choice(_) => Vec::new()
     }
 }
 
