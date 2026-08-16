@@ -5714,20 +5714,21 @@ impl ElementDeclarationSyntax {
 }
 #[derive(Debug, Clone)]
 pub enum ElementResolutionSyntax {
-    ResolutionIndicationElementResolution(ResolutionIndicationElementResolutionSyntax),
+    ArrayElementResolution(ResolutionIndicationSyntax),
     RecordResolutionElementResolution(RecordResolutionElementResolutionSyntax),
 }
 impl AstNode for ElementResolutionSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
         options: &[
-            NodeKind::ResolutionIndicationElementResolution,
+            NodeKind::NameResolutionIndication,
+            NodeKind::ParenthesizedElementResolution,
             NodeKind::RecordResolutionElementResolution,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        if ResolutionIndicationElementResolutionSyntax::can_cast(&node) {
-            return ElementResolutionSyntax::ResolutionIndicationElementResolution(
-                ResolutionIndicationElementResolutionSyntax::cast_unchecked(node),
+        if ResolutionIndicationSyntax::can_cast(&node) {
+            return ElementResolutionSyntax::ArrayElementResolution(
+                ResolutionIndicationSyntax::cast_unchecked(node),
             );
         }
         if RecordResolutionElementResolutionSyntax::can_cast(&node) {
@@ -5742,7 +5743,7 @@ impl AstNode for ElementResolutionSyntax {
     }
     fn raw(&self) -> SyntaxNode {
         match self {
-            ElementResolutionSyntax::ResolutionIndicationElementResolution(inner) => inner.raw(),
+            ElementResolutionSyntax::ArrayElementResolution(inner) => inner.raw(),
             ElementResolutionSyntax::RecordResolutionElementResolution(inner) => inner.raw(),
         }
     }
@@ -5757,7 +5758,8 @@ impl AstNode for ElementResolutionResolutionIndicationSyntax {
             repeated: false,
             name: "element_resolution",
             kind: LayoutItemKind::NodeChoice(&[
-                NodeKind::ResolutionIndicationElementResolution,
+                NodeKind::NameResolutionIndication,
+                NodeKind::ParenthesizedElementResolution,
                 NodeKind::RecordResolutionElementResolution,
             ]),
         }],
@@ -15191,36 +15193,6 @@ impl AstNode for ResolutionIndicationSyntax {
             ResolutionIndicationSyntax::NameResolutionIndication(inner) => inner.raw(),
             ResolutionIndicationSyntax::ParenthesizedElementResolution(inner) => inner.raw(),
         }
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ResolutionIndicationElementResolutionSyntax(pub(crate) SyntaxNode);
-impl AstNode for ResolutionIndicationElementResolutionSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ResolutionIndicationElementResolution,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: false,
-            name: "resolution_indication",
-            kind: LayoutItemKind::NodeChoice(&[
-                NodeKind::NameResolutionIndication,
-                NodeKind::ParenthesizedElementResolution,
-            ]),
-        }],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ResolutionIndicationElementResolutionSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ResolutionIndicationElementResolutionSyntax {
-    pub fn resolution_indication(&self) -> Option<ResolutionIndicationSyntax> {
-        self.0
-            .children()
-            .filter_map(ResolutionIndicationSyntax::cast)
-            .nth(0)
     }
 }
 #[derive(Debug, Clone)]

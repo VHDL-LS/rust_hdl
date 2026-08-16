@@ -12611,36 +12611,6 @@ impl From<ReportStatementBuilder> for ReportStatementSyntax {
         value.build()
     }
 }
-pub struct ResolutionIndicationElementResolutionBuilder {
-    resolution_indication: ResolutionIndicationSyntax,
-}
-impl ResolutionIndicationElementResolutionBuilder {
-    pub fn new(resolution_indication: impl Into<ResolutionIndicationSyntax>) -> Self {
-        Self {
-            resolution_indication: resolution_indication.into(),
-        }
-    }
-    pub fn with_resolution_indication(mut self, n: impl Into<ResolutionIndicationSyntax>) -> Self {
-        self.resolution_indication = n.into();
-        self
-    }
-    pub fn build(self) -> ResolutionIndicationElementResolutionSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ResolutionIndicationElementResolution);
-        builder.push_node(self.resolution_indication.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ResolutionIndicationElementResolutionSyntax::cast(node).unwrap()
-    }
-}
-impl From<ResolutionIndicationElementResolutionBuilder>
-    for ResolutionIndicationElementResolutionSyntax
-{
-    fn from(value: ResolutionIndicationElementResolutionBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct ReturnStatementBuilder {
     label: Option<LabelSyntax>,
     return_token: Token,

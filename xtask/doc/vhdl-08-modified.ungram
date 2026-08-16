@@ -232,8 +232,10 @@ ConstantDeclaration =
   initial_value:(':=' Expression)?
   ';'
 
+ArrayElementResolution = ResolutionIndication
+
 ElementResolution =
-  resolution_indication_element_resolution:ResolutionIndication
+  ArrayElementResolution
 | record_resolution_element_resolution:RecordResolution
 
 EntityClassEntry =

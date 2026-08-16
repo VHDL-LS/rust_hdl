@@ -256,7 +256,6 @@ pub enum NodeKind {
     RelativePathname,
     ReportClause,
     ReportStatement,
-    ResolutionIndicationElementResolution,
     ReturnStatement,
     ReturnType,
     SecondaryUnitDeclaration,

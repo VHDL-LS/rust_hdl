@@ -288,9 +288,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::RelativePathname => RelativePathnameSyntax::META,
         NodeKind::ReportClause => ReportClauseSyntax::META,
         NodeKind::ReportStatement => ReportStatementSyntax::META,
-        NodeKind::ResolutionIndicationElementResolution => {
-            ResolutionIndicationElementResolutionSyntax::META
-        }
         NodeKind::ReturnStatement => ReturnStatementSyntax::META,
         NodeKind::ReturnType => ReturnTypeSyntax::META,
         NodeKind::SecondaryUnitDeclaration => SecondaryUnitDeclarationSyntax::META,

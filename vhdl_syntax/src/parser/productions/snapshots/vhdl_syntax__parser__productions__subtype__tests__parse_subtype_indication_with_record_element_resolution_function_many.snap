@@ -13,11 +13,10 @@ SubtypeIndication
             ParenthesizedElementResolution
               LeftPar
               ElementResolutionResolutionIndication
-                ResolutionIndicationElementResolution
-                  NameResolutionIndication
-                    Name
-                      NameDesignatorPrefix
-                        Identifier 'resolve1'
+                NameResolutionIndication
+                  Name
+                    NameDesignatorPrefix
+                      Identifier 'resolve1'
               RightPar
           Comma
           RecordElementResolution

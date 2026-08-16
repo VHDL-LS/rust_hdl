@@ -268,7 +268,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::InterfacePackageGenericMapAspectDefault
         | NodeKind::RecordResolution
         | NodeKind::RecordResolutionElementResolution
-        | NodeKind::ResolutionIndicationElementResolution
         | NodeKind::SensitivityList
         | NodeKind::ExpressionList
         | NodeKind::EnumerationList
