@@ -351,7 +351,7 @@ PortMapAspect =
   'port' 'map' '(' AssociationList ')'
 
 RecordElementResolution =
-  '#identifier' ResolutionIndication
+  SimpleName ResolutionIndication
 
 RecordResolution =
   RecordElementResolution (',' RecordElementResolution)*
@@ -676,7 +676,7 @@ NamePrefix =
   ExternalName | name_designator_prefix:NameDesignator
 
 Suffix =
-  '#identifier' | '#string_literal' | '#character_literal' | 'all'
+  SimpleName | '#character_literal' | OperatorSymbol | 'all'
 
 SelectedName =
   '.' Suffix
@@ -718,7 +718,7 @@ CaseStatement =
   case_statement_epilogue:('end' 'case' '?'? '#identifier'? ';')
 
 ConditionClause =
-  'until' Expression
+  'until' Condition
 
 Condition =
   Expression
@@ -831,7 +831,7 @@ SelectedWaveformAssignment =
   ';'
 
 SensitivityClause =
-  'on' NameList
+  'on' SensitivityList
 
 SequentialStatement =
   WaitStatement
@@ -948,8 +948,8 @@ EntityDesignator =
 
 EntityNameList =
   entity_designator_list:(EntityDesignator (',' EntityDesignator)*)
-| entity_name_list_all:'all'
 | entity_name_list_others:'others'
+| entity_name_list_all:'all'
 
 EntitySpecification =
   EntityNameList ':' EntityClass
@@ -970,8 +970,8 @@ InstantiationList =
 
 SignalList =
   signal_list_list:(Name (',' Name)*)
-| signal_list_all:'all'
 | signal_list_others:'others'
+| signal_list_all:'all'
 
 SimpleConfigurationSpecification =
   component_configuration_preamble:('for' ComponentSpecification)

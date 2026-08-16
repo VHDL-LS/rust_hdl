@@ -19,7 +19,7 @@ impl Parser {
         if self.next_is(Keyword(Kw::On)) {
             self.start_node(SensitivityClause);
             self.skip();
-            self.name_list();
+            self.sensitivity_list();
             self.end_node();
         }
         if self.next_is(Keyword(Kw::Until)) {

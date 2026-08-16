@@ -3319,13 +3319,13 @@ impl From<ConcurrentStatementsBuilder> for ConcurrentStatementsSyntax {
 }
 pub struct ConditionClauseBuilder {
     until_token: Token,
-    expression: ExpressionSyntax,
+    condition: ExpressionSyntax,
 }
 impl ConditionClauseBuilder {
-    pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
+    pub fn new(condition: impl Into<ExpressionSyntax>) -> Self {
         Self {
             until_token: Kw::Until.canonical_token(),
-            expression: expression.into(),
+            condition: condition.into(),
         }
     }
     pub fn with_until_token(mut self, t: impl Into<Token>) -> Self {
@@ -3336,15 +3336,15 @@ impl ConditionClauseBuilder {
         self.until_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
-        self.expression = n.into();
+    pub fn with_condition(mut self, n: impl Into<ExpressionSyntax>) -> Self {
+        self.condition = n.into();
         self
     }
     pub fn build(self) -> ConditionClauseSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConditionClause);
         builder.push(self.until_token);
-        builder.push_node(self.expression.raw().green().clone());
+        builder.push_node(self.condition.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -12227,25 +12227,25 @@ impl From<RecordElementDeclarationsBuilder> for RecordElementDeclarationsSyntax 
     }
 }
 pub struct RecordElementResolutionBuilder {
-    identifier_token: Token,
+    simple_name: Token,
     resolution_indication: ResolutionIndicationSyntax,
 }
 impl RecordElementResolutionBuilder {
     pub fn new(
-        identifier_token: impl Into<crate::builder::Identifier>,
+        simple_name: impl Into<crate::builder::Identifier>,
         resolution_indication: impl Into<ResolutionIndicationSyntax>,
     ) -> Self {
         Self {
-            identifier_token: identifier_token.into().into(),
+            simple_name: simple_name.into().into(),
             resolution_indication: resolution_indication.into(),
         }
     }
-    pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
-        self.identifier_token = t.into().into();
+    pub fn with_simple_name(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
+        self.simple_name = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.identifier_token.set_leading_trivia(trivia);
+    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+        self.simple_name.set_leading_trivia(trivia);
         self
     }
     pub fn with_resolution_indication(mut self, n: impl Into<ResolutionIndicationSyntax>) -> Self {
@@ -12255,7 +12255,7 @@ impl RecordElementResolutionBuilder {
     pub fn build(self) -> RecordElementResolutionSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::RecordElementResolution);
-        builder.push(self.identifier_token);
+        builder.push(self.simple_name);
         builder.push_node(self.resolution_indication.raw().green().clone());
         builder.end_node();
         let green = builder.end();
@@ -13332,13 +13332,13 @@ impl From<SelectedWaveformItemBuilder> for SelectedWaveformItemSyntax {
 }
 pub struct SensitivityClauseBuilder {
     on_token: Token,
-    name_list: NameListSyntax,
+    sensitivity_list: SensitivityListSyntax,
 }
 impl SensitivityClauseBuilder {
-    pub fn new(name_list: impl Into<NameListSyntax>) -> Self {
+    pub fn new(sensitivity_list: impl Into<SensitivityListSyntax>) -> Self {
         Self {
             on_token: Kw::On.canonical_token(),
-            name_list: name_list.into(),
+            sensitivity_list: sensitivity_list.into(),
         }
     }
     pub fn with_on_token(mut self, t: impl Into<Token>) -> Self {
@@ -13349,15 +13349,15 @@ impl SensitivityClauseBuilder {
         self.on_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_name_list(mut self, n: impl Into<NameListSyntax>) -> Self {
-        self.name_list = n.into();
+    pub fn with_sensitivity_list(mut self, n: impl Into<SensitivityListSyntax>) -> Self {
+        self.sensitivity_list = n.into();
         self
     }
     pub fn build(self) -> SensitivityClauseSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SensitivityClause);
         builder.push(self.on_token);
-        builder.push_node(self.name_list.raw().green().clone());
+        builder.push_node(self.sensitivity_list.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -17035,13 +17035,13 @@ impl From<SubprogramKindSyntax> for SubprogramKindToken {
 }
 pub struct SuffixToken(pub(crate) Token);
 impl SuffixToken {
-    pub fn identifier(v: impl Into<crate::builder::Identifier>) -> Self {
-        Self(v.into().into())
-    }
-    pub fn string_literal(v: impl Into<crate::builder::StringLiteral>) -> Self {
+    pub fn simple_name(v: impl Into<crate::builder::Identifier>) -> Self {
         Self(v.into().into())
     }
     pub fn character_literal(v: impl Into<crate::builder::CharLiteral>) -> Self {
+        Self(v.into().into())
+    }
+    pub fn operator_symbol(v: impl Into<crate::builder::StringLiteral>) -> Self {
         Self(v.into().into())
     }
     pub fn all() -> Self {
@@ -17055,17 +17055,17 @@ impl From<SuffixSyntax> for SuffixToken {
 }
 impl From<crate::builder::Identifier> for SuffixToken {
     fn from(v: crate::builder::Identifier) -> Self {
-        SuffixToken::identifier(v)
-    }
-}
-impl From<crate::builder::StringLiteral> for SuffixToken {
-    fn from(v: crate::builder::StringLiteral) -> Self {
-        SuffixToken::string_literal(v)
+        SuffixToken::simple_name(v)
     }
 }
 impl From<crate::builder::CharLiteral> for SuffixToken {
     fn from(v: crate::builder::CharLiteral) -> Self {
         SuffixToken::character_literal(v)
+    }
+}
+impl From<crate::builder::StringLiteral> for SuffixToken {
+    fn from(v: crate::builder::StringLiteral) -> Self {
+        SuffixToken::operator_symbol(v)
     }
 }
 pub struct UnaryOperatorToken(pub(crate) Token);

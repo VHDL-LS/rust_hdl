@@ -3896,7 +3896,7 @@ impl AstNode for ConditionClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "expression",
+                name: "condition",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -3924,7 +3924,7 @@ impl ConditionClauseSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Until))
             .nth(0)
     }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
 }
@@ -6606,15 +6606,15 @@ impl EntityHeaderSyntax {
 #[derive(Debug, Clone)]
 pub enum EntityNameListSyntax {
     EntityDesignatorList(EntityDesignatorListSyntax),
-    EntityNameListAll(EntityNameListAllSyntax),
     EntityNameListOthers(EntityNameListOthersSyntax),
+    EntityNameListAll(EntityNameListAllSyntax),
 }
 impl AstNode for EntityNameListSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
         options: &[
             NodeKind::EntityDesignatorList,
-            NodeKind::EntityNameListAll,
             NodeKind::EntityNameListOthers,
+            NodeKind::EntityNameListAll,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -6623,14 +6623,14 @@ impl AstNode for EntityNameListSyntax {
                 EntityDesignatorListSyntax::cast_unchecked(node),
             );
         }
-        if EntityNameListAllSyntax::can_cast(&node) {
-            return EntityNameListSyntax::EntityNameListAll(
-                EntityNameListAllSyntax::cast_unchecked(node),
-            );
-        }
         if EntityNameListOthersSyntax::can_cast(&node) {
             return EntityNameListSyntax::EntityNameListOthers(
                 EntityNameListOthersSyntax::cast_unchecked(node),
+            );
+        }
+        if EntityNameListAllSyntax::can_cast(&node) {
+            return EntityNameListSyntax::EntityNameListAll(
+                EntityNameListAllSyntax::cast_unchecked(node),
             );
         }
         unreachable!(
@@ -6641,8 +6641,8 @@ impl AstNode for EntityNameListSyntax {
     fn raw(&self) -> SyntaxNode {
         match self {
             EntityNameListSyntax::EntityDesignatorList(inner) => inner.raw(),
-            EntityNameListSyntax::EntityNameListAll(inner) => inner.raw(),
             EntityNameListSyntax::EntityNameListOthers(inner) => inner.raw(),
+            EntityNameListSyntax::EntityNameListAll(inner) => inner.raw(),
         }
     }
 }
@@ -6739,8 +6739,8 @@ impl AstNode for EntitySpecificationSyntax {
                 name: "entity_name_list",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::EntityDesignatorList,
-                    NodeKind::EntityNameListAll,
                     NodeKind::EntityNameListOthers,
+                    NodeKind::EntityNameListAll,
                 ]),
             },
             LayoutItem {
@@ -8925,8 +8925,8 @@ impl AstNode for GuardedSignalSpecificationSyntax {
                 name: "signal_list",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::SignalListList,
-                    NodeKind::SignalListAll,
                     NodeKind::SignalListOthers,
+                    NodeKind::SignalListAll,
                 ]),
             },
             LayoutItem {
@@ -14736,7 +14736,7 @@ impl AstNode for RecordElementResolutionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -14758,7 +14758,7 @@ impl AstNode for RecordElementResolutionSyntax {
     }
 }
 impl RecordElementResolutionSyntax {
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -15814,8 +15814,8 @@ impl AstNode for SelectedNameSyntax {
                 name: "suffix",
                 kind: LayoutItemKind::TokenChoice(&[
                     TokenKind::Identifier,
-                    TokenKind::StringLiteral,
                     TokenKind::CharacterLiteral,
+                    TokenKind::StringLiteral,
                     TokenKind::Keyword(Kw::All),
                 ]),
             },
@@ -16165,8 +16165,8 @@ impl AstNode for SensitivityClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name_list",
-                kind: LayoutItemKind::Node(NodeKind::NameList),
+                name: "sensitivity_list",
+                kind: LayoutItemKind::Node(NodeKind::SensitivityList),
             },
         ],
     });
@@ -16184,8 +16184,11 @@ impl SensitivityClauseSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::On))
             .nth(0)
     }
-    pub fn name_list(&self) -> Option<NameListSyntax> {
-        self.0.children().filter_map(NameListSyntax::cast).nth(0)
+    pub fn sensitivity_list(&self) -> Option<SensitivityListSyntax> {
+        self.0
+            .children()
+            .filter_map(SensitivityListSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -16620,28 +16623,28 @@ impl SignalKindSyntax {
 #[derive(Debug, Clone)]
 pub enum SignalListSyntax {
     SignalListList(SignalListListSyntax),
-    SignalListAll(SignalListAllSyntax),
     SignalListOthers(SignalListOthersSyntax),
+    SignalListAll(SignalListAllSyntax),
 }
 impl AstNode for SignalListSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
         options: &[
             NodeKind::SignalListList,
-            NodeKind::SignalListAll,
             NodeKind::SignalListOthers,
+            NodeKind::SignalListAll,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         if SignalListListSyntax::can_cast(&node) {
             return SignalListSyntax::SignalListList(SignalListListSyntax::cast_unchecked(node));
         }
-        if SignalListAllSyntax::can_cast(&node) {
-            return SignalListSyntax::SignalListAll(SignalListAllSyntax::cast_unchecked(node));
-        }
         if SignalListOthersSyntax::can_cast(&node) {
             return SignalListSyntax::SignalListOthers(SignalListOthersSyntax::cast_unchecked(
                 node,
             ));
+        }
+        if SignalListAllSyntax::can_cast(&node) {
+            return SignalListSyntax::SignalListAll(SignalListAllSyntax::cast_unchecked(node));
         }
         unreachable!(
             "cast_unchecked called with unexpected node kind {:?}",
@@ -16651,8 +16654,8 @@ impl AstNode for SignalListSyntax {
     fn raw(&self) -> SyntaxNode {
         match self {
             SignalListSyntax::SignalListList(inner) => inner.raw(),
-            SignalListSyntax::SignalListAll(inner) => inner.raw(),
             SignalListSyntax::SignalListOthers(inner) => inner.raw(),
+            SignalListSyntax::SignalListAll(inner) => inner.raw(),
         }
     }
 }
@@ -17970,26 +17973,26 @@ impl SubtypeIndicationSyntax {
 }
 #[derive(Debug, Clone)]
 pub enum SuffixSyntax {
-    Identifier(SyntaxToken),
-    StringLiteral(SyntaxToken),
+    SimpleName(SyntaxToken),
     CharacterLiteral(SyntaxToken),
+    OperatorSymbol(SyntaxToken),
     All(SyntaxToken),
 }
 impl SuffixSyntax {
     pub fn cast(token: SyntaxToken) -> Option<Self> {
         match token.kind() {
-            TokenKind::Identifier => Some(SuffixSyntax::Identifier(token)),
-            TokenKind::StringLiteral => Some(SuffixSyntax::StringLiteral(token)),
+            TokenKind::Identifier => Some(SuffixSyntax::SimpleName(token)),
             TokenKind::CharacterLiteral => Some(SuffixSyntax::CharacterLiteral(token)),
+            TokenKind::StringLiteral => Some(SuffixSyntax::OperatorSymbol(token)),
             TokenKind::Keyword(Kw::All) => Some(SuffixSyntax::All(token)),
             _ => None,
         }
     }
     pub fn raw(&self) -> SyntaxToken {
         match self {
-            SuffixSyntax::Identifier(token) => token.clone(),
-            SuffixSyntax::StringLiteral(token) => token.clone(),
+            SuffixSyntax::SimpleName(token) => token.clone(),
             SuffixSyntax::CharacterLiteral(token) => token.clone(),
+            SuffixSyntax::OperatorSymbol(token) => token.clone(),
             SuffixSyntax::All(token) => token.clone(),
         }
     }
