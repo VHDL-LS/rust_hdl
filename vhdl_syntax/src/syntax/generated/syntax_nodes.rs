@@ -8434,8 +8434,14 @@ impl AstNode for GenericClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "generic_clause_preamble",
-                kind: LayoutItemKind::Node(NodeKind::GenericClausePreamble),
+                name: "generic",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generic)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
                 optional: false,
@@ -8443,47 +8449,6 @@ impl AstNode for GenericClauseSyntax {
                 name: "generic_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
             },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "generic_clause_epilogue",
-                kind: LayoutItemKind::Node(NodeKind::GenericClauseEpilogue),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        GenericClauseSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl GenericClauseSyntax {
-    pub fn generic_clause_preamble(&self) -> Option<GenericClausePreambleSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericClausePreambleSyntax::cast)
-            .nth(0)
-    }
-    pub fn generic_list(&self) -> Option<InterfaceListSyntax> {
-        self.0
-            .children()
-            .filter_map(InterfaceListSyntax::cast)
-            .nth(0)
-    }
-    pub fn generic_clause_epilogue(&self) -> Option<GenericClauseEpilogueSyntax> {
-        self.0
-            .children()
-            .filter_map(GenericClauseEpilogueSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct GenericClauseEpilogueSyntax(pub(crate) SyntaxNode);
-impl AstNode for GenericClauseEpilogueSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::GenericClauseEpilogue,
-        items: &[
             LayoutItem {
                 optional: false,
                 repeated: false,
@@ -8499,54 +8464,13 @@ impl AstNode for GenericClauseEpilogueSyntax {
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        GenericClauseEpilogueSyntax(node)
+        GenericClauseSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl GenericClauseEpilogueSyntax {
-    pub fn right_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::RightPar)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct GenericClausePreambleSyntax(pub(crate) SyntaxNode);
-impl AstNode for GenericClausePreambleSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::GenericClausePreamble,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "generic",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Generic)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "left_par",
-                kind: LayoutItemKind::Token(TokenKind::LeftPar),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        GenericClausePreambleSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl GenericClausePreambleSyntax {
+impl GenericClauseSyntax {
     pub fn generic_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -8557,6 +8481,24 @@ impl GenericClausePreambleSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::LeftPar)
+            .nth(0)
+    }
+    pub fn generic_list(&self) -> Option<InterfaceListSyntax> {
+        self.0
+            .children()
+            .filter_map(InterfaceListSyntax::cast)
+            .nth(0)
+    }
+    pub fn right_par_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::RightPar)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }
@@ -13415,8 +13357,14 @@ impl AstNode for PortClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "port_clause_preamble",
-                kind: LayoutItemKind::Node(NodeKind::PortClausePreamble),
+                name: "port",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Port)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
             },
             LayoutItem {
                 optional: false,
@@ -13424,47 +13372,6 @@ impl AstNode for PortClauseSyntax {
                 name: "port_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
             },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "port_clause_epilogue",
-                kind: LayoutItemKind::Node(NodeKind::PortClauseEpilogue),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        PortClauseSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl PortClauseSyntax {
-    pub fn port_clause_preamble(&self) -> Option<PortClausePreambleSyntax> {
-        self.0
-            .children()
-            .filter_map(PortClausePreambleSyntax::cast)
-            .nth(0)
-    }
-    pub fn port_list(&self) -> Option<InterfaceListSyntax> {
-        self.0
-            .children()
-            .filter_map(InterfaceListSyntax::cast)
-            .nth(0)
-    }
-    pub fn port_clause_epilogue(&self) -> Option<PortClauseEpilogueSyntax> {
-        self.0
-            .children()
-            .filter_map(PortClauseEpilogueSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct PortClauseEpilogueSyntax(pub(crate) SyntaxNode);
-impl AstNode for PortClauseEpilogueSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::PortClauseEpilogue,
-        items: &[
             LayoutItem {
                 optional: false,
                 repeated: false,
@@ -13480,54 +13387,13 @@ impl AstNode for PortClauseEpilogueSyntax {
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        PortClauseEpilogueSyntax(node)
+        PortClauseSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl PortClauseEpilogueSyntax {
-    pub fn right_par_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::RightPar)
-            .nth(0)
-    }
-    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::SemiColon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
-pub struct PortClausePreambleSyntax(pub(crate) SyntaxNode);
-impl AstNode for PortClausePreambleSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::PortClausePreamble,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "port",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Port)),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "left_par",
-                kind: LayoutItemKind::Token(TokenKind::LeftPar),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        PortClausePreambleSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl PortClausePreambleSyntax {
+impl PortClauseSyntax {
     pub fn port_token(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
@@ -13538,6 +13404,24 @@ impl PortClausePreambleSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::LeftPar)
+            .nth(0)
+    }
+    pub fn port_list(&self) -> Option<InterfaceListSyntax> {
+        self.0
+            .children()
+            .filter_map(InterfaceListSyntax::cast)
+            .nth(0)
+    }
+    pub fn right_par_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::RightPar)
+            .nth(0)
+    }
+    pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::SemiColon)
             .nth(0)
     }
 }

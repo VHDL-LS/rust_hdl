@@ -12,22 +12,16 @@ use crate::tokens::TokenKind::*;
 
 struct PortOrGenericSpec {
     pub node_kind: NodeKind,
-    pub preamble_kind: NodeKind,
-    pub epilogue_kind: NodeKind,
     pub keyword: Kw,
 }
 
 const PORT_SPEC: PortOrGenericSpec = PortOrGenericSpec {
     node_kind: PortClause,
-    preamble_kind: PortClausePreamble,
-    epilogue_kind: PortClauseEpilogue,
     keyword: Kw::Port,
 };
 
 const GENERIC_SPEC: PortOrGenericSpec = PortOrGenericSpec {
     node_kind: GenericClause,
-    preamble_kind: GenericClausePreamble,
-    epilogue_kind: GenericClauseEpilogue,
     keyword: Kw::Generic,
 };
 
@@ -54,14 +48,10 @@ impl Parser {
 
     fn port_or_generic_clause(&mut self, spec: PortOrGenericSpec) {
         self.start_node(spec.node_kind);
-        self.start_node(spec.preamble_kind);
         self.expect_kw(spec.keyword);
         self.expect_token(LeftPar);
-        self.end_node();
         self.interface_list();
-        self.start_node(spec.epilogue_kind);
         self.expect_tokens([RightPar, SemiColon]);
-        self.end_node();
         self.end_node();
     }
 

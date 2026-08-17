@@ -18,19 +18,15 @@ EntityDeclaration
     Keyword(Is)
   EntityHeader
     GenericClause
-      GenericClausePreamble
-        Keyword(Generic)
-        LeftPar
-      GenericClauseEpilogue
-        RightPar
-        SemiColon
+      Keyword(Generic)
+      LeftPar
+      RightPar
+      SemiColon
     PortClause
-      PortClausePreamble
-        Keyword(Port)
-        LeftPar
-      PortClauseEpilogue
-        RightPar
-        SemiColon
+      Keyword(Port)
+      LeftPar
+      RightPar
+      SemiColon
   EntityStatementPart
     DeclarationStatementSeparator
       Keyword(Begin)

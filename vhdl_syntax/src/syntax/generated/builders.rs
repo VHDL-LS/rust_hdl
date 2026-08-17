@@ -6735,115 +6735,20 @@ impl From<GenerateStatementBodyBuilder> for GenerateStatementBodySyntax {
     }
 }
 pub struct GenericClauseBuilder {
-    generic_clause_preamble: GenericClausePreambleSyntax,
+    generic_token: Token,
+    left_par_token: Token,
     generic_list: InterfaceListSyntax,
-    generic_clause_epilogue: GenericClauseEpilogueSyntax,
+    right_par_token: Token,
+    semi_colon_token: Token,
 }
 impl GenericClauseBuilder {
     pub fn new(generic_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
-            generic_clause_preamble: GenericClausePreambleBuilder::default().build(),
-            generic_list: generic_list.into(),
-            generic_clause_epilogue: GenericClauseEpilogueBuilder::default().build(),
-        }
-    }
-    pub fn with_generic_clause_preamble(
-        mut self,
-        n: impl Into<GenericClausePreambleSyntax>,
-    ) -> Self {
-        self.generic_clause_preamble = n.into();
-        self
-    }
-    pub fn with_generic_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.generic_list = n.into();
-        self
-    }
-    pub fn with_generic_clause_epilogue(
-        mut self,
-        n: impl Into<GenericClauseEpilogueSyntax>,
-    ) -> Self {
-        self.generic_clause_epilogue = n.into();
-        self
-    }
-    pub fn build(self) -> GenericClauseSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::GenericClause);
-        builder.push_node(self.generic_clause_preamble.raw().green().clone());
-        builder.push_node(self.generic_list.raw().green().clone());
-        builder.push_node(self.generic_clause_epilogue.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        GenericClauseSyntax::cast(node).unwrap()
-    }
-}
-impl From<GenericClauseBuilder> for GenericClauseSyntax {
-    fn from(value: GenericClauseBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct GenericClauseEpilogueBuilder {
-    right_par_token: Token,
-    semi_colon_token: Token,
-}
-impl Default for GenericClauseEpilogueBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl GenericClauseEpilogueBuilder {
-    pub fn new() -> Self {
-        Self {
-            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
-        self.right_par_token = t.into();
-        self
-    }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.right_par_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> GenericClauseEpilogueSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::GenericClauseEpilogue);
-        builder.push(self.right_par_token);
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        GenericClauseEpilogueSyntax::cast(node).unwrap()
-    }
-}
-impl From<GenericClauseEpilogueBuilder> for GenericClauseEpilogueSyntax {
-    fn from(value: GenericClauseEpilogueBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct GenericClausePreambleBuilder {
-    generic_token: Token,
-    left_par_token: Token,
-}
-impl Default for GenericClausePreambleBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl GenericClausePreambleBuilder {
-    pub fn new() -> Self {
-        Self {
             generic_token: Kw::Generic.canonical_token(),
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
+            generic_list: generic_list.into(),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_generic_token(mut self, t: impl Into<Token>) -> Self {
@@ -6862,19 +6767,42 @@ impl GenericClausePreambleBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn build(self) -> GenericClausePreambleSyntax {
+    pub fn with_generic_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
+        self.generic_list = n.into();
+        self
+    }
+    pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
+        self.right_par_token = t.into();
+        self
+    }
+    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.right_par_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.semi_colon_token = t.into();
+        self
+    }
+    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.semi_colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> GenericClauseSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::GenericClausePreamble);
+        builder.start_node(NodeKind::GenericClause);
         builder.push(self.generic_token);
         builder.push(self.left_par_token);
+        builder.push_node(self.generic_list.raw().green().clone());
+        builder.push(self.right_par_token);
+        builder.push(self.semi_colon_token);
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        GenericClausePreambleSyntax::cast(node).unwrap()
+        GenericClauseSyntax::cast(node).unwrap()
     }
 }
-impl From<GenericClausePreambleBuilder> for GenericClausePreambleSyntax {
-    fn from(value: GenericClausePreambleBuilder) -> Self {
+impl From<GenericClauseBuilder> for GenericClauseSyntax {
+    fn from(value: GenericClauseBuilder) -> Self {
         value.build()
     }
 }
@@ -10981,109 +10909,20 @@ impl From<PhysicalTypeDefinitionEpilogueBuilder> for PhysicalTypeDefinitionEpilo
     }
 }
 pub struct PortClauseBuilder {
-    port_clause_preamble: PortClausePreambleSyntax,
+    port_token: Token,
+    left_par_token: Token,
     port_list: InterfaceListSyntax,
-    port_clause_epilogue: PortClauseEpilogueSyntax,
+    right_par_token: Token,
+    semi_colon_token: Token,
 }
 impl PortClauseBuilder {
     pub fn new(port_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
-            port_clause_preamble: PortClausePreambleBuilder::default().build(),
-            port_list: port_list.into(),
-            port_clause_epilogue: PortClauseEpilogueBuilder::default().build(),
-        }
-    }
-    pub fn with_port_clause_preamble(mut self, n: impl Into<PortClausePreambleSyntax>) -> Self {
-        self.port_clause_preamble = n.into();
-        self
-    }
-    pub fn with_port_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.port_list = n.into();
-        self
-    }
-    pub fn with_port_clause_epilogue(mut self, n: impl Into<PortClauseEpilogueSyntax>) -> Self {
-        self.port_clause_epilogue = n.into();
-        self
-    }
-    pub fn build(self) -> PortClauseSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::PortClause);
-        builder.push_node(self.port_clause_preamble.raw().green().clone());
-        builder.push_node(self.port_list.raw().green().clone());
-        builder.push_node(self.port_clause_epilogue.raw().green().clone());
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        PortClauseSyntax::cast(node).unwrap()
-    }
-}
-impl From<PortClauseBuilder> for PortClauseSyntax {
-    fn from(value: PortClauseBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct PortClauseEpilogueBuilder {
-    right_par_token: Token,
-    semi_colon_token: Token,
-}
-impl Default for PortClauseEpilogueBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl PortClauseEpilogueBuilder {
-    pub fn new() -> Self {
-        Self {
-            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
-            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
-        self.right_par_token = t.into();
-        self
-    }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.right_par_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.semi_colon_token = t.into();
-        self
-    }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.semi_colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> PortClauseEpilogueSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::PortClauseEpilogue);
-        builder.push(self.right_par_token);
-        builder.push(self.semi_colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        PortClauseEpilogueSyntax::cast(node).unwrap()
-    }
-}
-impl From<PortClauseEpilogueBuilder> for PortClauseEpilogueSyntax {
-    fn from(value: PortClauseEpilogueBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct PortClausePreambleBuilder {
-    port_token: Token,
-    left_par_token: Token,
-}
-impl Default for PortClausePreambleBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl PortClausePreambleBuilder {
-    pub fn new() -> Self {
-        Self {
             port_token: Kw::Port.canonical_token(),
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
+            port_list: port_list.into(),
+            right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
+            semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
     pub fn with_port_token(mut self, t: impl Into<Token>) -> Self {
@@ -11102,19 +10941,42 @@ impl PortClausePreambleBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn build(self) -> PortClausePreambleSyntax {
+    pub fn with_port_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
+        self.port_list = n.into();
+        self
+    }
+    pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
+        self.right_par_token = t.into();
+        self
+    }
+    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.right_par_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_semi_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.semi_colon_token = t.into();
+        self
+    }
+    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.semi_colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> PortClauseSyntax {
         let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::PortClausePreamble);
+        builder.start_node(NodeKind::PortClause);
         builder.push(self.port_token);
         builder.push(self.left_par_token);
+        builder.push_node(self.port_list.raw().green().clone());
+        builder.push(self.right_par_token);
+        builder.push(self.semi_colon_token);
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
-        PortClausePreambleSyntax::cast(node).unwrap()
+        PortClauseSyntax::cast(node).unwrap()
     }
 }
-impl From<PortClausePreambleBuilder> for PortClausePreambleSyntax {
-    fn from(value: PortClausePreambleBuilder) -> Self {
+impl From<PortClauseBuilder> for PortClauseSyntax {
+    fn from(value: PortClauseBuilder) -> Self {
         value.build()
     }
 }

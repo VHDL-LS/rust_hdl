@@ -53,7 +53,14 @@ ConcurrentAssertionStatement =
   stmt_label:(Label ':')? 'postponed'? Assertion ';'
 
 ConcurrentSimpleSignalAssignment =
-  stmt_label:(Label ':')? 'postponed'? Target '<=' 'guarded'? DelayMechanism? Waveform ';'
+  stmt_label:(Label ':')?
+  'postponed'?
+  Target
+  '<='
+  'guarded'?
+  DelayMechanism?
+  Waveform
+  ';'
 
 ConcurrentConditionalSignalAssignment =
   stmt_label:(Label ':')?
@@ -107,7 +114,13 @@ GenerateStatementBody =
 IfGenerateStatement =
   stmt_label:(Label ':')
   if_generate_if:('if' stmt_label:(Label ':')? Expression 'generate' GenerateStatementBody)
-  if_generate_elsif:('elsif' stmt_label:(Label ':')? Expression 'generate' GenerateStatementBody)*
+  if_generate_elsif:(
+    'elsif'
+    stmt_label:(Label ':')?
+    Expression
+    'generate'
+    GenerateStatementBody
+  )*
   if_generate_else:('else' stmt_label:(Label ':')? 'generate' GenerateStatementBody)?
   generate_epilogue:('end' 'generate' '#identifier'? ';')
 
@@ -201,7 +214,8 @@ OperatorSymbol =
 AliasDesignator =
   '#identifier' | '#character_literal' | OperatorSymbol
 
-FormalPart = Name
+FormalPart =
+  Name
 
 // LRM has `name | name "(" formal_designator ")" | type_mark "(" formal_designator ")"`.
 // The `name "(" ... ")"` and `type_mark "(" ... ")"` forms reduce to a `Name`
@@ -232,7 +246,8 @@ ConstantDeclaration =
   initial_value:(':=' Expression)?
   ';'
 
-ArrayElementResolution = ResolutionIndication
+ArrayElementResolution =
+  ResolutionIndication
 
 ElementResolution =
   ArrayElementResolution
@@ -256,12 +271,11 @@ FileOpenInformation =
 FullTypeDeclaration =
   'type' '#identifier' 'is' TypeDefinition ';'
 
-GenericList = InterfaceList
+GenericList =
+  InterfaceList
 
 GenericClause =
-  generic_clause_preamble:('generic' '(')
-  GenericList
-  generic_clause_epilogue:(')' ';')
+  'generic' '(' GenericList ')' ';'
 
 GenericMapAspect =
   'generic' 'map' '(' AssociationList ')'
@@ -275,7 +289,8 @@ GroupDeclaration =
 GroupTemplateDeclaration =
   'group' '#identifier' 'is' '(' EntityClassEntryList ')' ';'
 
-InterfaceTypeDeclaration = InterfaceIncompleteTypeDeclaration
+InterfaceTypeDeclaration =
+  InterfaceIncompleteTypeDeclaration
 
 InterfaceDeclaration =
   InterfaceObjectDeclaration
@@ -287,7 +302,8 @@ InterfaceDeclaration =
 InterfaceFileDeclaration =
   'file' IdentifierList ':' SubtypeIndication
 
-FormalParameterList = InterfaceList
+FormalParameterList =
+  InterfaceList
 
 InterfaceFunctionSpecification =
   purity:('pure' | 'impure')?
@@ -352,12 +368,11 @@ InterfaceSubprogramSpecification =
 Mode =
   'in' | 'out' | 'inout' | 'buffer' | 'linkage'
 
-PortList = InterfaceList
+PortList =
+  InterfaceList
 
 PortClause =
-  port_clause_preamble:('port' '(')
-  PortList
-  port_clause_epilogue:(')' ';')
+  'port' '(' PortList ')' ';'
 
 PortMapAspect =
   'port' 'map' '(' AssociationList ')'
@@ -741,7 +756,13 @@ ConditionalExpressions =
   else_expression:('else' Expression)?
 
 ConditionalForceAssignment =
-  stmt_label:(Label ':')? Target '<=' 'force' ForceMode? ConditionalExpressions ';'
+  stmt_label:(Label ':')?
+  Target
+  '<='
+  'force'
+  ForceMode?
+  ConditionalExpressions
+  ';'
 
 ConditionalSignalAssignment =
   ConditionalWaveformAssignment | ConditionalForceAssignment
@@ -795,7 +816,11 @@ ProcedureCallStatement =
   stmt_label:(Label ':')? Name ';'
 
 ReportStatement =
-  stmt_label:(Label ':')? 'report' Expression severity_clause:('severity' Expression)? ';'
+  stmt_label:(Label ':')?
+  'report'
+  Expression
+  severity_clause:('severity' Expression)?
+  ';'
 
 ReturnStatement =
   stmt_label:(Label ':')? 'return' Expression? ';'
@@ -892,7 +917,12 @@ VariableAssignmentStatement =
 | SelectedVariableAssignment
 
 WaitStatement =
-  stmt_label:(Label ':')? 'wait' SensitivityClause? ConditionClause? TimeoutClause? ';'
+  stmt_label:(Label ':')?
+  'wait'
+  SensitivityClause?
+  ConditionClause?
+  TimeoutClause?
+  ';'
 
 WaveformElement =
   Expression after_clause:('after' Expression)?

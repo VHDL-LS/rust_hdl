@@ -7,9 +7,8 @@ port (clk in std_logic);
 
 == tree ==
 PortClause
-  PortClausePreamble
-    Keyword(Port)
-    LeftPar
+  Keyword(Port)
+  LeftPar
   InterfaceList
     InterfaceObjectDeclaration
       IdentifierList
@@ -19,9 +18,8 @@ PortClause
         Name
           NameDesignatorPrefix
             Identifier 'std_logic'
-  PortClauseEpilogue
-    RightPar
-    SemiColon
+  RightPar
+  SemiColon
 
 == diagnostics ==
 1:10 Expected([Colon])

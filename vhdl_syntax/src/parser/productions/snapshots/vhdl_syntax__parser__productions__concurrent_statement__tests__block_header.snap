@@ -12,9 +12,8 @@ BlockStatement
   BlockHeader
     GenericPart
       GenericClause
-        GenericClausePreamble
-          Keyword(Generic)
-          LeftPar
+        Keyword(Generic)
+        LeftPar
         InterfaceList
           InterfaceObjectDeclaration
             IdentifierList
@@ -28,9 +27,8 @@ BlockStatement
               ColonEq
               LiteralExpression
                 AbstractLiteral '1'
-        GenericClauseEpilogue
-          RightPar
-          SemiColon
+        RightPar
+        SemiColon
       GenericMap
         GenericMapAspect
           Keyword(Generic)
@@ -51,9 +49,8 @@ BlockStatement
         SemiColon
     PortPart
       PortClause
-        PortClausePreamble
-          Keyword(Port)
-          LeftPar
+        Keyword(Port)
+        LeftPar
         InterfaceList
           InterfaceObjectDeclaration
             IdentifierList
@@ -67,9 +64,8 @@ BlockStatement
               ColonEq
               LiteralExpression
                 AbstractLiteral '1'
-        PortClauseEpilogue
-          RightPar
-          SemiColon
+        RightPar
+        SemiColon
       PortMap
         PortMapAspect
           Keyword(Port)

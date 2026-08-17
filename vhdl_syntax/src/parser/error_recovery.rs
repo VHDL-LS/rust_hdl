@@ -504,21 +504,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             LtLt,
             StringLiteral,
         ],
-        NodeKind::GenericClausePreamble | NodeKind::PortClausePreamble => &[
-            Comma,
-            Identifier,
-            Keyword(Kw::Constant),
-            Keyword(Kw::File),
-            Keyword(Kw::Function),
-            Keyword(Kw::Impure),
-            Keyword(Kw::Package),
-            Keyword(Kw::Procedure),
-            Keyword(Kw::Pure),
-            Keyword(Kw::Signal),
-            Keyword(Kw::Type),
-            Keyword(Kw::Variable),
-            RightPar,
-        ],
         NodeKind::IfStatementPreamble => &[
             CharacterLiteral,
             Identifier,
@@ -923,7 +908,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             LtLt,
             StringLiteral,
         ],
-        NodeKind::PortClause | NodeKind::PortClauseEpilogue => &[
+        NodeKind::PortClause => &[
             CharacterLiteral,
             Identifier,
             Keyword(Kw::Alias),
@@ -1024,7 +1009,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             LtLt,
             StringLiteral,
         ],
-        NodeKind::GenericClause | NodeKind::GenericClauseEpilogue => &[
+        NodeKind::GenericClause => &[
             CharacterLiteral,
             Identifier,
             Keyword(Kw::Alias),

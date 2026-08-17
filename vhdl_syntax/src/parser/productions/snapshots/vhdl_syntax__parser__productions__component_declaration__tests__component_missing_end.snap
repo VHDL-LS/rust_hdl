@@ -16,9 +16,8 @@ ComponentDeclaration
     Identifier 'fifo'
     Keyword(Is)
   PortClause
-    PortClausePreamble
-      Keyword(Port)
-      LeftPar
+    Keyword(Port)
+    LeftPar
     InterfaceList
       InterfaceObjectDeclaration
         IdentifierList
@@ -52,9 +51,8 @@ ComponentDeclaration
                         LiteralExpression
                           AbstractLiteral '0'
               RightPar
-    PortClauseEpilogue
-      RightPar
-      SemiColon
+    RightPar
+    SemiColon
 
 == diagnostics ==
 5:5 Expected([Keyword(End)])

@@ -8,9 +8,8 @@ ComponentDeclaration
     Identifier 'foo'
     Keyword(Is)
   PortClause
-    PortClausePreamble
-      Keyword(Port)
-      LeftPar
+    Keyword(Port)
+    LeftPar
     InterfaceList
       InterfaceObjectDeclaration
         IdentifierList
@@ -20,9 +19,8 @@ ComponentDeclaration
           Name
             NameDesignatorPrefix
               Identifier 'natural'
-    PortClauseEpilogue
-      RightPar
-      SemiColon
+    RightPar
+    SemiColon
   ComponentDeclarationEpilogue
     Keyword(End)
     Keyword(Component)

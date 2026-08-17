@@ -17,12 +17,10 @@ EntityDeclaration
     Keyword(Is)
   EntityHeader
     PortClause
-      PortClausePreamble
-        Keyword(Port)
-        LeftPar
-      PortClauseEpilogue
-        RightPar
-        SemiColon
+      Keyword(Port)
+      LeftPar
+      RightPar
+      SemiColon
   EntityStatementPart
     DeclarationStatementSeparator
       Keyword(Begin)

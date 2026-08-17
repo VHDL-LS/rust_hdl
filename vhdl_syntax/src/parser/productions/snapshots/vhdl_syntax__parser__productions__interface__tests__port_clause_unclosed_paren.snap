@@ -7,9 +7,8 @@ port (clk : in std_logic;
 
 == tree ==
 PortClause
-  PortClausePreamble
-    Keyword(Port)
-    LeftPar
+  Keyword(Port)
+  LeftPar
   InterfaceList
     InterfaceObjectDeclaration
       IdentifierList
