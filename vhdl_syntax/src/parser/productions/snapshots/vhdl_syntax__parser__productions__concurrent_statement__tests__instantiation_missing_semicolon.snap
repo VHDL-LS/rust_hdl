@@ -10,7 +10,7 @@ u_cpu: entity work.cpu
 
 == tree ==
 ComponentInstantiationStatement
-  Label
+  StmtLabel
     Identifier 'u_cpu'
     Colon
   InstantiatedEntity

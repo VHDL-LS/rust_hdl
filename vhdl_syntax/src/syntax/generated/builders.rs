@@ -825,20 +825,20 @@ impl From<AssertionBuilder> for AssertionSyntax {
     }
 }
 pub struct AssertionStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     assertion: AssertionSyntax,
     semi_colon_token: Token,
 }
 impl AssertionStatementBuilder {
     pub fn new(assertion: impl Into<AssertionSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             assertion: assertion.into(),
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_assertion(mut self, n: impl Into<AssertionSyntax>) -> Self {
@@ -856,7 +856,7 @@ impl AssertionStatementBuilder {
     pub fn build(self) -> AssertionStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::AssertionStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.assertion.raw().green().clone());
@@ -1679,7 +1679,7 @@ impl From<BlockPreambleBuilder> for BlockPreambleSyntax {
     }
 }
 pub struct BlockStatementBuilder {
-    label: LabelSyntax,
+    stmt_label: StmtLabelSyntax,
     block_preamble: BlockPreambleSyntax,
     block_header: Option<BlockHeaderSyntax>,
     declarations: Option<DeclarationsSyntax>,
@@ -1688,9 +1688,9 @@ pub struct BlockStatementBuilder {
     block_epilogue: BlockEpilogueSyntax,
 }
 impl BlockStatementBuilder {
-    pub fn new(label: impl Into<LabelSyntax>) -> Self {
+    pub fn new(stmt_label: impl Into<StmtLabelSyntax>) -> Self {
         Self {
-            label: label.into(),
+            stmt_label: stmt_label.into(),
             block_preamble: BlockPreambleBuilder::default().build(),
             block_header: None,
             declarations: None,
@@ -1700,8 +1700,8 @@ impl BlockStatementBuilder {
             block_epilogue: BlockEpilogueBuilder::default().build(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = n.into();
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = n.into();
         self
     }
     pub fn with_block_preamble(mut self, n: impl Into<BlockPreambleSyntax>) -> Self {
@@ -1734,7 +1734,7 @@ impl BlockStatementBuilder {
     pub fn build(self) -> BlockStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::BlockStatement);
-        builder.push_node(self.label.raw().green().clone());
+        builder.push_node(self.stmt_label.raw().green().clone());
         builder.push_node(self.block_preamble.raw().green().clone());
         if let Some(n) = self.block_header {
             builder.push_node(n.raw().green().clone());
@@ -1760,7 +1760,7 @@ impl From<BlockStatementBuilder> for BlockStatementSyntax {
 }
 pub struct CaseGenerateAlternativeBuilder {
     when_token: Token,
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     choices: ChoicesSyntax,
     right_arrow_token: Token,
     generate_statement_body: Option<GenerateStatementBodySyntax>,
@@ -1769,7 +1769,7 @@ impl CaseGenerateAlternativeBuilder {
     pub fn new(choices: impl Into<ChoicesSyntax>) -> Self {
         Self {
             when_token: Kw::When.canonical_token(),
-            label: None,
+            stmt_label: None,
             choices: choices.into(),
             right_arrow_token: TokenKind::RightArrow.canonical_token().unwrap(),
             generate_statement_body: None,
@@ -1783,8 +1783,8 @@ impl CaseGenerateAlternativeBuilder {
         self.when_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_choices(mut self, n: impl Into<ChoicesSyntax>) -> Self {
@@ -1810,7 +1810,7 @@ impl CaseGenerateAlternativeBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::CaseGenerateAlternative);
         builder.push(self.when_token);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.choices.raw().green().clone());
@@ -1880,25 +1880,25 @@ impl From<CaseGeneratePreambleBuilder> for CaseGeneratePreambleSyntax {
     }
 }
 pub struct CaseGenerateStatementBuilder {
-    label: LabelSyntax,
+    stmt_label: StmtLabelSyntax,
     case_generate_preamble: CaseGeneratePreambleSyntax,
     case_generate_alternatives: Vec<CaseGenerateAlternativeSyntax>,
     generate_epilogue: GenerateEpilogueSyntax,
 }
 impl CaseGenerateStatementBuilder {
     pub fn new(
-        label: impl Into<LabelSyntax>,
+        stmt_label: impl Into<StmtLabelSyntax>,
         case_generate_preamble: impl Into<CaseGeneratePreambleSyntax>,
     ) -> Self {
         Self {
-            label: label.into(),
+            stmt_label: stmt_label.into(),
             case_generate_preamble: case_generate_preamble.into(),
             case_generate_alternatives: Vec::new(),
             generate_epilogue: GenerateEpilogueBuilder::default().build(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = n.into();
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = n.into();
         self
     }
     pub fn with_case_generate_preamble(mut self, n: impl Into<CaseGeneratePreambleSyntax>) -> Self {
@@ -1919,7 +1919,7 @@ impl CaseGenerateStatementBuilder {
     pub fn build(self) -> CaseGenerateStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::CaseGenerateStatement);
-        builder.push_node(self.label.raw().green().clone());
+        builder.push_node(self.stmt_label.raw().green().clone());
         builder.push_node(self.case_generate_preamble.raw().green().clone());
         for n in self.case_generate_alternatives {
             builder.push_node(n.raw().green().clone());
@@ -2177,7 +2177,7 @@ impl From<CaseStatementEpilogueBuilder> for CaseStatementEpilogueSyntax {
     }
 }
 pub struct CaseStatementPreambleBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     case_token: Token,
     que_token: Option<Token>,
     expression: ExpressionSyntax,
@@ -2186,15 +2186,15 @@ pub struct CaseStatementPreambleBuilder {
 impl CaseStatementPreambleBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             case_token: Kw::Case.canonical_token(),
             que_token: None,
             expression: expression.into(),
             is_token: Kw::Is.canonical_token(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_case_token(mut self, t: impl Into<Token>) -> Self {
@@ -2231,7 +2231,7 @@ impl CaseStatementPreambleBuilder {
     pub fn build(self) -> CaseStatementPreambleSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::CaseStatementPreamble);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.case_token);
@@ -2621,7 +2621,7 @@ impl From<ComponentDeclarationPreambleBuilder> for ComponentDeclarationPreambleS
     }
 }
 pub struct ComponentInstantiationStatementBuilder {
-    label: LabelSyntax,
+    stmt_label: StmtLabelSyntax,
     instantiated_unit: InstantiatedUnitSyntax,
     generic_map_aspect: Option<GenericMapAspectSyntax>,
     port_map_aspect: Option<PortMapAspectSyntax>,
@@ -2629,19 +2629,19 @@ pub struct ComponentInstantiationStatementBuilder {
 }
 impl ComponentInstantiationStatementBuilder {
     pub fn new(
-        label: impl Into<LabelSyntax>,
+        stmt_label: impl Into<StmtLabelSyntax>,
         instantiated_unit: impl Into<InstantiatedUnitSyntax>,
     ) -> Self {
         Self {
-            label: label.into(),
+            stmt_label: stmt_label.into(),
             instantiated_unit: instantiated_unit.into(),
             generic_map_aspect: None,
             port_map_aspect: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = n.into();
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = n.into();
         self
     }
     pub fn with_instantiated_unit(mut self, n: impl Into<InstantiatedUnitSyntax>) -> Self {
@@ -2667,7 +2667,7 @@ impl ComponentInstantiationStatementBuilder {
     pub fn build(self) -> ComponentInstantiationStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ComponentInstantiationStatement);
-        builder.push_node(self.label.raw().green().clone());
+        builder.push_node(self.stmt_label.raw().green().clone());
         builder.push_node(self.instantiated_unit.raw().green().clone());
         if let Some(n) = self.generic_map_aspect {
             builder.push_node(n.raw().green().clone());
@@ -2813,7 +2813,7 @@ impl From<CompoundConfigurationSpecificationBuilder> for CompoundConfigurationSp
     }
 }
 pub struct ConcurrentAssertionStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     postponed_token: Option<Token>,
     assertion: AssertionSyntax,
     semi_colon_token: Token,
@@ -2821,14 +2821,14 @@ pub struct ConcurrentAssertionStatementBuilder {
 impl ConcurrentAssertionStatementBuilder {
     pub fn new(assertion: impl Into<AssertionSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             postponed_token: None,
             assertion: assertion.into(),
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_postponed_token(mut self, t: impl Into<Token>) -> Self {
@@ -2857,7 +2857,7 @@ impl ConcurrentAssertionStatementBuilder {
     pub fn build(self) -> ConcurrentAssertionStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConcurrentAssertionStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(t) = self.postponed_token {
@@ -2877,7 +2877,7 @@ impl From<ConcurrentAssertionStatementBuilder> for ConcurrentAssertionStatementS
     }
 }
 pub struct ConcurrentConditionalSignalAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     postponed_token: Option<Token>,
     target: TargetSyntax,
     lte_token: Token,
@@ -2892,7 +2892,7 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
         conditional_waveforms: impl Into<ConditionalWaveformsSyntax>,
     ) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             postponed_token: None,
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
@@ -2902,8 +2902,8 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_postponed_token(mut self, t: impl Into<Token>) -> Self {
@@ -2959,7 +2959,7 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
     pub fn build(self) -> ConcurrentConditionalSignalAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConcurrentConditionalSignalAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(t) = self.postponed_token {
@@ -2989,7 +2989,7 @@ impl From<ConcurrentConditionalSignalAssignmentBuilder>
     }
 }
 pub struct ConcurrentProcedureCallOrComponentInstantiationStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     postponed_token: Option<Token>,
     name: NameSyntax,
     semi_colon_token: Token,
@@ -2997,14 +2997,14 @@ pub struct ConcurrentProcedureCallOrComponentInstantiationStatementBuilder {
 impl ConcurrentProcedureCallOrComponentInstantiationStatementBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             postponed_token: None,
             name: name.into(),
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_postponed_token(mut self, t: impl Into<Token>) -> Self {
@@ -3033,7 +3033,7 @@ impl ConcurrentProcedureCallOrComponentInstantiationStatementBuilder {
     pub fn build(self) -> ConcurrentProcedureCallOrComponentInstantiationStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(t) = self.postponed_token {
@@ -3055,7 +3055,7 @@ impl From<ConcurrentProcedureCallOrComponentInstantiationStatementBuilder>
     }
 }
 pub struct ConcurrentSelectedSignalAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     postponed_token: Option<Token>,
     selected_assignment_preamble: SelectedAssignmentPreambleSyntax,
     target: TargetSyntax,
@@ -3072,7 +3072,7 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
         selected_waveforms: impl Into<SelectedWaveformsSyntax>,
     ) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             postponed_token: None,
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
@@ -3083,8 +3083,8 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_postponed_token(mut self, t: impl Into<Token>) -> Self {
@@ -3147,7 +3147,7 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
     pub fn build(self) -> ConcurrentSelectedSignalAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConcurrentSelectedSignalAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(t) = self.postponed_token {
@@ -3176,7 +3176,7 @@ impl From<ConcurrentSelectedSignalAssignmentBuilder> for ConcurrentSelectedSigna
     }
 }
 pub struct ConcurrentSimpleSignalAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     postponed_token: Option<Token>,
     target: TargetSyntax,
     lte_token: Token,
@@ -3188,7 +3188,7 @@ pub struct ConcurrentSimpleSignalAssignmentBuilder {
 impl ConcurrentSimpleSignalAssignmentBuilder {
     pub fn new(target: impl Into<TargetSyntax>, waveform: impl Into<WaveformSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             postponed_token: None,
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
@@ -3198,8 +3198,8 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_postponed_token(mut self, t: impl Into<Token>) -> Self {
@@ -3255,7 +3255,7 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
     pub fn build(self) -> ConcurrentSimpleSignalAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConcurrentSimpleSignalAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(t) = self.postponed_token {
@@ -3403,7 +3403,7 @@ impl From<ConditionalExpressionsBuilder> for ConditionalExpressionsSyntax {
     }
 }
 pub struct ConditionalForceAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     target: TargetSyntax,
     lte_token: Token,
     force_token: Token,
@@ -3417,7 +3417,7 @@ impl ConditionalForceAssignmentBuilder {
         conditional_expressions: impl Into<ConditionalExpressionsSyntax>,
     ) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
             force_token: Kw::Force.canonical_token(),
@@ -3426,8 +3426,8 @@ impl ConditionalForceAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -3472,7 +3472,7 @@ impl ConditionalForceAssignmentBuilder {
     pub fn build(self) -> ConditionalForceAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ConditionalForceAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.target.raw().green().clone());
@@ -5574,9 +5574,9 @@ impl From<EnumerationTypeDefinitionBuilder> for EnumerationTypeDefinitionSyntax 
     }
 }
 pub struct ExitStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     exit_token: Token,
-    loop_label: Option<Token>,
+    label: Option<Token>,
     when_clause: Option<WhenClauseSyntax>,
     semi_colon_token: Token,
 }
@@ -5588,15 +5588,15 @@ impl Default for ExitStatementBuilder {
 impl ExitStatementBuilder {
     pub fn new() -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             exit_token: Kw::Exit.canonical_token(),
-            loop_label: None,
+            label: None,
             when_clause: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_exit_token(mut self, t: impl Into<Token>) -> Self {
@@ -5607,12 +5607,12 @@ impl ExitStatementBuilder {
         self.exit_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_loop_label(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
-        self.loop_label = Some(t.into().into());
+    pub fn with_label(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
+        self.label = Some(t.into().into());
         self
     }
-    pub fn with_loop_label_trivia(mut self, trivia: Trivia) -> Self {
-        if let Some(ref mut t) = self.loop_label {
+    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+        if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
         self
@@ -5632,11 +5632,11 @@ impl ExitStatementBuilder {
     pub fn build(self) -> ExitStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ExitStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.exit_token);
-        if let Some(t) = self.loop_label {
+        if let Some(t) = self.label {
             builder.push(t);
         }
         if let Some(n) = self.when_clause {
@@ -6199,25 +6199,25 @@ impl From<ForGeneratePreambleBuilder> for ForGeneratePreambleSyntax {
     }
 }
 pub struct ForGenerateStatementBuilder {
-    label: LabelSyntax,
+    stmt_label: StmtLabelSyntax,
     for_generate_preamble: ForGeneratePreambleSyntax,
     generate_statement_body: Option<GenerateStatementBodySyntax>,
     generate_epilogue: GenerateEpilogueSyntax,
 }
 impl ForGenerateStatementBuilder {
     pub fn new(
-        label: impl Into<LabelSyntax>,
+        stmt_label: impl Into<StmtLabelSyntax>,
         for_generate_preamble: impl Into<ForGeneratePreambleSyntax>,
     ) -> Self {
         Self {
-            label: label.into(),
+            stmt_label: stmt_label.into(),
             for_generate_preamble: for_generate_preamble.into(),
             generate_statement_body: None,
             generate_epilogue: GenerateEpilogueBuilder::default().build(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = n.into();
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = n.into();
         self
     }
     pub fn with_for_generate_preamble(mut self, n: impl Into<ForGeneratePreambleSyntax>) -> Self {
@@ -6238,7 +6238,7 @@ impl ForGenerateStatementBuilder {
     pub fn build(self) -> ForGenerateStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ForGenerateStatement);
-        builder.push_node(self.label.raw().green().clone());
+        builder.push_node(self.stmt_label.raw().green().clone());
         builder.push_node(self.for_generate_preamble.raw().green().clone());
         if let Some(n) = self.generate_statement_body {
             builder.push_node(n.raw().green().clone());
@@ -6418,10 +6418,10 @@ pub struct FunctionSpecificationBuilder {
     subprogram_header: Option<SubprogramHeaderSyntax>,
     parameter_list: Option<ParameterListSyntax>,
     return_token: Token,
-    name: NameSyntax,
+    type_mark: NameSyntax,
 }
 impl FunctionSpecificationBuilder {
-    pub fn new(designator: impl Into<DesignatorToken>, name: impl Into<NameSyntax>) -> Self {
+    pub fn new(designator: impl Into<DesignatorToken>, type_mark: impl Into<NameSyntax>) -> Self {
         Self {
             purity: None,
             function_token: Kw::Function.canonical_token(),
@@ -6429,7 +6429,7 @@ impl FunctionSpecificationBuilder {
             subprogram_header: None,
             parameter_list: None,
             return_token: Kw::Return.canonical_token(),
-            name: name.into(),
+            type_mark: type_mark.into(),
         }
     }
     pub fn with_purity(mut self, n: impl Into<PurityToken>) -> Self {
@@ -6464,8 +6464,8 @@ impl FunctionSpecificationBuilder {
         self.return_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
+    pub fn with_type_mark(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.type_mark = n.into();
         self
     }
     pub fn build(self) -> FunctionSpecificationSyntax {
@@ -6483,7 +6483,7 @@ impl FunctionSpecificationBuilder {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.return_token);
-        builder.push_node(self.name.raw().green().clone());
+        builder.push_node(self.type_mark.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -7249,7 +7249,7 @@ impl From<GuardedSignalSpecificationBuilder> for GuardedSignalSpecificationSynta
 }
 pub struct IfGenerateElseBuilder {
     else_token: Token,
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     generate_token: Token,
     generate_statement_body: Option<GenerateStatementBodySyntax>,
 }
@@ -7262,7 +7262,7 @@ impl IfGenerateElseBuilder {
     pub fn new() -> Self {
         Self {
             else_token: Kw::Else.canonical_token(),
-            label: None,
+            stmt_label: None,
             generate_token: Kw::Generate.canonical_token(),
             generate_statement_body: None,
         }
@@ -7275,8 +7275,8 @@ impl IfGenerateElseBuilder {
         self.else_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_generate_token(mut self, t: impl Into<Token>) -> Self {
@@ -7298,7 +7298,7 @@ impl IfGenerateElseBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::IfGenerateElse);
         builder.push(self.else_token);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.generate_token);
@@ -7318,7 +7318,7 @@ impl From<IfGenerateElseBuilder> for IfGenerateElseSyntax {
 }
 pub struct IfGenerateElsifBuilder {
     elsif_token: Token,
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     expression: ExpressionSyntax,
     generate_token: Token,
     generate_statement_body: Option<GenerateStatementBodySyntax>,
@@ -7327,7 +7327,7 @@ impl IfGenerateElsifBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             elsif_token: Kw::Elsif.canonical_token(),
-            label: None,
+            stmt_label: None,
             expression: expression.into(),
             generate_token: Kw::Generate.canonical_token(),
             generate_statement_body: None,
@@ -7341,8 +7341,8 @@ impl IfGenerateElsifBuilder {
         self.elsif_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
@@ -7368,7 +7368,7 @@ impl IfGenerateElsifBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::IfGenerateElsif);
         builder.push(self.elsif_token);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.expression.raw().green().clone());
@@ -7389,7 +7389,7 @@ impl From<IfGenerateElsifBuilder> for IfGenerateElsifSyntax {
 }
 pub struct IfGenerateIfBuilder {
     if_token: Token,
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     expression: ExpressionSyntax,
     generate_token: Token,
     generate_statement_body: Option<GenerateStatementBodySyntax>,
@@ -7398,7 +7398,7 @@ impl IfGenerateIfBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
             if_token: Kw::If.canonical_token(),
-            label: None,
+            stmt_label: None,
             expression: expression.into(),
             generate_token: Kw::Generate.canonical_token(),
             generate_statement_body: None,
@@ -7412,8 +7412,8 @@ impl IfGenerateIfBuilder {
         self.if_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_expression(mut self, n: impl Into<ExpressionSyntax>) -> Self {
@@ -7439,7 +7439,7 @@ impl IfGenerateIfBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::IfGenerateIf);
         builder.push(self.if_token);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.expression.raw().green().clone());
@@ -7459,7 +7459,7 @@ impl From<IfGenerateIfBuilder> for IfGenerateIfSyntax {
     }
 }
 pub struct IfGenerateStatementBuilder {
-    label: LabelSyntax,
+    stmt_label: StmtLabelSyntax,
     if_generate_if: IfGenerateIfSyntax,
     if_generate_elsifs: Vec<IfGenerateElsifSyntax>,
     if_generate_else: Option<IfGenerateElseSyntax>,
@@ -7467,19 +7467,19 @@ pub struct IfGenerateStatementBuilder {
 }
 impl IfGenerateStatementBuilder {
     pub fn new(
-        label: impl Into<LabelSyntax>,
+        stmt_label: impl Into<StmtLabelSyntax>,
         if_generate_if: impl Into<IfGenerateIfSyntax>,
     ) -> Self {
         Self {
-            label: label.into(),
+            stmt_label: stmt_label.into(),
             if_generate_if: if_generate_if.into(),
             if_generate_elsifs: Vec::new(),
             if_generate_else: None,
             generate_epilogue: GenerateEpilogueBuilder::default().build(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = n.into();
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = n.into();
         self
     }
     pub fn with_if_generate_if(mut self, n: impl Into<IfGenerateIfSyntax>) -> Self {
@@ -7501,7 +7501,7 @@ impl IfGenerateStatementBuilder {
     pub fn build(self) -> IfGenerateStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::IfGenerateStatement);
-        builder.push_node(self.label.raw().green().clone());
+        builder.push_node(self.stmt_label.raw().green().clone());
         builder.push_node(self.if_generate_if.raw().green().clone());
         for n in self.if_generate_elsifs {
             builder.push_node(n.raw().green().clone());
@@ -7763,7 +7763,7 @@ impl From<IfStatementEpilogueBuilder> for IfStatementEpilogueSyntax {
     }
 }
 pub struct IfStatementPreambleBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     if_token: Token,
     expression: ExpressionSyntax,
     then_token: Token,
@@ -7771,14 +7771,14 @@ pub struct IfStatementPreambleBuilder {
 impl IfStatementPreambleBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             if_token: Kw::If.canonical_token(),
             expression: expression.into(),
             then_token: Kw::Then.canonical_token(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_if_token(mut self, t: impl Into<Token>) -> Self {
@@ -7804,7 +7804,7 @@ impl IfStatementPreambleBuilder {
     pub fn build(self) -> IfStatementPreambleSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::IfStatementPreamble);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.if_token);
@@ -9006,49 +9006,6 @@ impl From<InterfaceSubprogramDefaultNameBuilder> for InterfaceSubprogramDefaultN
         value.build()
     }
 }
-pub struct LabelBuilder {
-    identifier_token: Token,
-    colon_token: Token,
-}
-impl LabelBuilder {
-    pub fn new(identifier_token: impl Into<crate::builder::Identifier>) -> Self {
-        Self {
-            identifier_token: identifier_token.into().into(),
-            colon_token: TokenKind::Colon.canonical_token().unwrap(),
-        }
-    }
-    pub fn with_identifier_token(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
-        self.identifier_token = t.into().into();
-        self
-    }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.identifier_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
-        self.colon_token = t.into();
-        self
-    }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
-        self.colon_token.set_leading_trivia(trivia);
-        self
-    }
-    pub fn build(self) -> LabelSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::Label);
-        builder.push(self.identifier_token);
-        builder.push(self.colon_token);
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        LabelSyntax::cast(node).unwrap()
-    }
-}
-impl From<LabelBuilder> for LabelSyntax {
-    fn from(value: LabelBuilder) -> Self {
-        value.build()
-    }
-}
 pub struct LibraryClauseBuilder {
     library_token: Token,
     logical_name_list: LogicalNameListSyntax,
@@ -9257,7 +9214,7 @@ impl From<LoopStatementEpilogueBuilder> for LoopStatementEpilogueSyntax {
     }
 }
 pub struct LoopStatementPreambleBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     iteration_scheme: Option<IterationSchemeSyntax>,
     loop_token: Token,
 }
@@ -9269,13 +9226,13 @@ impl Default for LoopStatementPreambleBuilder {
 impl LoopStatementPreambleBuilder {
     pub fn new() -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             iteration_scheme: None,
             loop_token: Kw::Loop.canonical_token(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_iteration_scheme(mut self, n: impl Into<IterationSchemeSyntax>) -> Self {
@@ -9293,7 +9250,7 @@ impl LoopStatementPreambleBuilder {
     pub fn build(self) -> LoopStatementPreambleSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::LoopStatementPreamble);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(n) = self.iteration_scheme {
@@ -9464,9 +9421,9 @@ impl From<NameTargetBuilder> for NameTargetSyntax {
     }
 }
 pub struct NextStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     next_token: Token,
-    loop_label: Option<Token>,
+    label: Option<Token>,
     when_clause: Option<WhenClauseSyntax>,
     semi_colon_token: Token,
 }
@@ -9478,15 +9435,15 @@ impl Default for NextStatementBuilder {
 impl NextStatementBuilder {
     pub fn new() -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             next_token: Kw::Next.canonical_token(),
-            loop_label: None,
+            label: None,
             when_clause: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_next_token(mut self, t: impl Into<Token>) -> Self {
@@ -9497,12 +9454,12 @@ impl NextStatementBuilder {
         self.next_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_loop_label(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
-        self.loop_label = Some(t.into().into());
+    pub fn with_label(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
+        self.label = Some(t.into().into());
         self
     }
-    pub fn with_loop_label_trivia(mut self, trivia: Trivia) -> Self {
-        if let Some(ref mut t) = self.loop_label {
+    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+        if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
         self
@@ -9522,11 +9479,11 @@ impl NextStatementBuilder {
     pub fn build(self) -> NextStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::NextStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.next_token);
-        if let Some(t) = self.loop_label {
+        if let Some(t) = self.label {
             builder.push(t);
         }
         if let Some(n) = self.when_clause {
@@ -9545,7 +9502,7 @@ impl From<NextStatementBuilder> for NextStatementSyntax {
     }
 }
 pub struct NullStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     null_token: Token,
     semi_colon_token: Token,
 }
@@ -9557,13 +9514,13 @@ impl Default for NullStatementBuilder {
 impl NullStatementBuilder {
     pub fn new() -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             null_token: Kw::Null.canonical_token(),
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_null_token(mut self, t: impl Into<Token>) -> Self {
@@ -9585,7 +9542,7 @@ impl NullStatementBuilder {
     pub fn build(self) -> NullStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::NullStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.null_token);
@@ -11381,20 +11338,20 @@ impl From<PrimaryUnitPackageDeclarationBuilder> for PrimaryUnitPackageDeclaratio
     }
 }
 pub struct ProcedureCallStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     name: NameSyntax,
     semi_colon_token: Token,
 }
 impl ProcedureCallStatementBuilder {
     pub fn new(name: impl Into<NameSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             name: name.into(),
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
@@ -11412,7 +11369,7 @@ impl ProcedureCallStatementBuilder {
     pub fn build(self) -> ProcedureCallStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ProcedureCallStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.name.raw().green().clone());
@@ -11657,7 +11614,7 @@ impl From<ProcessPreambleBuilder> for ProcessPreambleSyntax {
     }
 }
 pub struct ProcessStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     process_preamble: ProcessPreambleSyntax,
     declarations: Option<DeclarationsSyntax>,
     declaration_statement_separator: DeclarationStatementSeparatorSyntax,
@@ -11672,7 +11629,7 @@ impl Default for ProcessStatementBuilder {
 impl ProcessStatementBuilder {
     pub fn new() -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             process_preamble: ProcessPreambleBuilder::default().build(),
             declarations: None,
             declaration_statement_separator: DeclarationStatementSeparatorBuilder::default()
@@ -11681,8 +11638,8 @@ impl ProcessStatementBuilder {
             process_epilogue: ProcessEpilogueBuilder::default().build(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_process_preamble(mut self, n: impl Into<ProcessPreambleSyntax>) -> Self {
@@ -11711,7 +11668,7 @@ impl ProcessStatementBuilder {
     pub fn build(self) -> ProcessStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ProcessStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.process_preamble.raw().green().clone());
@@ -12544,7 +12501,7 @@ impl From<ReportClauseBuilder> for ReportClauseSyntax {
     }
 }
 pub struct ReportStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     report_token: Token,
     expression: ExpressionSyntax,
     severity_clause: Option<SeverityClauseSyntax>,
@@ -12553,15 +12510,15 @@ pub struct ReportStatementBuilder {
 impl ReportStatementBuilder {
     pub fn new(expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             report_token: Kw::Report.canonical_token(),
             expression: expression.into(),
             severity_clause: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_report_token(mut self, t: impl Into<Token>) -> Self {
@@ -12591,7 +12548,7 @@ impl ReportStatementBuilder {
     pub fn build(self) -> ReportStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ReportStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.report_token);
@@ -12612,7 +12569,7 @@ impl From<ReportStatementBuilder> for ReportStatementSyntax {
     }
 }
 pub struct ReturnStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     return_token: Token,
     expression: Option<ExpressionSyntax>,
     semi_colon_token: Token,
@@ -12625,14 +12582,14 @@ impl Default for ReturnStatementBuilder {
 impl ReturnStatementBuilder {
     pub fn new() -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             return_token: Kw::Return.canonical_token(),
             expression: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_return_token(mut self, t: impl Into<Token>) -> Self {
@@ -12658,7 +12615,7 @@ impl ReturnStatementBuilder {
     pub fn build(self) -> ReturnStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ReturnStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.return_token);
@@ -12679,13 +12636,13 @@ impl From<ReturnStatementBuilder> for ReturnStatementSyntax {
 }
 pub struct ReturnTypeBuilder {
     return_token: Token,
-    name: NameSyntax,
+    type_mark: NameSyntax,
 }
 impl ReturnTypeBuilder {
-    pub fn new(name: impl Into<NameSyntax>) -> Self {
+    pub fn new(type_mark: impl Into<NameSyntax>) -> Self {
         Self {
             return_token: Kw::Return.canonical_token(),
-            name: name.into(),
+            type_mark: type_mark.into(),
         }
     }
     pub fn with_return_token(mut self, t: impl Into<Token>) -> Self {
@@ -12696,15 +12653,15 @@ impl ReturnTypeBuilder {
         self.return_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
+    pub fn with_type_mark(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.type_mark = n.into();
         self
     }
     pub fn build(self) -> ReturnTypeSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ReturnType);
         builder.push(self.return_token);
-        builder.push_node(self.name.raw().green().clone());
+        builder.push_node(self.type_mark.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -12921,7 +12878,7 @@ impl From<SelectedExpressionItemBuilder> for SelectedExpressionItemSyntax {
     }
 }
 pub struct SelectedForceAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     selected_assignment_preamble: SelectedAssignmentPreambleSyntax,
     target: TargetSyntax,
     lte_token: Token,
@@ -12937,7 +12894,7 @@ impl SelectedForceAssignmentBuilder {
         selected_expressions: impl Into<SelectedExpressionsSyntax>,
     ) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
@@ -12947,8 +12904,8 @@ impl SelectedForceAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_selected_assignment_preamble(
@@ -12997,7 +12954,7 @@ impl SelectedForceAssignmentBuilder {
     pub fn build(self) -> SelectedForceAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SelectedForceAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.selected_assignment_preamble.raw().green().clone());
@@ -13060,7 +13017,7 @@ impl From<SelectedNameBuilder> for SelectedNameSyntax {
     }
 }
 pub struct SelectedVariableAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     selected_assignment_preamble: SelectedAssignmentPreambleSyntax,
     target: TargetSyntax,
     colon_eq_token: Token,
@@ -13074,7 +13031,7 @@ impl SelectedVariableAssignmentBuilder {
         selected_expressions: impl Into<SelectedExpressionsSyntax>,
     ) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
             colon_eq_token: TokenKind::ColonEq.canonical_token().unwrap(),
@@ -13082,8 +13039,8 @@ impl SelectedVariableAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_selected_assignment_preamble(
@@ -13120,7 +13077,7 @@ impl SelectedVariableAssignmentBuilder {
     pub fn build(self) -> SelectedVariableAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SelectedVariableAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.selected_assignment_preamble.raw().green().clone());
@@ -13140,7 +13097,7 @@ impl From<SelectedVariableAssignmentBuilder> for SelectedVariableAssignmentSynta
     }
 }
 pub struct SelectedWaveformAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     selected_assignment_preamble: SelectedAssignmentPreambleSyntax,
     target: TargetSyntax,
     lte_token: Token,
@@ -13155,7 +13112,7 @@ impl SelectedWaveformAssignmentBuilder {
         selected_waveforms: impl Into<SelectedWaveformsSyntax>,
     ) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             selected_assignment_preamble: selected_assignment_preamble.into(),
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
@@ -13164,8 +13121,8 @@ impl SelectedWaveformAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_selected_assignment_preamble(
@@ -13206,7 +13163,7 @@ impl SelectedWaveformAssignmentBuilder {
     pub fn build(self) -> SelectedWaveformAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SelectedWaveformAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.selected_assignment_preamble.raw().green().clone());
@@ -13682,7 +13639,7 @@ impl From<SimpleConfigurationSpecificationBuilder> for SimpleConfigurationSpecif
     }
 }
 pub struct SimpleForceAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     target: TargetSyntax,
     lte_token: Token,
     force_token: Token,
@@ -13693,7 +13650,7 @@ pub struct SimpleForceAssignmentBuilder {
 impl SimpleForceAssignmentBuilder {
     pub fn new(target: impl Into<TargetSyntax>, expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
             force_token: Kw::Force.canonical_token(),
@@ -13702,8 +13659,8 @@ impl SimpleForceAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -13745,7 +13702,7 @@ impl SimpleForceAssignmentBuilder {
     pub fn build(self) -> SimpleForceAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SimpleForceAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.target.raw().green().clone());
@@ -13768,7 +13725,7 @@ impl From<SimpleForceAssignmentBuilder> for SimpleForceAssignmentSyntax {
     }
 }
 pub struct SimpleReleaseAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     target: TargetSyntax,
     lte_token: Token,
     release_token: Token,
@@ -13778,7 +13735,7 @@ pub struct SimpleReleaseAssignmentBuilder {
 impl SimpleReleaseAssignmentBuilder {
     pub fn new(target: impl Into<TargetSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
             release_token: Kw::Release.canonical_token(),
@@ -13786,8 +13743,8 @@ impl SimpleReleaseAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -13825,7 +13782,7 @@ impl SimpleReleaseAssignmentBuilder {
     pub fn build(self) -> SimpleReleaseAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SimpleReleaseAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.target.raw().green().clone());
@@ -13847,7 +13804,7 @@ impl From<SimpleReleaseAssignmentBuilder> for SimpleReleaseAssignmentSyntax {
     }
 }
 pub struct SimpleVariableAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     target: TargetSyntax,
     colon_eq_token: Token,
     expression: ExpressionSyntax,
@@ -13856,15 +13813,15 @@ pub struct SimpleVariableAssignmentBuilder {
 impl SimpleVariableAssignmentBuilder {
     pub fn new(target: impl Into<TargetSyntax>, expression: impl Into<ExpressionSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             target: target.into(),
             colon_eq_token: TokenKind::ColonEq.canonical_token().unwrap(),
             expression: expression.into(),
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -13894,7 +13851,7 @@ impl SimpleVariableAssignmentBuilder {
     pub fn build(self) -> SimpleVariableAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SimpleVariableAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.target.raw().green().clone());
@@ -13913,7 +13870,7 @@ impl From<SimpleVariableAssignmentBuilder> for SimpleVariableAssignmentSyntax {
     }
 }
 pub struct SimpleWaveformAssignmentBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     target: TargetSyntax,
     lte_token: Token,
     delay_mechanism: Option<DelayMechanismSyntax>,
@@ -13923,7 +13880,7 @@ pub struct SimpleWaveformAssignmentBuilder {
 impl SimpleWaveformAssignmentBuilder {
     pub fn new(target: impl Into<TargetSyntax>, waveform: impl Into<WaveformSyntax>) -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             target: target.into(),
             lte_token: TokenKind::LTE.canonical_token().unwrap(),
             delay_mechanism: None,
@@ -13931,8 +13888,8 @@ impl SimpleWaveformAssignmentBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_target(mut self, n: impl Into<TargetSyntax>) -> Self {
@@ -13966,7 +13923,7 @@ impl SimpleWaveformAssignmentBuilder {
     pub fn build(self) -> SimpleWaveformAssignmentSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::SimpleWaveformAssignment);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.target.raw().green().clone());
@@ -13984,6 +13941,49 @@ impl SimpleWaveformAssignmentBuilder {
 }
 impl From<SimpleWaveformAssignmentBuilder> for SimpleWaveformAssignmentSyntax {
     fn from(value: SimpleWaveformAssignmentBuilder) -> Self {
+        value.build()
+    }
+}
+pub struct StmtLabelBuilder {
+    label: Token,
+    colon_token: Token,
+}
+impl StmtLabelBuilder {
+    pub fn new(label: impl Into<crate::builder::Identifier>) -> Self {
+        Self {
+            label: label.into().into(),
+            colon_token: TokenKind::Colon.canonical_token().unwrap(),
+        }
+    }
+    pub fn with_label(mut self, t: impl Into<crate::builder::Identifier>) -> Self {
+        self.label = t.into().into();
+        self
+    }
+    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+        self.label.set_leading_trivia(trivia);
+        self
+    }
+    pub fn with_colon_token(mut self, t: impl Into<Token>) -> Self {
+        self.colon_token = t.into();
+        self
+    }
+    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+        self.colon_token.set_leading_trivia(trivia);
+        self
+    }
+    pub fn build(self) -> StmtLabelSyntax {
+        let mut builder = NodeBuilder::new();
+        builder.start_node(NodeKind::StmtLabel);
+        builder.push(self.label);
+        builder.push(self.colon_token);
+        builder.end_node();
+        let green = builder.end();
+        let node = SyntaxNode::new_root(green);
+        StmtLabelSyntax::cast(node).unwrap()
+    }
+}
+impl From<StmtLabelBuilder> for StmtLabelSyntax {
+    fn from(value: StmtLabelBuilder) -> Self {
         value.build()
     }
 }
@@ -15248,7 +15248,7 @@ impl From<VerificationUnitBindingIndicationBuilder> for VerificationUnitBindingI
     }
 }
 pub struct WaitStatementBuilder {
-    label: Option<LabelSyntax>,
+    stmt_label: Option<StmtLabelSyntax>,
     wait_token: Token,
     sensitivity_clause: Option<SensitivityClauseSyntax>,
     condition_clause: Option<ConditionClauseSyntax>,
@@ -15263,7 +15263,7 @@ impl Default for WaitStatementBuilder {
 impl WaitStatementBuilder {
     pub fn new() -> Self {
         Self {
-            label: None,
+            stmt_label: None,
             wait_token: Kw::Wait.canonical_token(),
             sensitivity_clause: None,
             condition_clause: None,
@@ -15271,8 +15271,8 @@ impl WaitStatementBuilder {
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
         }
     }
-    pub fn with_label(mut self, n: impl Into<LabelSyntax>) -> Self {
-        self.label = Some(n.into());
+    pub fn with_stmt_label(mut self, n: impl Into<StmtLabelSyntax>) -> Self {
+        self.stmt_label = Some(n.into());
         self
     }
     pub fn with_wait_token(mut self, t: impl Into<Token>) -> Self {
@@ -15306,7 +15306,7 @@ impl WaitStatementBuilder {
     pub fn build(self) -> WaitStatementSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::WaitStatement);
-        if let Some(n) = self.label {
+        if let Some(n) = self.stmt_label {
             builder.push_node(n.raw().green().clone());
         }
         builder.push(self.wait_token);

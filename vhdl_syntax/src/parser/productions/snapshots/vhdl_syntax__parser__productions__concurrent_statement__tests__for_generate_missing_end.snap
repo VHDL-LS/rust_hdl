@@ -8,7 +8,7 @@ gen: for i in 0 to 7 generate
 
 == tree ==
 ForGenerateStatement
-  Label
+  StmtLabel
     Identifier 'gen'
     Colon
   ForGeneratePreamble

@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen: if cond = true generate\n  variable v1 : boolean;\nbegin\n  foo1(clk);\nelsif cond2 = true generate\n  variable v2 : boolean;\nbegin\n  foo2(clk);\nelse generate\n  variable v3 : boolean;\nbegin\n  foo3(clk);\nend generate;\",)"
 ---
 IfGenerateStatement
-  Label
+  StmtLabel
     Identifier 'gen'
     Colon
   IfGenerateIf

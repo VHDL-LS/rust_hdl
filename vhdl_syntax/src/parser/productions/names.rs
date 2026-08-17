@@ -83,14 +83,14 @@ impl Parser {
     }
 
     pub(crate) fn label(&mut self) {
-        self.start_node(Label);
+        self.start_node(StmtLabel);
         self.expect_tokens([Identifier, Colon]);
         self.end_node();
     }
 
     pub(crate) fn opt_label(&mut self) {
         if self.next_is(Identifier) && self.next_nth_is(Colon, 1) {
-            self.start_node(Label);
+            self.start_node(StmtLabel);
             self.skip_n(2);
             self.end_node();
         }

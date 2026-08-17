@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ninst: component lib.foo.bar\n  generic map (\n   const => 1\n  )\n  port map (\n   clk => clk_foo\n  );\",)"
 ---
 ComponentInstantiationStatement
-  Label
+  StmtLabel
     Identifier 'inst'
     Colon
   InstantiatedComponent

@@ -959,8 +959,8 @@ impl AstNode for AssertionStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -984,8 +984,8 @@ impl AstNode for AssertionStatementSyntax {
     }
 }
 impl AssertionStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn assertion(&self) -> Option<AssertionSyntax> {
         self.0.children().filter_map(AssertionSyntax::cast).nth(0)
@@ -2022,8 +2022,8 @@ impl AstNode for BlockStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -2071,8 +2071,8 @@ impl AstNode for BlockStatementSyntax {
     }
 }
 impl BlockStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn block_preamble(&self) -> Option<BlockPreambleSyntax> {
         self.0
@@ -2123,8 +2123,8 @@ impl AstNode for CaseGenerateAlternativeSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -2160,8 +2160,8 @@ impl CaseGenerateAlternativeSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::When))
             .nth(0)
     }
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn choices(&self) -> Option<ChoicesSyntax> {
         self.0.children().filter_map(ChoicesSyntax::cast).nth(0)
@@ -2247,8 +2247,8 @@ impl AstNode for CaseGenerateStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -2278,8 +2278,8 @@ impl AstNode for CaseGenerateStatementSyntax {
     }
 }
 impl CaseGenerateStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn case_generate_preamble(&self) -> Option<CaseGeneratePreambleSyntax> {
         self.0
@@ -2534,8 +2534,8 @@ impl AstNode for CaseStatementPreambleSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -2580,8 +2580,8 @@ impl AstNode for CaseStatementPreambleSyntax {
     }
 }
 impl CaseStatementPreambleSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn case_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -3026,8 +3026,8 @@ impl AstNode for ComponentInstantiationStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -3067,8 +3067,8 @@ impl AstNode for ComponentInstantiationStatementSyntax {
     }
 }
 impl ComponentInstantiationStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn instantiated_unit(&self) -> Option<InstantiatedUnitSyntax> {
         self.0
@@ -3107,8 +3107,8 @@ impl AstNode for ComponentSpecificationSyntax {
                 name: "instantiation_list",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::InstantiationListList,
-                    NodeKind::InstantiationListAll,
                     NodeKind::InstantiationListOthers,
+                    NodeKind::InstantiationListAll,
                 ]),
             },
             LayoutItem {
@@ -3272,8 +3272,8 @@ impl AstNode for ConcurrentAssertionStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: true,
@@ -3303,8 +3303,8 @@ impl AstNode for ConcurrentAssertionStatementSyntax {
     }
 }
 impl ConcurrentAssertionStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn postponed_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -3331,8 +3331,8 @@ impl AstNode for ConcurrentConditionalSignalAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: true,
@@ -3392,8 +3392,8 @@ impl AstNode for ConcurrentConditionalSignalAssignmentSyntax {
     }
 }
 impl ConcurrentConditionalSignalAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn postponed_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -3444,8 +3444,8 @@ impl AstNode for ConcurrentProcedureCallOrComponentInstantiationStatementSyntax 
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: true,
@@ -3475,8 +3475,8 @@ impl AstNode for ConcurrentProcedureCallOrComponentInstantiationStatementSyntax 
     }
 }
 impl ConcurrentProcedureCallOrComponentInstantiationStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn postponed_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -3503,8 +3503,8 @@ impl AstNode for ConcurrentSelectedSignalAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: true,
@@ -3570,8 +3570,8 @@ impl AstNode for ConcurrentSelectedSignalAssignmentSyntax {
     }
 }
 impl ConcurrentSelectedSignalAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn postponed_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -3628,8 +3628,8 @@ impl AstNode for ConcurrentSimpleSignalAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: true,
@@ -3692,8 +3692,8 @@ impl AstNode for ConcurrentSimpleSignalAssignmentSyntax {
     }
 }
 impl ConcurrentSimpleSignalAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn postponed_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -3989,8 +3989,8 @@ impl AstNode for ConditionalForceAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -4044,8 +4044,8 @@ impl AstNode for ConditionalForceAssignmentSyntax {
     }
 }
 impl ConditionalForceAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
@@ -6987,8 +6987,8 @@ impl AstNode for ExitStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -6999,7 +6999,7 @@ impl AstNode for ExitStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "loop_label",
+                name: "label",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -7024,8 +7024,8 @@ impl AstNode for ExitStatementSyntax {
     }
 }
 impl ExitStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn exit_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -7033,7 +7033,7 @@ impl ExitStatementSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Exit))
             .nth(0)
     }
-    pub fn loop_label(&self) -> Option<SyntaxToken> {
+    pub fn label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -7875,8 +7875,8 @@ impl AstNode for ForGenerateStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -7906,8 +7906,8 @@ impl AstNode for ForGenerateStatementSyntax {
     }
 }
 impl ForGenerateStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn for_generate_preamble(&self) -> Option<ForGeneratePreambleSyntax> {
         self.0
@@ -8166,7 +8166,7 @@ impl AstNode for FunctionSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "type_mark",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
         ],
@@ -8209,7 +8209,7 @@ impl FunctionSpecificationSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Return))
             .nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn type_mark(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
 }
@@ -8994,8 +8994,8 @@ impl AstNode for IfGenerateElseSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -9025,8 +9025,8 @@ impl IfGenerateElseSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
             .nth(0)
     }
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn generate_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -9056,8 +9056,8 @@ impl AstNode for IfGenerateElsifSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -9102,8 +9102,8 @@ impl IfGenerateElsifSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Elsif))
             .nth(0)
     }
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
@@ -9136,8 +9136,8 @@ impl AstNode for IfGenerateIfSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -9182,8 +9182,8 @@ impl IfGenerateIfSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::If))
             .nth(0)
     }
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
@@ -9210,8 +9210,8 @@ impl AstNode for IfGenerateStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -9247,8 +9247,8 @@ impl AstNode for IfGenerateStatementSyntax {
     }
 }
 impl IfGenerateStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn if_generate_if(&self) -> Option<IfGenerateIfSyntax> {
         self.0
@@ -9532,8 +9532,8 @@ impl AstNode for IfStatementPreambleSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -9572,8 +9572,8 @@ impl AstNode for IfStatementPreambleSyntax {
     }
 }
 impl IfStatementPreambleSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn if_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -10034,15 +10034,15 @@ impl AstNode for InstantiatedUnitSyntax {
 #[derive(Debug, Clone)]
 pub enum InstantiationListSyntax {
     InstantiationListList(InstantiationListListSyntax),
-    InstantiationListAll(InstantiationListAllSyntax),
     InstantiationListOthers(InstantiationListOthersSyntax),
+    InstantiationListAll(InstantiationListAllSyntax),
 }
 impl AstNode for InstantiationListSyntax {
     const META: &'static Layout = &Layout::Choice(Choice {
         options: &[
             NodeKind::InstantiationListList,
-            NodeKind::InstantiationListAll,
             NodeKind::InstantiationListOthers,
+            NodeKind::InstantiationListAll,
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -10051,14 +10051,14 @@ impl AstNode for InstantiationListSyntax {
                 InstantiationListListSyntax::cast_unchecked(node),
             );
         }
-        if InstantiationListAllSyntax::can_cast(&node) {
-            return InstantiationListSyntax::InstantiationListAll(
-                InstantiationListAllSyntax::cast_unchecked(node),
-            );
-        }
         if InstantiationListOthersSyntax::can_cast(&node) {
             return InstantiationListSyntax::InstantiationListOthers(
                 InstantiationListOthersSyntax::cast_unchecked(node),
+            );
+        }
+        if InstantiationListAllSyntax::can_cast(&node) {
+            return InstantiationListSyntax::InstantiationListAll(
+                InstantiationListAllSyntax::cast_unchecked(node),
             );
         }
         unreachable!(
@@ -10069,8 +10069,8 @@ impl AstNode for InstantiationListSyntax {
     fn raw(&self) -> SyntaxNode {
         match self {
             InstantiationListSyntax::InstantiationListList(inner) => inner.raw(),
-            InstantiationListSyntax::InstantiationListAll(inner) => inner.raw(),
             InstantiationListSyntax::InstantiationListOthers(inner) => inner.raw(),
+            InstantiationListSyntax::InstantiationListAll(inner) => inner.raw(),
         }
     }
 }
@@ -10109,7 +10109,7 @@ impl AstNode for InstantiationListListSyntax {
         element: &LayoutItem {
             optional: false,
             repeated: true,
-            name: "identifier",
+            name: "labels",
             kind: LayoutItemKind::Token(TokenKind::Identifier),
         },
         separator: &LayoutItem {
@@ -10127,7 +10127,7 @@ impl AstNode for InstantiationListListSyntax {
     }
 }
 impl InstantiationListListSyntax {
-    pub fn identifier_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+    pub fn labels(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -11161,47 +11161,6 @@ impl AstNode for IterationSchemeSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct LabelSyntax(pub(crate) SyntaxNode);
-impl AstNode for LabelSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::Label,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "identifier",
-                kind: LayoutItemKind::Token(TokenKind::Identifier),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "colon",
-                kind: LayoutItemKind::Token(TokenKind::Colon),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        LabelSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl LabelSyntax {
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Identifier)
-            .nth(0)
-    }
-    pub fn colon_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Colon)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct LibraryClauseSyntax(pub(crate) SyntaxNode);
 impl AstNode for LibraryClauseSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -11513,8 +11472,8 @@ impl AstNode for LoopStatementPreambleSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: true,
@@ -11538,8 +11497,8 @@ impl AstNode for LoopStatementPreambleSyntax {
     }
 }
 impl LoopStatementPreambleSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn iteration_scheme(&self) -> Option<IterationSchemeSyntax> {
         self.0
@@ -11883,8 +11842,8 @@ impl AstNode for NextStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -11895,7 +11854,7 @@ impl AstNode for NextStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "loop_label",
+                name: "label",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -11920,8 +11879,8 @@ impl AstNode for NextStatementSyntax {
     }
 }
 impl NextStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn next_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -11929,7 +11888,7 @@ impl NextStatementSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Next))
             .nth(0)
     }
-    pub fn loop_label(&self) -> Option<SyntaxToken> {
+    pub fn label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -11954,8 +11913,8 @@ impl AstNode for NullStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -11979,8 +11938,8 @@ impl AstNode for NullStatementSyntax {
     }
 }
 impl NullStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn null_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -13868,8 +13827,8 @@ impl AstNode for ProcedureCallStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -13893,8 +13852,8 @@ impl AstNode for ProcedureCallStatementSyntax {
     }
 }
 impl ProcedureCallStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn name(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
@@ -14156,8 +14115,8 @@ impl AstNode for ProcessStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -14199,8 +14158,8 @@ impl AstNode for ProcessStatementSyntax {
     }
 }
 impl ProcessStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn process_preamble(&self) -> Option<ProcessPreambleSyntax> {
         self.0
@@ -15089,8 +15048,8 @@ impl AstNode for ReportStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -15135,8 +15094,8 @@ impl AstNode for ReportStatementSyntax {
     }
 }
 impl ReportStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn report_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -15204,8 +15163,8 @@ impl AstNode for ReturnStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -15244,8 +15203,8 @@ impl AstNode for ReturnStatementSyntax {
     }
 }
 impl ReturnStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn return_token(&self) -> Option<SyntaxToken> {
         self.0
@@ -15278,7 +15237,7 @@ impl AstNode for ReturnTypeSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "type_mark",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
         ],
@@ -15297,7 +15256,7 @@ impl ReturnTypeSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Return))
             .nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn type_mark(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
 }
@@ -15643,8 +15602,8 @@ impl AstNode for SelectedForceAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -15704,8 +15663,8 @@ impl AstNode for SelectedForceAssignmentSyntax {
     }
 }
 impl SelectedForceAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
@@ -15831,8 +15790,8 @@ impl AstNode for SelectedVariableAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -15877,8 +15836,8 @@ impl AstNode for SelectedVariableAssignmentSyntax {
     }
 }
 impl SelectedVariableAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
@@ -15917,8 +15876,8 @@ impl AstNode for SelectedWaveformAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -15972,8 +15931,8 @@ impl AstNode for SelectedWaveformAssignmentSyntax {
     }
 }
 impl SelectedWaveformAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn selected_assignment_preamble(&self) -> Option<SelectedAssignmentPreambleSyntax> {
         self.0
@@ -16829,8 +16788,8 @@ impl AstNode for SimpleForceAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -16893,8 +16852,8 @@ impl AstNode for SimpleForceAssignmentSyntax {
     }
 }
 impl SimpleForceAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
@@ -16933,8 +16892,8 @@ impl AstNode for SimpleReleaseAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -16982,8 +16941,8 @@ impl AstNode for SimpleReleaseAssignmentSyntax {
     }
 }
 impl SimpleReleaseAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
@@ -17062,8 +17021,8 @@ impl AstNode for SimpleVariableAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -17111,8 +17070,8 @@ impl AstNode for SimpleVariableAssignmentSyntax {
     }
 }
 impl SimpleVariableAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
@@ -17142,8 +17101,8 @@ impl AstNode for SimpleWaveformAssignmentSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -17194,8 +17153,8 @@ impl AstNode for SimpleWaveformAssignmentSyntax {
     }
 }
 impl SimpleWaveformAssignmentSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn target(&self) -> Option<TargetSyntax> {
         self.0.children().filter_map(TargetSyntax::cast).nth(0)
@@ -17219,6 +17178,47 @@ impl SimpleWaveformAssignmentSyntax {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::SemiColon)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct StmtLabelSyntax(pub(crate) SyntaxNode);
+impl AstNode for StmtLabelSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::StmtLabel,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "label",
+                kind: LayoutItemKind::Token(TokenKind::Identifier),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "colon",
+                kind: LayoutItemKind::Token(TokenKind::Colon),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        StmtLabelSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl StmtLabelSyntax {
+    pub fn label(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Identifier)
+            .nth(0)
+    }
+    pub fn colon_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Colon)
             .nth(0)
     }
 }
@@ -18842,8 +18842,8 @@ impl AstNode for WaitStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "label",
-                kind: LayoutItemKind::Node(NodeKind::Label),
+                name: "stmt_label",
+                kind: LayoutItemKind::Node(NodeKind::StmtLabel),
             },
             LayoutItem {
                 optional: false,
@@ -18885,8 +18885,8 @@ impl AstNode for WaitStatementSyntax {
     }
 }
 impl WaitStatementSyntax {
-    pub fn label(&self) -> Option<LabelSyntax> {
-        self.0.children().filter_map(LabelSyntax::cast).nth(0)
+    pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
+        self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
     pub fn wait_token(&self) -> Option<SyntaxToken> {
         self.0

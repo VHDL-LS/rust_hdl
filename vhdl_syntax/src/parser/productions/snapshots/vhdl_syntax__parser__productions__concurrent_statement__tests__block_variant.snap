@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nname : block is\nbegin\nend block name;\",)"
 ---
 BlockStatement
-  Label
+  StmtLabel
     Identifier 'name'
     Colon
   BlockPreamble

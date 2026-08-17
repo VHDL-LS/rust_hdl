@@ -24,7 +24,7 @@ BlockHeader =
   port_part:(PortClause port_map:(PortMapAspect ';')?)?
 
 BlockStatement =
-  Label
+  stmt_label:(Label ':')
   block_preamble:('block' parenthesized_expression:('(' Expression ')')? 'is'?)
   BlockHeader
   Declarations
@@ -33,30 +33,30 @@ BlockStatement =
   block_epilogue:('end' 'block' '#identifier'? ';')
 
 CaseGenerateAlternative =
-  'when' Label? Choices '=>' GenerateStatementBody
+  'when' stmt_label:(Label ':')? Choices '=>' GenerateStatementBody
 
 CaseGenerateStatement =
-  Label
+  stmt_label:(Label ':')
   case_generate_preamble:('case' Expression 'generate')
   CaseGenerateAlternative*
   generate_epilogue:('end' 'generate' '#identifier'? ';')
 
 ComponentInstantiationStatement =
-  Label InstantiatedUnit GenericMapAspect? PortMapAspect? ';'
+  stmt_label:(Label ':') InstantiatedUnit GenericMapAspect? PortMapAspect? ';'
 
 // A procedure with zero arguments (`proc_call: foo;`) and a component instantiation (`inst: cmp;`) without generic / port
 // maps are indistinguishable.
 ConcurrentProcedureCallOrComponentInstantiationStatement =
-  Label? 'postponed'? Name ';'
+  stmt_label:(Label ':')? 'postponed'? Name ';'
 
 ConcurrentAssertionStatement =
-  Label? 'postponed'? Assertion ';'
+  stmt_label:(Label ':')? 'postponed'? Assertion ';'
 
 ConcurrentSimpleSignalAssignment =
-  Label? 'postponed'? Target '<=' 'guarded'? DelayMechanism? Waveform ';'
+  stmt_label:(Label ':')? 'postponed'? Target '<=' 'guarded'? DelayMechanism? Waveform ';'
 
 ConcurrentConditionalSignalAssignment =
-  Label?
+  stmt_label:(Label ':')?
   'postponed'?
   Target
   '<='
@@ -66,7 +66,7 @@ ConcurrentConditionalSignalAssignment =
   ';'
 
 ConcurrentSelectedSignalAssignment =
-  Label?
+  stmt_label:(Label ':')?
   'postponed'?
   selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
@@ -94,7 +94,7 @@ ConcurrentStatements =
   ConcurrentStatement*
 
 ForGenerateStatement =
-  Label
+  stmt_label:(Label ':')
   for_generate_preamble:('for' ParameterSpecification 'generate')
   GenerateStatementBody
   generate_epilogue:('end' 'generate' '#identifier'? ';')
@@ -105,10 +105,10 @@ GenerateStatementBody =
   generate_body_epilogue:('end' '#identifier'? ';')?
 
 IfGenerateStatement =
-  Label
-  if_generate_if:('if' Label? Expression 'generate' GenerateStatementBody)
-  if_generate_elsif:('elsif' Label? Expression 'generate' GenerateStatementBody)*
-  if_generate_else:('else' Label? 'generate' GenerateStatementBody)?
+  stmt_label:(Label ':')
+  if_generate_if:('if' stmt_label:(Label ':')? Expression 'generate' GenerateStatementBody)
+  if_generate_elsif:('elsif' stmt_label:(Label ':')? Expression 'generate' GenerateStatementBody)*
+  if_generate_else:('else' stmt_label:(Label ':')? 'generate' GenerateStatementBody)?
   generate_epilogue:('end' 'generate' '#identifier'? ';')
 
 InstantiatedUnit =
@@ -125,7 +125,7 @@ ProcessSensitivityList =
   all_sensitivity_list:'all' | SensitivityList
 
 ProcessStatement =
-  Label?
+  stmt_label:(Label ':')?
   process_preamble:(
     'postponed'?
     'process'
@@ -668,7 +668,7 @@ NameList =
   Name (',' Name)*
 
 Label =
-  '#identifier' ':'
+  '#identifier'
 
 Designator =
   '#identifier' | OperatorSymbol
@@ -718,14 +718,14 @@ Assertion =
   severity_clause:('severity' Expression)?
 
 AssertionStatement =
-  Label? Assertion ';'
+  stmt_label:(Label ':')? Assertion ';'
 
 CaseStatementAlternative =
   case_statement_alternative_preamble:('when' Choices '=>')
   SequentialStatements
 
 CaseStatement =
-  case_statement_preamble:(Label? 'case' '?'? Expression 'is')
+  case_statement_preamble:(stmt_label:(Label ':')? 'case' '?'? Expression 'is')
   CaseStatementAlternative*
   case_statement_epilogue:('end' 'case' '?'? '#identifier'? ';')
 
@@ -741,7 +741,7 @@ ConditionalExpressions =
   else_expression:('else' Expression)?
 
 ConditionalForceAssignment =
-  Label? Target '<=' 'force' ForceMode? ConditionalExpressions ';'
+  stmt_label:(Label ':')? Target '<=' 'force' ForceMode? ConditionalExpressions ';'
 
 ConditionalSignalAssignment =
   ConditionalWaveformAssignment | ConditionalForceAssignment
@@ -762,13 +762,13 @@ DelayMechanism =
 | inertial_delay_mechanism:(reject_clause:('reject' Expression)? 'inertial')
 
 ExitStatement =
-  Label? 'exit' loop_label:'#identifier'? when_clause:('when' Condition)? ';'
+  stmt_label:(Label ':')? 'exit' Label? when_clause:('when' Condition)? ';'
 
 ForceMode =
   'in' | 'out'
 
 IfStatement =
-  if_statement_preamble:(Label? 'if' Expression 'then')
+  if_statement_preamble:(stmt_label:(Label ':')? 'if' Expression 'then')
   SequentialStatements
   if_statement_elsif:('elsif' Expression 'then' SequentialStatements?)*
   if_statement_else:('else' SequentialStatements?)?
@@ -778,27 +778,27 @@ IterationScheme =
   while_scheme:('while' Condition) | for_scheme:('for' ParameterSpecification)
 
 LoopStatement =
-  loop_statement_preamble:(Label? IterationScheme? 'loop')
+  loop_statement_preamble:(stmt_label:(Label ':')? IterationScheme? 'loop')
   SequentialStatements
   loop_statement_epilogue:('end' 'loop' '#identifier'? ';')
 
 NextStatement =
-  Label? 'next' loop_label:'#identifier'? when_clause:('when' Condition)? ';'
+  stmt_label:(Label ':')? 'next' Label? when_clause:('when' Condition)? ';'
 
 NullStatement =
-  Label? 'null' ';'
+  stmt_label:(Label ':')? 'null' ';'
 
 ParameterSpecification =
   '#identifier' 'in' Expression
 
 ProcedureCallStatement =
-  Label? Name ';'
+  stmt_label:(Label ':')? Name ';'
 
 ReportStatement =
-  Label? 'report' Expression severity_clause:('severity' Expression)? ';'
+  stmt_label:(Label ':')? 'report' Expression severity_clause:('severity' Expression)? ';'
 
 ReturnStatement =
-  Label? 'return' Expression? ';'
+  stmt_label:(Label ':')? 'return' Expression? ';'
 
 SelectedExpressionItem =
   Expression 'when' Choices
@@ -807,7 +807,7 @@ SelectedExpressions =
   SelectedExpressionItem (',' SelectedExpressionItem)*
 
 SelectedForceAssignment =
-  Label?
+  stmt_label:(Label ':')?
   selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='
@@ -826,7 +826,7 @@ SelectedSignalAssignment =
   SelectedWaveformAssignment | SelectedForceAssignment
 
 SelectedVariableAssignment =
-  Label?
+  stmt_label:(Label ':')?
   selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   ':='
@@ -834,7 +834,7 @@ SelectedVariableAssignment =
   ';'
 
 SelectedWaveformAssignment =
-  Label?
+  stmt_label:(Label ':')?
   selected_assignment_preamble:('with' Expression 'select' '?'?)
   Target
   '<='
@@ -866,19 +866,19 @@ SignalAssignmentStatement =
 | SelectedSignalAssignment
 
 SimpleForceAssignment =
-  Label? Target '<=' 'force' ForceMode? Expression ';'
+  stmt_label:(Label ':')? Target '<=' 'force' ForceMode? Expression ';'
 
 SimpleReleaseAssignment =
-  Label? Target '<=' 'release' ForceMode? ';'
+  stmt_label:(Label ':')? Target '<=' 'release' ForceMode? ';'
 
 SimpleWaveformAssignment =
-  Label? Target '<=' DelayMechanism? Waveform ';'
+  stmt_label:(Label ':')? Target '<=' DelayMechanism? Waveform ';'
 
 SimpleSignalAssignment =
   SimpleWaveformAssignment | SimpleForceAssignment | SimpleReleaseAssignment
 
 SimpleVariableAssignment =
-  Label? Target ':=' Expression ';'
+  stmt_label:(Label ':')? Target ':=' Expression ';'
 
 Target =
   name_target:Name | aggregate_target:Aggregate
@@ -892,7 +892,7 @@ VariableAssignmentStatement =
 | SelectedVariableAssignment
 
 WaitStatement =
-  Label? 'wait' SensitivityClause? ConditionClause? TimeoutClause? ';'
+  stmt_label:(Label ':')? 'wait' SensitivityClause? ConditionClause? TimeoutClause? ';'
 
 WaveformElement =
   Expression after_clause:('after' Expression)?
@@ -976,9 +976,9 @@ GuardedSignalSpecification =
   SignalList ':' TypeMark
 
 InstantiationList =
-  instantiation_list_list:('#identifier' (',' '#identifier')*)
-| instantiation_list_all:'all'
+  instantiation_list_list:(Label (',' Label)*)
 | instantiation_list_others:'others'
+| instantiation_list_all:'all'
 
 SignalList =
   signal_list_list:(Name (',' Name)*)
@@ -1019,7 +1019,7 @@ FunctionSpecification =
   SubprogramHeader?
   parameter_list:('parameter'? parenthesized_interface_list:('(' FormalParameterList ')'))?
   'return'
-  Name
+  TypeMark
 
 SubprogramHeader =
   subprogram_header_generic_clause:('generic' '(' GenericList ')')
@@ -1060,7 +1060,7 @@ PackageInstantiation =
   ';'
 
 Signature =
-  '[' NameList? return_type:('return' Name)? ']'
+  '[' NameList? return_type:('return' TypeMark)? ']'
 
 //==============================================================================
 // § 5: Types

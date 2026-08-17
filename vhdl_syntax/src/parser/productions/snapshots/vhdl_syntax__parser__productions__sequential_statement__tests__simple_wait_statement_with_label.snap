@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/sequential_statement.rs
 expression: "to_test_text(Parser::wait_statement, \"foo: wait;\")"
 ---
 WaitStatement
-  Label
+  StmtLabel
     Identifier 'foo'
     Colon
   Keyword(Wait)

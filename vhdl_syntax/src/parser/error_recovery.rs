@@ -1059,7 +1059,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             SemiColon,
             StringLiteral,
         ],
-        NodeKind::Label => &[
+        NodeKind::StmtLabel => &[
             AbstractLiteral,
             BitStringLiteral,
             CharacterLiteral,
