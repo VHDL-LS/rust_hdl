@@ -6736,14 +6736,14 @@ impl From<GenerateStatementBodyBuilder> for GenerateStatementBodySyntax {
 }
 pub struct GenericClauseBuilder {
     generic_clause_preamble: GenericClausePreambleSyntax,
-    interface_list: InterfaceListSyntax,
+    generic_list: InterfaceListSyntax,
     generic_clause_epilogue: GenericClauseEpilogueSyntax,
 }
 impl GenericClauseBuilder {
-    pub fn new(interface_list: impl Into<InterfaceListSyntax>) -> Self {
+    pub fn new(generic_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
             generic_clause_preamble: GenericClausePreambleBuilder::default().build(),
-            interface_list: interface_list.into(),
+            generic_list: generic_list.into(),
             generic_clause_epilogue: GenericClauseEpilogueBuilder::default().build(),
         }
     }
@@ -6754,8 +6754,8 @@ impl GenericClauseBuilder {
         self.generic_clause_preamble = n.into();
         self
     }
-    pub fn with_interface_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.interface_list = n.into();
+    pub fn with_generic_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
+        self.generic_list = n.into();
         self
     }
     pub fn with_generic_clause_epilogue(
@@ -6769,7 +6769,7 @@ impl GenericClauseBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::GenericClause);
         builder.push_node(self.generic_clause_preamble.raw().green().clone());
-        builder.push_node(self.interface_list.raw().green().clone());
+        builder.push_node(self.generic_list.raw().green().clone());
         builder.push_node(self.generic_clause_epilogue.raw().green().clone());
         builder.end_node();
         let green = builder.end();
@@ -10640,14 +10640,14 @@ impl From<ParenthesizedExpressionOrAggregateBuilder> for ParenthesizedExpression
 }
 pub struct ParenthesizedInterfaceListBuilder {
     left_par_token: Token,
-    interface_list: InterfaceListSyntax,
+    formal_parameter_list: InterfaceListSyntax,
     right_par_token: Token,
 }
 impl ParenthesizedInterfaceListBuilder {
-    pub fn new(interface_list: impl Into<InterfaceListSyntax>) -> Self {
+    pub fn new(formal_parameter_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
-            interface_list: interface_list.into(),
+            formal_parameter_list: formal_parameter_list.into(),
             right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
@@ -10659,8 +10659,8 @@ impl ParenthesizedInterfaceListBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_interface_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.interface_list = n.into();
+    pub fn with_formal_parameter_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
+        self.formal_parameter_list = n.into();
         self
     }
     pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -10675,7 +10675,7 @@ impl ParenthesizedInterfaceListBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::ParenthesizedInterfaceList);
         builder.push(self.left_par_token);
-        builder.push_node(self.interface_list.raw().green().clone());
+        builder.push_node(self.formal_parameter_list.raw().green().clone());
         builder.push(self.right_par_token);
         builder.end_node();
         let green = builder.end();
@@ -11025,14 +11025,14 @@ impl From<PhysicalTypeDefinitionEpilogueBuilder> for PhysicalTypeDefinitionEpilo
 }
 pub struct PortClauseBuilder {
     port_clause_preamble: PortClausePreambleSyntax,
-    interface_list: InterfaceListSyntax,
+    port_list: InterfaceListSyntax,
     port_clause_epilogue: PortClauseEpilogueSyntax,
 }
 impl PortClauseBuilder {
-    pub fn new(interface_list: impl Into<InterfaceListSyntax>) -> Self {
+    pub fn new(port_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
             port_clause_preamble: PortClausePreambleBuilder::default().build(),
-            interface_list: interface_list.into(),
+            port_list: port_list.into(),
             port_clause_epilogue: PortClauseEpilogueBuilder::default().build(),
         }
     }
@@ -11040,8 +11040,8 @@ impl PortClauseBuilder {
         self.port_clause_preamble = n.into();
         self
     }
-    pub fn with_interface_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.interface_list = n.into();
+    pub fn with_port_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
+        self.port_list = n.into();
         self
     }
     pub fn with_port_clause_epilogue(mut self, n: impl Into<PortClauseEpilogueSyntax>) -> Self {
@@ -11052,7 +11052,7 @@ impl PortClauseBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::PortClause);
         builder.push_node(self.port_clause_preamble.raw().green().clone());
-        builder.push_node(self.interface_list.raw().green().clone());
+        builder.push_node(self.port_list.raw().green().clone());
         builder.push_node(self.port_clause_epilogue.raw().green().clone());
         builder.end_node();
         let green = builder.end();
@@ -14294,15 +14294,15 @@ impl From<SubprogramHeaderBuilder> for SubprogramHeaderSyntax {
 pub struct SubprogramHeaderGenericClauseBuilder {
     generic_token: Token,
     left_par_token: Token,
-    interface_list: InterfaceListSyntax,
+    generic_list: InterfaceListSyntax,
     right_par_token: Token,
 }
 impl SubprogramHeaderGenericClauseBuilder {
-    pub fn new(interface_list: impl Into<InterfaceListSyntax>) -> Self {
+    pub fn new(generic_list: impl Into<InterfaceListSyntax>) -> Self {
         Self {
             generic_token: Kw::Generic.canonical_token(),
             left_par_token: TokenKind::LeftPar.canonical_token().unwrap(),
-            interface_list: interface_list.into(),
+            generic_list: generic_list.into(),
             right_par_token: TokenKind::RightPar.canonical_token().unwrap(),
         }
     }
@@ -14322,8 +14322,8 @@ impl SubprogramHeaderGenericClauseBuilder {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_interface_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
-        self.interface_list = n.into();
+    pub fn with_generic_list(mut self, n: impl Into<InterfaceListSyntax>) -> Self {
+        self.generic_list = n.into();
         self
     }
     pub fn with_right_par_token(mut self, t: impl Into<Token>) -> Self {
@@ -14339,7 +14339,7 @@ impl SubprogramHeaderGenericClauseBuilder {
         builder.start_node(NodeKind::SubprogramHeaderGenericClause);
         builder.push(self.generic_token);
         builder.push(self.left_par_token);
-        builder.push_node(self.interface_list.raw().green().clone());
+        builder.push_node(self.generic_list.raw().green().clone());
         builder.push(self.right_par_token);
         builder.end_node();
         let green = builder.end();

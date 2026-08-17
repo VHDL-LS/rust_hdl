@@ -256,9 +256,11 @@ FileOpenInformation =
 FullTypeDeclaration =
   'type' '#identifier' 'is' TypeDefinition ';'
 
+GenericList = InterfaceList
+
 GenericClause =
   generic_clause_preamble:('generic' '(')
-  InterfaceList
+  GenericList
   generic_clause_epilogue:(')' ';')
 
 GenericMapAspect =
@@ -273,21 +275,25 @@ GroupDeclaration =
 GroupTemplateDeclaration =
   'group' '#identifier' 'is' '(' EntityClassEntryList ')' ';'
 
+InterfaceTypeDeclaration = InterfaceIncompleteTypeDeclaration
+
 InterfaceDeclaration =
   InterfaceObjectDeclaration
 | InterfaceFileDeclaration
-| InterfaceIncompleteTypeDeclaration
+| InterfaceTypeDeclaration
 | InterfaceSubprogramDeclaration
 | InterfacePackageDeclaration
 
 InterfaceFileDeclaration =
   'file' IdentifierList ':' SubtypeIndication
 
+FormalParameterList = InterfaceList
+
 InterfaceFunctionSpecification =
   purity:('pure' | 'impure')?
   'function'
   Designator
-  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
+  parameter_list:('parameter'? parenthesized_interface_list:('(' FormalParameterList ')'))?
   'return'
   Name
 
@@ -330,7 +336,7 @@ InterfacePackageGenericMapAspectInner =
 InterfaceProcedureSpecification =
   'procedure'
   Designator
-  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
+  parameter_list:('parameter'? parenthesized_interface_list:('(' FormalParameterList ')'))?
 
 InterfaceSubprogramDeclaration =
   InterfaceSubprogramSpecification
@@ -346,9 +352,11 @@ InterfaceSubprogramSpecification =
 Mode =
   'in' | 'out' | 'inout' | 'buffer' | 'linkage'
 
+PortList = InterfaceList
+
 PortClause =
   port_clause_preamble:('port' '(')
-  InterfaceList
+  PortList
   port_clause_epilogue:(')' ';')
 
 PortMapAspect =
@@ -1002,19 +1010,19 @@ ProcedureSpecification =
   'procedure'
   Designator
   SubprogramHeader?
-  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
+  parameter_list:('parameter'? parenthesized_interface_list:('(' FormalParameterList ')'))?
 
 FunctionSpecification =
   purity:('pure' | 'impure')?
   'function'
   Designator
   SubprogramHeader?
-  parameter_list:('parameter'? parenthesized_interface_list:('(' InterfaceList ')'))?
+  parameter_list:('parameter'? parenthesized_interface_list:('(' FormalParameterList ')'))?
   'return'
   Name
 
 SubprogramHeader =
-  subprogram_header_generic_clause:('generic' '(' InterfaceList ')')
+  subprogram_header_generic_clause:('generic' '(' GenericList ')')
   GenericMapAspect?
 
 SubprogramBody =

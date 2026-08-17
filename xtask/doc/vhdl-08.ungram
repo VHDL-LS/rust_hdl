@@ -1446,7 +1446,7 @@ SignalAssignmentStatement =
 
 // § 6.4.2.3
 SignalDeclaration =
-  'signal' IdentifierList ':' SubtypeIndication SignalKind? (':=' Expression)?
+  'signal' IdentifierList ':' SubtypeIndication SignalKind? (':=' Expression)? ';'
 
 // § 6.4.2.3
 SignalKind =

@@ -8440,7 +8440,7 @@ impl AstNode for GenericClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "interface_list",
+                name: "generic_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
             },
             LayoutItem {
@@ -8465,7 +8465,7 @@ impl GenericClauseSyntax {
             .filter_map(GenericClausePreambleSyntax::cast)
             .nth(0)
     }
-    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
+    pub fn generic_list(&self) -> Option<InterfaceListSyntax> {
         self.0
             .children()
             .filter_map(InterfaceListSyntax::cast)
@@ -10169,7 +10169,7 @@ impl InstantiationListOthersSyntax {
 pub enum InterfaceDeclarationSyntax {
     InterfaceObjectDeclaration(InterfaceObjectDeclarationSyntax),
     InterfaceFileDeclaration(InterfaceFileDeclarationSyntax),
-    InterfaceIncompleteTypeDeclaration(InterfaceIncompleteTypeDeclarationSyntax),
+    InterfaceTypeDeclaration(InterfaceIncompleteTypeDeclarationSyntax),
     InterfaceSubprogramDeclaration(InterfaceSubprogramDeclarationSyntax),
     InterfacePackageDeclaration(InterfacePackageDeclarationSyntax),
 }
@@ -10195,7 +10195,7 @@ impl AstNode for InterfaceDeclarationSyntax {
             );
         }
         if InterfaceIncompleteTypeDeclarationSyntax::can_cast(&node) {
-            return InterfaceDeclarationSyntax::InterfaceIncompleteTypeDeclaration(
+            return InterfaceDeclarationSyntax::InterfaceTypeDeclaration(
                 InterfaceIncompleteTypeDeclarationSyntax::cast_unchecked(node),
             );
         }
@@ -10218,7 +10218,7 @@ impl AstNode for InterfaceDeclarationSyntax {
         match self {
             InterfaceDeclarationSyntax::InterfaceObjectDeclaration(inner) => inner.raw(),
             InterfaceDeclarationSyntax::InterfaceFileDeclaration(inner) => inner.raw(),
-            InterfaceDeclarationSyntax::InterfaceIncompleteTypeDeclaration(inner) => inner.raw(),
+            InterfaceDeclarationSyntax::InterfaceTypeDeclaration(inner) => inner.raw(),
             InterfaceDeclarationSyntax::InterfaceSubprogramDeclaration(inner) => inner.raw(),
             InterfaceDeclarationSyntax::InterfacePackageDeclaration(inner) => inner.raw(),
         }
@@ -13051,7 +13051,7 @@ impl AstNode for ParenthesizedInterfaceListSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "interface_list",
+                name: "formal_parameter_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
             },
             LayoutItem {
@@ -13076,7 +13076,7 @@ impl ParenthesizedInterfaceListSyntax {
             .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
-    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
+    pub fn formal_parameter_list(&self) -> Option<InterfaceListSyntax> {
         self.0
             .children()
             .filter_map(InterfaceListSyntax::cast)
@@ -13462,7 +13462,7 @@ impl AstNode for PortClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "interface_list",
+                name: "port_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
             },
             LayoutItem {
@@ -13487,7 +13487,7 @@ impl PortClauseSyntax {
             .filter_map(PortClausePreambleSyntax::cast)
             .nth(0)
     }
-    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
+    pub fn port_list(&self) -> Option<InterfaceListSyntax> {
         self.0
             .children()
             .filter_map(InterfaceListSyntax::cast)
@@ -17561,7 +17561,7 @@ impl AstNode for SubprogramHeaderGenericClauseSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "interface_list",
+                name: "generic_list",
                 kind: LayoutItemKind::Node(NodeKind::InterfaceList),
             },
             LayoutItem {
@@ -17592,7 +17592,7 @@ impl SubprogramHeaderGenericClauseSyntax {
             .filter(|token| token.kind() == TokenKind::LeftPar)
             .nth(0)
     }
-    pub fn interface_list(&self) -> Option<InterfaceListSyntax> {
+    pub fn generic_list(&self) -> Option<InterfaceListSyntax> {
         self.0
             .children()
             .filter_map(InterfaceListSyntax::cast)
