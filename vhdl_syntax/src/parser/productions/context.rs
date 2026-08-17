@@ -1,6 +1,6 @@
 use crate::parser::Parser;
-use crate::syntax::NodeKind::LogicalNameList;
 use crate::syntax::node_kind::NodeKind;
+use crate::syntax::NodeKind::LogicalNameList;
 use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 
