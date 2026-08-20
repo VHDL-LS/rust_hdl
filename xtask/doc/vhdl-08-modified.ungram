@@ -25,12 +25,12 @@ BlockHeader =
 
 BlockStatement =
   stmt_label:(Label ':')
-  block_preamble:('block' parenthesized_expression:('(' Expression ')')? 'is'?)
+  block_preamble:('block' parenthesized_condition:('(' Condition ')')? 'is'?)
   BlockHeader
   Declarations
   declaration_statement_separator:'begin'
   ConcurrentStatements
-  block_epilogue:('end' 'block' '#identifier'? ';')
+  block_epilogue:('end' 'block' Label? ';')
 
 CaseGenerateAlternative =
   'when' stmt_label:(Label ':')? Choices '=>' GenerateStatementBody
@@ -39,7 +39,7 @@ CaseGenerateStatement =
   stmt_label:(Label ':')
   case_generate_preamble:('case' Expression 'generate')
   CaseGenerateAlternative*
-  generate_epilogue:('end' 'generate' '#identifier'? ';')
+  generate_epilogue:('end' 'generate' Label? ';')
 
 ComponentInstantiationStatement =
   stmt_label:(Label ':') InstantiatedUnit GenericMapAspect? PortMapAspect? ';'
@@ -104,25 +104,25 @@ ForGenerateStatement =
   stmt_label:(Label ':')
   for_generate_preamble:('for' ParameterSpecification 'generate')
   GenerateStatementBody
-  generate_epilogue:('end' 'generate' '#identifier'? ';')
+  generate_epilogue:('end' 'generate' Label? ';')
 
 GenerateStatementBody =
   generate_body_declarations:(Declarations? declaration_statement_separator:'begin')?
   ConcurrentStatements
-  generate_body_epilogue:('end' '#identifier'? ';')?
+  generate_body_epilogue:('end' Label? ';')?
 
 IfGenerateStatement =
   stmt_label:(Label ':')
-  if_generate_if:('if' stmt_label:(Label ':')? Expression 'generate' GenerateStatementBody)
+  if_generate_if:('if' stmt_label:(Label ':')? Condition 'generate' GenerateStatementBody)
   if_generate_elsif:(
     'elsif'
     stmt_label:(Label ':')?
-    Expression
+    Condition
     'generate'
     GenerateStatementBody
   )*
   if_generate_else:('else' stmt_label:(Label ':')? 'generate' GenerateStatementBody)?
-  generate_epilogue:('end' 'generate' '#identifier'? ';')
+  generate_epilogue:('end' 'generate' Label? ';')
 
 InstantiatedUnit =
   instantiated_component:('component'? Name)
@@ -147,8 +147,8 @@ ProcessStatement =
   )
   Declarations
   declaration_statement_separator:'begin'
-  SequentialStatements
-  process_epilogue:('end' 'postponed'? 'process' '#identifier'? ';')
+  SequenceOfStatements
+  process_epilogue:('end' 'postponed'? 'process' Label? ';')
 
 //==============================================================================
 // § 6: Declarations
@@ -157,9 +157,9 @@ Declaration =
   SubprogramDeclaration
 | SubprogramBody
 | SubprogramInstantiationDeclaration
-| package_declaration:Package
+| package_declaration_item:PackageDeclaration
 | package_body_declaration:PackageBody
-| package_instantiation_declaration:PackageInstantiation
+| package_instantiation_declaration_item:PackageInstantiationDeclaration
 | TypeDeclaration
 | SubtypeDeclaration
 | FileDeclaration
@@ -236,7 +236,7 @@ ComponentDeclaration =
   component_declaration_preamble:('component' '#identifier' 'is'?)
   GenericClause?
   PortClause?
-  component_declaration_epilogue:('end' 'component' '#identifier'? ';')
+  component_declaration_epilogue:('end' 'component' SimpleName? ';')
 
 ConstantDeclaration =
   'constant'
@@ -311,7 +311,7 @@ InterfaceFunctionSpecification =
   Designator
   parameter_list:('parameter'? parenthesized_interface_list:('(' FormalParameterList ')'))?
   'return'
-  Name
+  TypeMark
 
 InterfaceIncompleteTypeDeclaration =
   'type' '#identifier'
@@ -439,7 +439,7 @@ ArchitectureBody =
   Declarations
   declaration_statement_separator:'begin'
   ConcurrentStatements
-  architecture_epilogue:('end' 'architecture'? '#identifier'? ';')
+  architecture_epilogue:('end' 'architecture'? SimpleName? ';')
 
 ConfigurationItem =
   block_configuration_item:BlockConfiguration | ComponentConfiguration
@@ -462,14 +462,14 @@ ConfigurationDeclaration =
   Declarations
   verification_unit_binding:(VerificationUnitBindingIndication ';')*
   BlockConfiguration
-  configuration_declaration_epilogue:('end' 'configuration'? '#identifier'? ';')
+  configuration_declaration_epilogue:('end' 'configuration'? SimpleName? ';')
 
 EntityDeclaration =
   entity_declaration_preamble:('entity' '#identifier' 'is')
   EntityHeader
   Declarations
   entity_statement_part:(declaration_statement_separator:'begin' ConcurrentStatements)?
-  entity_declaration_epilogue:('end' 'entity'? '#identifier'? ';')
+  entity_declaration_epilogue:('end' 'entity'? SimpleName? ';')
 
 EntityHeader =
   GenericClause? PortClause?
@@ -483,7 +483,7 @@ ContextClause =
 ContextDeclaration =
   context_declaration_preamble:('context' '#identifier' 'is')
   ContextClause
-  context_declaration_epilogue:('end' 'context'? '#identifier'? ';')
+  context_declaration_epilogue:('end' 'context'? SimpleName? ';')
 
 ContextReference =
   'context' NameList ';'
@@ -512,8 +512,8 @@ LibraryUnit =
 PrimaryUnit =
   EntityDeclaration
 | ConfigurationDeclaration
-| primary_unit_package_declaration:Package
-| package_instantiation_declaration_primary_unit:PackageInstantiation
+| primary_unit_package_declaration:PackageDeclaration
+| package_instantiation_declaration_primary_unit:PackageInstantiationDeclaration
 | ContextDeclaration
 
 // PslVerificationUnit -- add here if PSL is supported
@@ -737,12 +737,12 @@ AssertionStatement =
 
 CaseStatementAlternative =
   case_statement_alternative_preamble:('when' Choices '=>')
-  SequentialStatements
+  SequenceOfStatements
 
 CaseStatement =
   case_statement_preamble:(stmt_label:(Label ':')? 'case' '?'? Expression 'is')
   CaseStatementAlternative*
-  case_statement_epilogue:('end' 'case' '?'? '#identifier'? ';')
+  case_statement_epilogue:('end' 'case' '?'? Label? ';')
 
 ConditionClause =
   'until' Condition
@@ -789,19 +789,19 @@ ForceMode =
   'in' | 'out'
 
 IfStatement =
-  if_statement_preamble:(stmt_label:(Label ':')? 'if' Expression 'then')
-  SequentialStatements
-  if_statement_elsif:('elsif' Expression 'then' SequentialStatements?)*
-  if_statement_else:('else' SequentialStatements?)?
-  if_statement_epilogue:('end' 'if' '#identifier'? ';')
+  if_statement_preamble:(stmt_label:(Label ':')? 'if' Condition 'then')
+  SequenceOfStatements
+  if_statement_elsif:('elsif' Condition 'then' SequenceOfStatements)*
+  if_statement_else:('else' SequenceOfStatements)?
+  if_statement_epilogue:('end' 'if' Label? ';')
 
 IterationScheme =
   while_scheme:('while' Condition) | for_scheme:('for' ParameterSpecification)
 
 LoopStatement =
   loop_statement_preamble:(stmt_label:(Label ':')? IterationScheme? 'loop')
-  SequentialStatements
-  loop_statement_epilogue:('end' 'loop' '#identifier'? ';')
+  SequenceOfStatements
+  loop_statement_epilogue:('end' 'loop' Label? ';')
 
 NextStatement =
   stmt_label:(Label ':')? 'next' Label? when_clause:('when' Condition)? ';'
@@ -812,8 +812,10 @@ NullStatement =
 ParameterSpecification =
   '#identifier' 'in' Expression
 
+ProcedureCall = Name
+
 ProcedureCallStatement =
-  stmt_label:(Label ':')? Name ';'
+  stmt_label:(Label ':')? ProcedureCall ';'
 
 ReportStatement =
   stmt_label:(Label ':')?
@@ -931,7 +933,7 @@ Waveform =
   waveform_elements:(WaveformElement (',' WaveformElement)*)
 | unaffected_waveform:'unaffected'
 
-SequentialStatements =
+SequenceOfStatements =
   SequentialStatement*
 
 //==============================================================================
@@ -1059,7 +1061,7 @@ SubprogramBody =
   subprogram_body_preamble:(SubprogramSpecification 'is')
   Declarations
   declaration_statement_separator:'begin'
-  SequentialStatements
+  SequenceOfStatements
   subprogram_body_epilogue:('end' SubprogramKind? Designator? ';')
 
 SubprogramKind =
@@ -1070,27 +1072,27 @@ SubprogramInstantiationDeclaration =
   GenericMapAspect?
   ';'
 
-Package =
+PackageDeclaration =
   package_preamble:('package' '#identifier' 'is')
   PackageHeader?
   Declarations
-  package_epilogue:('end' 'package'? '#identifier'? ';')
+  package_epilogue:('end' 'package'? SimpleName? ';')
 
 PackageHeader =
   GenericClause generic_map:(GenericMapAspect ';')?
 
 PackageBody =
-  package_body_preamble:('package' 'body' '#identifier' 'is')
+  package_body_preamble:('package' 'body' SimpleName 'is')
   Declarations
-  package_body_epilogue:('end' 'package'? 'body'? '#identifier'? ';')
+  package_body_epilogue:('end' end_package_body:('package' 'body')? SimpleName? ';')
 
-PackageInstantiation =
+PackageInstantiationDeclaration =
   package_instantiation_preamble:('package' '#identifier' 'is' 'new' Name)
   GenericMapAspect?
   ';'
 
 Signature =
-  '[' NameList? return_type:('return' TypeMark)? ']'
+  '[' type_mark_list:(TypeMark (',' TypeMark)*)? return_type:('return' TypeMark)? ']'
 
 //==============================================================================
 // § 5: Types
@@ -1148,7 +1150,7 @@ PhysicalLiteral =
 PhysicalTypeDefinition =
   RangeConstraint
   unit_declarations:('units' PrimaryUnitDeclaration SecondaryUnitDeclaration*)
-  physical_type_definition_epilogue:('end' 'units' '#identifier'?)
+  physical_type_definition_epilogue:('end' 'units' SimpleName?)
 
 PrimaryUnitDeclaration =
   '#identifier' ';'
@@ -1156,12 +1158,12 @@ PrimaryUnitDeclaration =
 ProtectedTypeBody =
   protected_type_body_preamble:('protected' 'body')
   Declarations
-  protected_type_body_epilogue:('end' 'protected' 'body' '#identifier'?)
+  protected_type_body_epilogue:('end' 'protected' 'body' SimpleName?)
 
 ProtectedTypeDeclaration =
   protected_preamble:'protected'
   Declarations
-  protected_type_declaration_epilogue:('end' 'protected' '#identifier'?)
+  protected_type_declaration_epilogue:('end' 'protected' SimpleName?)
 
 ProtectedTypeDefinition =
   ProtectedTypeDeclaration | ProtectedTypeBody
@@ -1174,7 +1176,7 @@ RangeConstraint =
 RecordTypeDefinition =
   record_type_definition_preamble:'record'
   RecordElementDeclarations
-  record_type_definition_epilogue:('end' 'record' '#identifier'?)
+  record_type_definition_epilogue:('end' 'record' SimpleName?)
 
 RecordElementDeclarations =
   ElementDeclaration*

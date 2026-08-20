@@ -47,7 +47,7 @@ SubprogramBody
       SemiColon
   DeclarationStatementSeparator
     Keyword(Begin)
-  SequentialStatements
+  SequenceOfStatements
     SimpleVariableAssignment
       NameTarget
         Name

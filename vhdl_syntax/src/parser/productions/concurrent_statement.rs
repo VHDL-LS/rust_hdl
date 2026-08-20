@@ -30,7 +30,7 @@ impl Parser {
         self.start_node(BlockPreamble);
         self.expect_kw(Kw::Block);
         if self.next_is(LeftPar) {
-            self.start_node(ParenthesizedExpression);
+            self.start_node(ParenthesizedCondition);
             self.skip(); // LeftPar
             self.expression();
             self.expect_token(RightPar);

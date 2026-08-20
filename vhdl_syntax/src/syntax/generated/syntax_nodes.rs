@@ -726,7 +726,7 @@ impl AstNode for ArchitectureEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -757,7 +757,7 @@ impl ArchitectureEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Architecture))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -1881,7 +1881,7 @@ impl AstNode for BlockEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "label",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -1912,7 +1912,7 @@ impl BlockEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Block))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -1975,8 +1975,8 @@ impl AstNode for BlockPreambleSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "parenthesized_expression",
-                kind: LayoutItemKind::Node(NodeKind::ParenthesizedExpression),
+                name: "parenthesized_condition",
+                kind: LayoutItemKind::Node(NodeKind::ParenthesizedCondition),
             },
             LayoutItem {
                 optional: true,
@@ -2000,10 +2000,10 @@ impl BlockPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Block))
             .nth(0)
     }
-    pub fn parenthesized_expression(&self) -> Option<ParenthesizedExpressionSyntax> {
+    pub fn parenthesized_condition(&self) -> Option<ParenthesizedConditionSyntax> {
         self.0
             .children()
-            .filter_map(ParenthesizedExpressionSyntax::cast)
+            .filter_map(ParenthesizedConditionSyntax::cast)
             .nth(0)
     }
     pub fn is_token(&self) -> Option<SyntaxToken> {
@@ -2370,8 +2370,8 @@ impl AstNode for CaseStatementAlternativeSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "sequential_statements",
-                kind: LayoutItemKind::Node(NodeKind::SequentialStatements),
+                name: "sequence_of_statements",
+                kind: LayoutItemKind::Node(NodeKind::SequenceOfStatements),
             },
         ],
     });
@@ -2391,10 +2391,10 @@ impl CaseStatementAlternativeSyntax {
             .filter_map(CaseStatementAlternativePreambleSyntax::cast)
             .nth(0)
     }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+    pub fn sequence_of_statements(&self) -> Option<SequenceOfStatementsSyntax> {
         self.0
             .children()
-            .filter_map(SequentialStatementsSyntax::cast)
+            .filter_map(SequenceOfStatementsSyntax::cast)
             .nth(0)
     }
 }
@@ -2475,7 +2475,7 @@ impl AstNode for CaseStatementEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "label",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -2512,7 +2512,7 @@ impl CaseStatementEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Que)
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -2920,7 +2920,7 @@ impl AstNode for ComponentDeclarationEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -2951,7 +2951,7 @@ impl ComponentDeclarationEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Component))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -4411,7 +4411,7 @@ impl AstNode for ConfigurationDeclarationEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -4442,7 +4442,7 @@ impl ConfigurationDeclarationEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Configuration))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -4859,7 +4859,7 @@ impl AstNode for ContextDeclarationEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -4890,7 +4890,7 @@ impl ContextDeclarationEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Context))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -5052,9 +5052,9 @@ pub enum DeclarationSyntax {
     SubprogramDeclaration(SubprogramDeclarationSyntax),
     SubprogramBody(SubprogramBodySyntax),
     SubprogramInstantiationDeclaration(SubprogramInstantiationDeclarationSyntax),
-    PackageDeclaration(PackageDeclarationSyntax),
+    PackageDeclarationItem(PackageDeclarationItemSyntax),
     PackageBodyDeclaration(PackageBodyDeclarationSyntax),
-    PackageInstantiationDeclaration(PackageInstantiationDeclarationSyntax),
+    PackageInstantiationDeclarationItem(PackageInstantiationDeclarationItemSyntax),
     TypeDeclaration(TypeDeclarationSyntax),
     SubtypeDeclaration(SubtypeDeclarationSyntax),
     FileDeclaration(FileDeclarationSyntax),
@@ -5077,9 +5077,9 @@ impl AstNode for DeclarationSyntax {
             NodeKind::SubprogramDeclaration,
             NodeKind::SubprogramBody,
             NodeKind::SubprogramInstantiationDeclaration,
-            NodeKind::PackageDeclaration,
+            NodeKind::PackageDeclarationItem,
             NodeKind::PackageBodyDeclaration,
-            NodeKind::PackageInstantiationDeclaration,
+            NodeKind::PackageInstantiationDeclarationItem,
             NodeKind::FullTypeDeclaration,
             NodeKind::IncompleteTypeDeclaration,
             NodeKind::SubtypeDeclaration,
@@ -5113,9 +5113,9 @@ impl AstNode for DeclarationSyntax {
                 SubprogramInstantiationDeclarationSyntax::cast_unchecked(node),
             );
         }
-        if PackageDeclarationSyntax::can_cast(&node) {
-            return DeclarationSyntax::PackageDeclaration(
-                PackageDeclarationSyntax::cast_unchecked(node),
+        if PackageDeclarationItemSyntax::can_cast(&node) {
+            return DeclarationSyntax::PackageDeclarationItem(
+                PackageDeclarationItemSyntax::cast_unchecked(node),
             );
         }
         if PackageBodyDeclarationSyntax::can_cast(&node) {
@@ -5123,9 +5123,9 @@ impl AstNode for DeclarationSyntax {
                 PackageBodyDeclarationSyntax::cast_unchecked(node),
             );
         }
-        if PackageInstantiationDeclarationSyntax::can_cast(&node) {
-            return DeclarationSyntax::PackageInstantiationDeclaration(
-                PackageInstantiationDeclarationSyntax::cast_unchecked(node),
+        if PackageInstantiationDeclarationItemSyntax::can_cast(&node) {
+            return DeclarationSyntax::PackageInstantiationDeclarationItem(
+                PackageInstantiationDeclarationItemSyntax::cast_unchecked(node),
             );
         }
         if TypeDeclarationSyntax::can_cast(&node) {
@@ -5209,9 +5209,9 @@ impl AstNode for DeclarationSyntax {
             DeclarationSyntax::SubprogramDeclaration(inner) => inner.raw(),
             DeclarationSyntax::SubprogramBody(inner) => inner.raw(),
             DeclarationSyntax::SubprogramInstantiationDeclaration(inner) => inner.raw(),
-            DeclarationSyntax::PackageDeclaration(inner) => inner.raw(),
+            DeclarationSyntax::PackageDeclarationItem(inner) => inner.raw(),
             DeclarationSyntax::PackageBodyDeclaration(inner) => inner.raw(),
-            DeclarationSyntax::PackageInstantiationDeclaration(inner) => inner.raw(),
+            DeclarationSyntax::PackageInstantiationDeclarationItem(inner) => inner.raw(),
             DeclarationSyntax::TypeDeclaration(inner) => inner.raw(),
             DeclarationSyntax::SubtypeDeclaration(inner) => inner.raw(),
             DeclarationSyntax::FileDeclaration(inner) => inner.raw(),
@@ -5270,9 +5270,9 @@ impl AstNode for DeclarationsSyntax {
                 NodeKind::SubprogramDeclaration,
                 NodeKind::SubprogramBody,
                 NodeKind::SubprogramInstantiationDeclaration,
-                NodeKind::PackageDeclaration,
+                NodeKind::PackageDeclarationItem,
                 NodeKind::PackageBodyDeclaration,
-                NodeKind::PackageInstantiationDeclaration,
+                NodeKind::PackageInstantiationDeclarationItem,
                 NodeKind::FullTypeDeclaration,
                 NodeKind::IncompleteTypeDeclaration,
                 NodeKind::SubtypeDeclaration,
@@ -6016,6 +6016,47 @@ impl ElseWhenWaveformSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct EndPackageBodySyntax(pub(crate) SyntaxNode);
+impl AstNode for EndPackageBodySyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::EndPackageBody,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "package",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Package)),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "body",
+                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Body)),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        EndPackageBodySyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl EndPackageBodySyntax {
+    pub fn package_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Package))
+            .nth(0)
+    }
+    pub fn body_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Body))
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum EntityAspectSyntax {
     EntityEntityAspect(EntityEntityAspectSyntax),
     EntityConfigurationAspect(EntityConfigurationAspectSyntax),
@@ -6358,7 +6399,7 @@ impl AstNode for EntityDeclarationEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -6389,7 +6430,7 @@ impl EntityDeclarationEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Entity))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -8269,7 +8310,7 @@ impl AstNode for GenerateBodyEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "label",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -8294,7 +8335,7 @@ impl GenerateBodyEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -8328,7 +8369,7 @@ impl AstNode for GenerateEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "label",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -8359,7 +8400,7 @@ impl GenerateEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Generate))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -9004,7 +9045,7 @@ impl AstNode for IfGenerateElsifSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "expression",
+                name: "condition",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -9047,7 +9088,7 @@ impl IfGenerateElsifSyntax {
     pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
         self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn generate_token(&self) -> Option<SyntaxToken> {
@@ -9084,7 +9125,7 @@ impl AstNode for IfGenerateIfSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "expression",
+                name: "condition",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -9127,7 +9168,7 @@ impl IfGenerateIfSyntax {
     pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
         self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn generate_token(&self) -> Option<SyntaxToken> {
@@ -9229,8 +9270,8 @@ impl AstNode for IfStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "sequential_statements",
-                kind: LayoutItemKind::Node(NodeKind::SequentialStatements),
+                name: "sequence_of_statements",
+                kind: LayoutItemKind::Node(NodeKind::SequenceOfStatements),
             },
             LayoutItem {
                 optional: false,
@@ -9266,10 +9307,10 @@ impl IfStatementSyntax {
             .filter_map(IfStatementPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+    pub fn sequence_of_statements(&self) -> Option<SequenceOfStatementsSyntax> {
         self.0
             .children()
-            .filter_map(SequentialStatementsSyntax::cast)
+            .filter_map(SequenceOfStatementsSyntax::cast)
             .nth(0)
     }
     pub fn if_statement_elsifs(&self) -> impl Iterator<Item = IfStatementElsifSyntax> + use<'_> {
@@ -9303,8 +9344,8 @@ impl AstNode for IfStatementElseSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "sequential_statements",
-                kind: LayoutItemKind::Node(NodeKind::SequentialStatements),
+                name: "sequence_of_statements",
+                kind: LayoutItemKind::Node(NodeKind::SequenceOfStatements),
             },
         ],
     });
@@ -9322,10 +9363,10 @@ impl IfStatementElseSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Else))
             .nth(0)
     }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+    pub fn sequence_of_statements(&self) -> Option<SequenceOfStatementsSyntax> {
         self.0
             .children()
-            .filter_map(SequentialStatementsSyntax::cast)
+            .filter_map(SequenceOfStatementsSyntax::cast)
             .nth(0)
     }
 }
@@ -9344,7 +9385,7 @@ impl AstNode for IfStatementElsifSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "expression",
+                name: "condition",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -9365,8 +9406,8 @@ impl AstNode for IfStatementElsifSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "sequential_statements",
-                kind: LayoutItemKind::Node(NodeKind::SequentialStatements),
+                name: "sequence_of_statements",
+                kind: LayoutItemKind::Node(NodeKind::SequenceOfStatements),
             },
         ],
     });
@@ -9384,7 +9425,7 @@ impl IfStatementElsifSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Elsif))
             .nth(0)
     }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn then_token(&self) -> Option<SyntaxToken> {
@@ -9393,10 +9434,10 @@ impl IfStatementElsifSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Then))
             .nth(0)
     }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+    pub fn sequence_of_statements(&self) -> Option<SequenceOfStatementsSyntax> {
         self.0
             .children()
-            .filter_map(SequentialStatementsSyntax::cast)
+            .filter_map(SequenceOfStatementsSyntax::cast)
             .nth(0)
     }
 }
@@ -9421,7 +9462,7 @@ impl AstNode for IfStatementEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "label",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -9452,7 +9493,7 @@ impl IfStatementEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::If))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -9486,7 +9527,7 @@ impl AstNode for IfStatementPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "expression",
+                name: "condition",
                 kind: LayoutItemKind::NodeChoice(&[
                     NodeKind::LiteralExpression,
                     NodeKind::PhysicalLiteralExpression,
@@ -9523,7 +9564,7 @@ impl IfStatementPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::If))
             .nth(0)
     }
-    pub fn expression(&self) -> Option<ExpressionSyntax> {
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
     }
     pub fn then_token(&self) -> Option<SyntaxToken> {
@@ -10276,7 +10317,7 @@ impl AstNode for InterfaceFunctionSpecificationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "type_mark",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
         ],
@@ -10313,7 +10354,7 @@ impl InterfaceFunctionSpecificationSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Return))
             .nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn type_mark(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
 }
@@ -11302,8 +11343,8 @@ impl AstNode for LoopStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "sequential_statements",
-                kind: LayoutItemKind::Node(NodeKind::SequentialStatements),
+                name: "sequence_of_statements",
+                kind: LayoutItemKind::Node(NodeKind::SequenceOfStatements),
             },
             LayoutItem {
                 optional: false,
@@ -11327,10 +11368,10 @@ impl LoopStatementSyntax {
             .filter_map(LoopStatementPreambleSyntax::cast)
             .nth(0)
     }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+    pub fn sequence_of_statements(&self) -> Option<SequenceOfStatementsSyntax> {
         self.0
             .children()
-            .filter_map(SequentialStatementsSyntax::cast)
+            .filter_map(SequenceOfStatementsSyntax::cast)
             .nth(0)
     }
     pub fn loop_statement_epilogue(&self) -> Option<LoopStatementEpilogueSyntax> {
@@ -11361,7 +11402,7 @@ impl AstNode for LoopStatementEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "label",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -11392,7 +11433,7 @@ impl LoopStatementEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Loop))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -11951,71 +11992,6 @@ impl OthersChoiceSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct PackageSyntax(pub(crate) SyntaxNode);
-impl AstNode for PackageSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::Package,
-        items: &[
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "package_preamble",
-                kind: LayoutItemKind::Node(NodeKind::PackagePreamble),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "package_header",
-                kind: LayoutItemKind::Node(NodeKind::PackageHeader),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "declarations",
-                kind: LayoutItemKind::Node(NodeKind::Declarations),
-            },
-            LayoutItem {
-                optional: false,
-                repeated: false,
-                name: "package_epilogue",
-                kind: LayoutItemKind::Node(NodeKind::PackageEpilogue),
-            },
-        ],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        PackageSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl PackageSyntax {
-    pub fn package_preamble(&self) -> Option<PackagePreambleSyntax> {
-        self.0
-            .children()
-            .filter_map(PackagePreambleSyntax::cast)
-            .nth(0)
-    }
-    pub fn package_header(&self) -> Option<PackageHeaderSyntax> {
-        self.0
-            .children()
-            .filter_map(PackageHeaderSyntax::cast)
-            .nth(0)
-    }
-    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
-        self.0
-            .children()
-            .filter_map(DeclarationsSyntax::cast)
-            .nth(0)
-    }
-    pub fn package_epilogue(&self) -> Option<PackageEpilogueSyntax> {
-        self.0
-            .children()
-            .filter_map(PackageEpilogueSyntax::cast)
-            .nth(0)
-    }
-}
-#[derive(Debug, Clone)]
 pub struct PackageBodySyntax(pub(crate) SyntaxNode);
 impl AstNode for PackageBodySyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
@@ -12107,19 +12083,13 @@ impl AstNode for PackageBodyEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "package",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Package)),
+                name: "end_package_body",
+                kind: LayoutItemKind::Node(NodeKind::EndPackageBody),
             },
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "body",
-                kind: LayoutItemKind::Token(TokenKind::Keyword(Kw::Body)),
-            },
-            LayoutItem {
-                optional: true,
-                repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -12144,19 +12114,13 @@ impl PackageBodyEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::End))
             .nth(0)
     }
-    pub fn package_token(&self) -> Option<SyntaxToken> {
+    pub fn end_package_body(&self) -> Option<EndPackageBodySyntax> {
         self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Package))
+            .children()
+            .filter_map(EndPackageBodySyntax::cast)
             .nth(0)
     }
-    pub fn body_token(&self) -> Option<SyntaxToken> {
-        self.0
-            .tokens()
-            .filter(|token| token.kind() == TokenKind::Keyword(Kw::Body))
-            .nth(0)
-    }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -12190,7 +12154,7 @@ impl AstNode for PackageBodyPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -12221,7 +12185,7 @@ impl PackageBodyPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Body))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -12239,12 +12203,32 @@ pub struct PackageDeclarationSyntax(pub(crate) SyntaxNode);
 impl AstNode for PackageDeclarationSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::PackageDeclaration,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: false,
-            name: "package",
-            kind: LayoutItemKind::Node(NodeKind::Package),
-        }],
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "package_preamble",
+                kind: LayoutItemKind::Node(NodeKind::PackagePreamble),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "package_header",
+                kind: LayoutItemKind::Node(NodeKind::PackageHeader),
+            },
+            LayoutItem {
+                optional: true,
+                repeated: false,
+                name: "declarations",
+                kind: LayoutItemKind::Node(NodeKind::Declarations),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "package_epilogue",
+                kind: LayoutItemKind::Node(NodeKind::PackageEpilogue),
+            },
+        ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageDeclarationSyntax(node)
@@ -12254,8 +12238,56 @@ impl AstNode for PackageDeclarationSyntax {
     }
 }
 impl PackageDeclarationSyntax {
-    pub fn package(&self) -> Option<PackageSyntax> {
-        self.0.children().filter_map(PackageSyntax::cast).nth(0)
+    pub fn package_preamble(&self) -> Option<PackagePreambleSyntax> {
+        self.0
+            .children()
+            .filter_map(PackagePreambleSyntax::cast)
+            .nth(0)
+    }
+    pub fn package_header(&self) -> Option<PackageHeaderSyntax> {
+        self.0
+            .children()
+            .filter_map(PackageHeaderSyntax::cast)
+            .nth(0)
+    }
+    pub fn declarations(&self) -> Option<DeclarationsSyntax> {
+        self.0
+            .children()
+            .filter_map(DeclarationsSyntax::cast)
+            .nth(0)
+    }
+    pub fn package_epilogue(&self) -> Option<PackageEpilogueSyntax> {
+        self.0
+            .children()
+            .filter_map(PackageEpilogueSyntax::cast)
+            .nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct PackageDeclarationItemSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageDeclarationItemSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::PackageDeclarationItem,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: false,
+            name: "package_declaration",
+            kind: LayoutItemKind::Node(NodeKind::PackageDeclaration),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        PackageDeclarationItemSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl PackageDeclarationItemSyntax {
+    pub fn package_declaration(&self) -> Option<PackageDeclarationSyntax> {
+        self.0
+            .children()
+            .filter_map(PackageDeclarationSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -12279,7 +12311,7 @@ impl AstNode for PackageEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -12310,7 +12342,7 @@ impl PackageEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Package))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -12362,10 +12394,10 @@ impl PackageHeaderSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct PackageInstantiationSyntax(pub(crate) SyntaxNode);
-impl AstNode for PackageInstantiationSyntax {
+pub struct PackageInstantiationDeclarationSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageInstantiationDeclarationSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::PackageInstantiation,
+        kind: NodeKind::PackageInstantiationDeclaration,
         items: &[
             LayoutItem {
                 optional: false,
@@ -12388,13 +12420,13 @@ impl AstNode for PackageInstantiationSyntax {
         ],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        PackageInstantiationSyntax(node)
+        PackageInstantiationDeclarationSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl PackageInstantiationSyntax {
+impl PackageInstantiationDeclarationSyntax {
     pub fn package_instantiation_preamble(&self) -> Option<PackageInstantiationPreambleSyntax> {
         self.0
             .children()
@@ -12415,29 +12447,31 @@ impl PackageInstantiationSyntax {
     }
 }
 #[derive(Debug, Clone)]
-pub struct PackageInstantiationDeclarationSyntax(pub(crate) SyntaxNode);
-impl AstNode for PackageInstantiationDeclarationSyntax {
+pub struct PackageInstantiationDeclarationItemSyntax(pub(crate) SyntaxNode);
+impl AstNode for PackageInstantiationDeclarationItemSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::PackageInstantiationDeclaration,
+        kind: NodeKind::PackageInstantiationDeclarationItem,
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "package_instantiation",
-            kind: LayoutItemKind::Node(NodeKind::PackageInstantiation),
+            name: "package_instantiation_declaration",
+            kind: LayoutItemKind::Node(NodeKind::PackageInstantiationDeclaration),
         }],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
-        PackageInstantiationDeclarationSyntax(node)
+        PackageInstantiationDeclarationItemSyntax(node)
     }
     fn raw(&self) -> SyntaxNode {
         self.0.clone()
     }
 }
-impl PackageInstantiationDeclarationSyntax {
-    pub fn package_instantiation(&self) -> Option<PackageInstantiationSyntax> {
+impl PackageInstantiationDeclarationItemSyntax {
+    pub fn package_instantiation_declaration(
+        &self,
+    ) -> Option<PackageInstantiationDeclarationSyntax> {
         self.0
             .children()
-            .filter_map(PackageInstantiationSyntax::cast)
+            .filter_map(PackageInstantiationDeclarationSyntax::cast)
             .nth(0)
     }
 }
@@ -12449,8 +12483,8 @@ impl AstNode for PackageInstantiationDeclarationPrimaryUnitSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "package_instantiation",
-            kind: LayoutItemKind::Node(NodeKind::PackageInstantiation),
+            name: "package_instantiation_declaration",
+            kind: LayoutItemKind::Node(NodeKind::PackageInstantiationDeclaration),
         }],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -12461,10 +12495,12 @@ impl AstNode for PackageInstantiationDeclarationPrimaryUnitSyntax {
     }
 }
 impl PackageInstantiationDeclarationPrimaryUnitSyntax {
-    pub fn package_instantiation(&self) -> Option<PackageInstantiationSyntax> {
+    pub fn package_instantiation_declaration(
+        &self,
+    ) -> Option<PackageInstantiationDeclarationSyntax> {
         self.0
             .children()
-            .filter_map(PackageInstantiationSyntax::cast)
+            .filter_map(PackageInstantiationDeclarationSyntax::cast)
             .nth(0)
     }
 }
@@ -12768,6 +12804,65 @@ impl ParameterSpecificationSyntax {
     }
     pub fn expression(&self) -> Option<ExpressionSyntax> {
         self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+}
+#[derive(Debug, Clone)]
+pub struct ParenthesizedConditionSyntax(pub(crate) SyntaxNode);
+impl AstNode for ParenthesizedConditionSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::ParenthesizedCondition,
+        items: &[
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "left_par",
+                kind: LayoutItemKind::Token(TokenKind::LeftPar),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "condition",
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::LiteralExpression,
+                    NodeKind::PhysicalLiteralExpression,
+                    NodeKind::UnaryExpression,
+                    NodeKind::BinaryExpression,
+                    NodeKind::ParenthesizedExpressionOrAggregate,
+                    NodeKind::Allocator,
+                    NodeKind::NameExpression,
+                    NodeKind::QualifiedExpression,
+                ]),
+            },
+            LayoutItem {
+                optional: false,
+                repeated: false,
+                name: "right_par",
+                kind: LayoutItemKind::Token(TokenKind::RightPar),
+            },
+        ],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        ParenthesizedConditionSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl ParenthesizedConditionSyntax {
+    pub fn left_par_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::LeftPar)
+            .nth(0)
+    }
+    pub fn condition(&self) -> Option<ExpressionSyntax> {
+        self.0.children().filter_map(ExpressionSyntax::cast).nth(0)
+    }
+    pub fn right_par_token(&self) -> Option<SyntaxToken> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::RightPar)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -13316,7 +13411,7 @@ impl AstNode for PhysicalTypeDefinitionEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
         ],
@@ -13341,7 +13436,7 @@ impl PhysicalTypeDefinitionEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Units))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -13686,8 +13781,8 @@ impl AstNode for PrimaryUnitPackageDeclarationSyntax {
         items: &[LayoutItem {
             optional: false,
             repeated: false,
-            name: "package",
-            kind: LayoutItemKind::Node(NodeKind::Package),
+            name: "package_declaration",
+            kind: LayoutItemKind::Node(NodeKind::PackageDeclaration),
         }],
     });
     fn cast_unchecked(node: SyntaxNode) -> Self {
@@ -13698,8 +13793,11 @@ impl AstNode for PrimaryUnitPackageDeclarationSyntax {
     }
 }
 impl PrimaryUnitPackageDeclarationSyntax {
-    pub fn package(&self) -> Option<PackageSyntax> {
-        self.0.children().filter_map(PackageSyntax::cast).nth(0)
+    pub fn package_declaration(&self) -> Option<PackageDeclarationSyntax> {
+        self.0
+            .children()
+            .filter_map(PackageDeclarationSyntax::cast)
+            .nth(0)
     }
 }
 #[derive(Debug, Clone)]
@@ -13717,7 +13815,7 @@ impl AstNode for ProcedureCallStatementSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "procedure_call",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
             LayoutItem {
@@ -13739,7 +13837,7 @@ impl ProcedureCallStatementSyntax {
     pub fn stmt_label(&self) -> Option<StmtLabelSyntax> {
         self.0.children().filter_map(StmtLabelSyntax::cast).nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn procedure_call(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
     pub fn semi_colon_token(&self) -> Option<SyntaxToken> {
@@ -13841,7 +13939,7 @@ impl AstNode for ProcessEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "label",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
             LayoutItem {
@@ -13878,7 +13976,7 @@ impl ProcessEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Process))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn label(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -14023,8 +14121,8 @@ impl AstNode for ProcessStatementSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "sequential_statements",
-                kind: LayoutItemKind::Node(NodeKind::SequentialStatements),
+                name: "sequence_of_statements",
+                kind: LayoutItemKind::Node(NodeKind::SequenceOfStatements),
             },
             LayoutItem {
                 optional: false,
@@ -14063,10 +14161,10 @@ impl ProcessStatementSyntax {
             .filter_map(DeclarationStatementSeparatorSyntax::cast)
             .nth(0)
     }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+    pub fn sequence_of_statements(&self) -> Option<SequenceOfStatementsSyntax> {
         self.0
             .children()
-            .filter_map(SequentialStatementsSyntax::cast)
+            .filter_map(SequenceOfStatementsSyntax::cast)
             .nth(0)
     }
     pub fn process_epilogue(&self) -> Option<ProcessEpilogueSyntax> {
@@ -14183,7 +14281,7 @@ impl AstNode for ProtectedTypeBodyEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
         ],
@@ -14214,7 +14312,7 @@ impl ProtectedTypeBodyEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Body))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -14338,7 +14436,7 @@ impl AstNode for ProtectedTypeDeclarationEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
         ],
@@ -14363,7 +14461,7 @@ impl ProtectedTypeDeclarationEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Protected))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -14732,7 +14830,7 @@ impl AstNode for RecordTypeDefinitionEpilogueSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "identifier",
+                name: "simple_name",
                 kind: LayoutItemKind::Token(TokenKind::Identifier),
             },
         ],
@@ -14757,7 +14855,7 @@ impl RecordTypeDefinitionEpilogueSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::Record))
             .nth(0)
     }
-    pub fn identifier_token(&self) -> Option<SyntaxToken> {
+    pub fn simple_name(&self) -> Option<SyntaxToken> {
         self.0
             .tokens()
             .filter(|token| token.kind() == TokenKind::Identifier)
@@ -16018,6 +16116,56 @@ impl SensitivityListSyntax {
     }
 }
 #[derive(Debug, Clone)]
+pub struct SequenceOfStatementsSyntax(pub(crate) SyntaxNode);
+impl AstNode for SequenceOfStatementsSyntax {
+    const META: &'static Layout = &Layout::Sequence(Sequence {
+        kind: NodeKind::SequenceOfStatements,
+        items: &[LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "sequential_statements",
+            kind: LayoutItemKind::NodeChoice(&[
+                NodeKind::WaitStatement,
+                NodeKind::AssertionStatement,
+                NodeKind::ReportStatement,
+                NodeKind::SimpleWaveformAssignment,
+                NodeKind::SimpleForceAssignment,
+                NodeKind::SimpleReleaseAssignment,
+                NodeKind::ConditionalWaveformAssignment,
+                NodeKind::ConditionalForceAssignment,
+                NodeKind::SelectedWaveformAssignment,
+                NodeKind::SelectedForceAssignment,
+                NodeKind::SimpleVariableAssignment,
+                NodeKind::ConditionalVariableAssignment,
+                NodeKind::SelectedVariableAssignment,
+                NodeKind::ProcedureCallStatement,
+                NodeKind::IfStatement,
+                NodeKind::CaseStatement,
+                NodeKind::LoopStatement,
+                NodeKind::NextStatement,
+                NodeKind::ExitStatement,
+                NodeKind::ReturnStatement,
+                NodeKind::NullStatement,
+            ]),
+        }],
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        SequenceOfStatementsSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl SequenceOfStatementsSyntax {
+    pub fn sequential_statements(
+        &self,
+    ) -> impl Iterator<Item = SequentialStatementSyntax> + use<'_> {
+        self.0
+            .children()
+            .filter_map(SequentialStatementSyntax::cast)
+    }
+}
+#[derive(Debug, Clone)]
 pub enum SequentialStatementSyntax {
     WaitStatement(WaitStatementSyntax),
     AssertionStatement(AssertionStatementSyntax),
@@ -16144,56 +16292,6 @@ impl AstNode for SequentialStatementSyntax {
             SequentialStatementSyntax::ReturnStatement(inner) => inner.raw(),
             SequentialStatementSyntax::NullStatement(inner) => inner.raw(),
         }
-    }
-}
-#[derive(Debug, Clone)]
-pub struct SequentialStatementsSyntax(pub(crate) SyntaxNode);
-impl AstNode for SequentialStatementsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::SequentialStatements,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: true,
-            name: "sequential_statements",
-            kind: LayoutItemKind::NodeChoice(&[
-                NodeKind::WaitStatement,
-                NodeKind::AssertionStatement,
-                NodeKind::ReportStatement,
-                NodeKind::SimpleWaveformAssignment,
-                NodeKind::SimpleForceAssignment,
-                NodeKind::SimpleReleaseAssignment,
-                NodeKind::ConditionalWaveformAssignment,
-                NodeKind::ConditionalForceAssignment,
-                NodeKind::SelectedWaveformAssignment,
-                NodeKind::SelectedForceAssignment,
-                NodeKind::SimpleVariableAssignment,
-                NodeKind::ConditionalVariableAssignment,
-                NodeKind::SelectedVariableAssignment,
-                NodeKind::ProcedureCallStatement,
-                NodeKind::IfStatement,
-                NodeKind::CaseStatement,
-                NodeKind::LoopStatement,
-                NodeKind::NextStatement,
-                NodeKind::ExitStatement,
-                NodeKind::ReturnStatement,
-                NodeKind::NullStatement,
-            ]),
-        }],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        SequentialStatementsSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl SequentialStatementsSyntax {
-    pub fn sequential_statements(
-        &self,
-    ) -> impl Iterator<Item = SequentialStatementSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(SequentialStatementSyntax::cast)
     }
 }
 #[derive(Debug, Clone)]
@@ -16554,8 +16652,8 @@ impl AstNode for SignatureSyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "name_list",
-                kind: LayoutItemKind::Node(NodeKind::NameList),
+                name: "type_mark_list",
+                kind: LayoutItemKind::Node(NodeKind::TypeMarkList),
             },
             LayoutItem {
                 optional: true,
@@ -16585,8 +16683,11 @@ impl SignatureSyntax {
             .filter(|token| token.kind() == TokenKind::LeftSquare)
             .nth(0)
     }
-    pub fn name_list(&self) -> Option<NameListSyntax> {
-        self.0.children().filter_map(NameListSyntax::cast).nth(0)
+    pub fn type_mark_list(&self) -> Option<TypeMarkListSyntax> {
+        self.0
+            .children()
+            .filter_map(TypeMarkListSyntax::cast)
+            .nth(0)
     }
     pub fn return_type(&self) -> Option<ReturnTypeSyntax> {
         self.0.children().filter_map(ReturnTypeSyntax::cast).nth(0)
@@ -17133,8 +17234,8 @@ impl AstNode for SubprogramBodySyntax {
             LayoutItem {
                 optional: true,
                 repeated: false,
-                name: "sequential_statements",
-                kind: LayoutItemKind::Node(NodeKind::SequentialStatements),
+                name: "sequence_of_statements",
+                kind: LayoutItemKind::Node(NodeKind::SequenceOfStatements),
             },
             LayoutItem {
                 optional: false,
@@ -17170,10 +17271,10 @@ impl SubprogramBodySyntax {
             .filter_map(DeclarationStatementSeparatorSyntax::cast)
             .nth(0)
     }
-    pub fn sequential_statements(&self) -> Option<SequentialStatementsSyntax> {
+    pub fn sequence_of_statements(&self) -> Option<SequenceOfStatementsSyntax> {
         self.0
             .children()
-            .filter_map(SequentialStatementsSyntax::cast)
+            .filter_map(SequenceOfStatementsSyntax::cast)
             .nth(0)
     }
     pub fn subprogram_body_epilogue(&self) -> Option<SubprogramBodyEpilogueSyntax> {
@@ -18028,6 +18129,41 @@ impl AstNode for TypeDefinitionSyntax {
             TypeDefinitionSyntax::FileTypeDefinition(inner) => inner.raw(),
             TypeDefinitionSyntax::ProtectedTypeDefinition(inner) => inner.raw(),
         }
+    }
+}
+#[derive(Debug, Clone)]
+pub struct TypeMarkListSyntax(pub(crate) SyntaxNode);
+impl AstNode for TypeMarkListSyntax {
+    const META: &'static Layout = &Layout::List(List {
+        kind: NodeKind::TypeMarkList,
+        element: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "type_marks",
+            kind: LayoutItemKind::Node(NodeKind::Name),
+        },
+        separator: &LayoutItem {
+            optional: false,
+            repeated: true,
+            name: "comma",
+            kind: LayoutItemKind::Token(TokenKind::Comma),
+        },
+    });
+    fn cast_unchecked(node: SyntaxNode) -> Self {
+        TypeMarkListSyntax(node)
+    }
+    fn raw(&self) -> SyntaxNode {
+        self.0.clone()
+    }
+}
+impl TypeMarkListSyntax {
+    pub fn type_marks(&self) -> impl Iterator<Item = NameSyntax> + use<'_> {
+        self.0.children().filter_map(NameSyntax::cast)
+    }
+    pub fn comma_token(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.0
+            .tokens()
+            .filter(|token| token.kind() == TokenKind::Comma)
     }
 }
 #[derive(Debug, Clone)]

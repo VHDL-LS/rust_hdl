@@ -393,7 +393,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::SelectedForceAssignment
         | NodeKind::SelectedVariableAssignment
         | NodeKind::SelectedWaveformAssignment
-        | NodeKind::SequentialStatements
+        | NodeKind::SequenceOfStatements
         | NodeKind::SimpleForceAssignment
         | NodeKind::SimpleReleaseAssignment
         | NodeKind::SimpleVariableAssignment
@@ -414,6 +414,10 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         NodeKind::NameList | NodeKind::SensitivityClause => {
             &[Keyword(Kw::For), Keyword(Kw::Until), SemiColon]
         }
+        NodeKind::TypeMarkList => &[Keyword(Kw::Return), RightSquare],
+        // `end package body` with the `body` missing must not swallow the simple name or the
+        // semicolon that follow the pair.
+        NodeKind::EndPackageBody => &[Identifier, SemiColon],
         NodeKind::RecordTypeDefinitionPreamble => &[Comma, Identifier, Keyword(Kw::End)],
         NodeKind::WaveformElement => &[Comma, Keyword(Kw::When), SemiColon],
         NodeKind::ContextDeclarationPreamble => &[
@@ -535,8 +539,8 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::GroupTemplateDeclaration
         | NodeKind::IncompleteTypeDeclaration
         | NodeKind::PackageBodyDeclaration
-        | NodeKind::PackageDeclaration
-        | NodeKind::PackageInstantiationDeclaration
+        | NodeKind::PackageDeclarationItem
+        | NodeKind::PackageInstantiationDeclarationItem
         | NodeKind::SignalDeclaration
         | NodeKind::SimpleConfigurationSpecification
         | NodeKind::SubprogramBody
@@ -579,11 +583,11 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
             LtLt,
             StringLiteral,
         ],
-        NodeKind::Package
+        NodeKind::PackageDeclaration
         | NodeKind::PackageBody
         | NodeKind::PackageBodyEpilogue
         | NodeKind::PackageEpilogue
-        | NodeKind::PackageInstantiation => &[
+        | NodeKind::PackageInstantiationDeclaration => &[
             CharacterLiteral,
             Eof,
             Identifier,
@@ -1297,7 +1301,7 @@ mod tests {
     #[test]
     fn is_recovery_point_walks_full_sync_stack() {
         let mut state = RecoveryState::new();
-        state.push(NodeKind::Package);
+        state.push(NodeKind::PackageDeclaration);
 
         assert!(state.is_in_follow_set(TokenKind::Eof));
         state.push(NodeKind::AbsolutePathname);

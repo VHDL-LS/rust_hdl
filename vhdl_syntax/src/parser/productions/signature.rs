@@ -17,7 +17,7 @@ impl Parser {
         self.expect_token(LeftSquare);
 
         if !self.next_is_one_of([Keyword(Kw::Return), RightSquare]) {
-            self.name_list();
+            self.separated_list(TypeMarkList, Parser::name, Comma);
         }
 
         if self.next_is(Keyword(Kw::Return)) {

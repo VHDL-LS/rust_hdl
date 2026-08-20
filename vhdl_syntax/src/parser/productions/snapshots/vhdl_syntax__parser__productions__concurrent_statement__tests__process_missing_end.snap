@@ -20,7 +20,7 @@ ProcessStatement
       RightPar
   DeclarationStatementSeparator
     Keyword(Begin)
-  SequentialStatements
+  SequenceOfStatements
     SimpleWaveformAssignment
       NameTarget
         Name

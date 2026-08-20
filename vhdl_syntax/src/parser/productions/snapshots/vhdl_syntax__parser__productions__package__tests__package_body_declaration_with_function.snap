@@ -23,6 +23,7 @@ PackageBody
         SemiColon
   PackageBodyEpilogue
     Keyword(End)
-    Keyword(Package)
-    Keyword(Body)
+    EndPackageBody
+      Keyword(Package)
+      Keyword(Body)
     SemiColon

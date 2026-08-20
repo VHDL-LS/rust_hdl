@@ -31,7 +31,7 @@ fn main() {
     // In order to repeat the second identifier, we overwrite the default-generated `EntityDeclarationEpilogue`
     // and provide the name. The new epilogue is equally generated through a builder.
     builder = builder.with_entity_declaration_epilogue(
-        EntityDeclarationEpilogueBuilder::new().with_identifier_token(b"foo"),
+        EntityDeclarationEpilogueBuilder::new().with_simple_name(b"foo"),
     );
     // transform the builder into syntax by calling `build()` on it
     let entity_declaration_node = builder.build();

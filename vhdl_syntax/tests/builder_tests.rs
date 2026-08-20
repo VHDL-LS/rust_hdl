@@ -43,7 +43,7 @@ fn arch_epilogue_with_optional_tokens() {
     );
     let node = ArchitectureEpilogueBuilder::new()
         .with_architecture_token(arch_tok)
-        .with_identifier_token(Identifier::from(b"my_arch"))
+        .with_simple_name(Identifier::from(b"my_arch"))
         .build();
     assert_eq!(
         node.raw().display().to_string(),
@@ -93,7 +93,7 @@ fn entity_epilogue_default_text() {
 #[test]
 fn entity_epilogue_with_identifier() {
     let node = EntityDeclarationEpilogueBuilder::default()
-        .with_identifier_token(Identifier::from(b"foo"))
+        .with_simple_name(Identifier::from(b"foo"))
         .build();
     assert_eq!(node.raw().display().to_string(), " end foo ;");
 }

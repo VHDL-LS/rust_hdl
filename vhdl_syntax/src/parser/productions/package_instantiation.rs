@@ -11,13 +11,13 @@ use crate::tokens::TokenKind::{SemiColon, *};
 
 impl Parser {
     pub fn package_instantiation_declaration(&mut self) {
-        self.start_node(PackageInstantiationDeclaration);
+        self.start_node(PackageInstantiationDeclarationItem);
         self.package_instantiation();
         self.end_node();
     }
 
     pub fn package_instantiation(&mut self) {
-        self.start_node(PackageInstantiation);
+        self.start_node(PackageInstantiationDeclaration);
         self.package_instantiation_preamble();
         self.opt_generic_map_aspect();
         self.expect_token(SemiColon);

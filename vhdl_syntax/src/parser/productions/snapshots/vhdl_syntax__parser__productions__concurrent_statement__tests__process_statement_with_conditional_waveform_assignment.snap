@@ -11,7 +11,7 @@ ProcessStatement
     Keyword(Is)
   DeclarationStatementSeparator
     Keyword(Begin)
-  SequentialStatements
+  SequenceOfStatements
     ConditionalWaveformAssignment
       NameTarget
         Name

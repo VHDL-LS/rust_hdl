@@ -8,7 +8,7 @@ BlockStatement
     Colon
   BlockPreamble
     Keyword(Block)
-    ParenthesizedExpression
+    ParenthesizedCondition
       LeftPar
       BinaryExpression
         NameExpression

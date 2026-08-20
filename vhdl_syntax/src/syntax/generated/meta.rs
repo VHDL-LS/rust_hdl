@@ -109,6 +109,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::ElseWaveform => ElseWaveformSyntax::META,
         NodeKind::ElseWhenExpression => ElseWhenExpressionSyntax::META,
         NodeKind::ElseWhenWaveform => ElseWhenWaveformSyntax::META,
+        NodeKind::EndPackageBody => EndPackageBodySyntax::META,
         NodeKind::EntityClassEntry => EntityClassEntrySyntax::META,
         NodeKind::EntityClassEntryList => EntityClassEntryListSyntax::META,
         NodeKind::EntityConfigurationAspect => EntityConfigurationAspectSyntax::META,
@@ -216,16 +217,18 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::NullStatement => NullStatementSyntax::META,
         NodeKind::NumericTypeDefinition => NumericTypeDefinitionSyntax::META,
         NodeKind::OthersChoice => OthersChoiceSyntax::META,
-        NodeKind::Package => PackageSyntax::META,
         NodeKind::PackageBody => PackageBodySyntax::META,
         NodeKind::PackageBodyDeclaration => PackageBodyDeclarationSyntax::META,
         NodeKind::PackageBodyEpilogue => PackageBodyEpilogueSyntax::META,
         NodeKind::PackageBodyPreamble => PackageBodyPreambleSyntax::META,
         NodeKind::PackageDeclaration => PackageDeclarationSyntax::META,
+        NodeKind::PackageDeclarationItem => PackageDeclarationItemSyntax::META,
         NodeKind::PackageEpilogue => PackageEpilogueSyntax::META,
         NodeKind::PackageHeader => PackageHeaderSyntax::META,
-        NodeKind::PackageInstantiation => PackageInstantiationSyntax::META,
         NodeKind::PackageInstantiationDeclaration => PackageInstantiationDeclarationSyntax::META,
+        NodeKind::PackageInstantiationDeclarationItem => {
+            PackageInstantiationDeclarationItemSyntax::META
+        }
         NodeKind::PackageInstantiationDeclarationPrimaryUnit => {
             PackageInstantiationDeclarationPrimaryUnitSyntax::META
         }
@@ -235,6 +238,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::PackagePreamble => PackagePreambleSyntax::META,
         NodeKind::ParameterList => ParameterListSyntax::META,
         NodeKind::ParameterSpecification => ParameterSpecificationSyntax::META,
+        NodeKind::ParenthesizedCondition => ParenthesizedConditionSyntax::META,
         NodeKind::ParenthesizedElementResolution => ParenthesizedElementResolutionSyntax::META,
         NodeKind::ParenthesizedExpression => ParenthesizedExpressionSyntax::META,
         NodeKind::ParenthesizedExpressionOrAggregate => {
@@ -298,7 +302,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::SelectedWaveforms => SelectedWaveformsSyntax::META,
         NodeKind::SensitivityClause => SensitivityClauseSyntax::META,
         NodeKind::SensitivityList => SensitivityListSyntax::META,
-        NodeKind::SequentialStatements => SequentialStatementsSyntax::META,
+        NodeKind::SequenceOfStatements => SequenceOfStatementsSyntax::META,
         NodeKind::SeverityClause => SeverityClauseSyntax::META,
         NodeKind::SignalDeclaration => SignalDeclarationSyntax::META,
         NodeKind::SignalListAll => SignalListAllSyntax::META,
@@ -328,6 +332,7 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
         NodeKind::SubtypeIndication => SubtypeIndicationSyntax::META,
         NodeKind::TimeoutClause => TimeoutClauseSyntax::META,
         NodeKind::TransportDelayMechanism => TransportDelayMechanismSyntax::META,
+        NodeKind::TypeMarkList => TypeMarkListSyntax::META,
         NodeKind::UnaffectedWaveform => UnaffectedWaveformSyntax::META,
         NodeKind::UnaryExpression => UnaryExpressionSyntax::META,
         NodeKind::UnboundedArrayDefinition => UnboundedArrayDefinitionSyntax::META,

@@ -8,7 +8,7 @@ LoopStatement
       Identifier 'lbl'
       Colon
     Keyword(Loop)
-  SequentialStatements
+  SequenceOfStatements
     ProcedureCallStatement
       Name
         NameDesignatorPrefix

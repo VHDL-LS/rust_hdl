@@ -31,7 +31,7 @@ CaseStatement
           LiteralExpression
             AbstractLiteral '2'
       RightArrow
-    SequentialStatements
+    SequenceOfStatements
       ProcedureCallStatement
         Name
           NameDesignatorPrefix
@@ -49,7 +49,7 @@ CaseStatement
         OthersChoice
           Keyword(Others)
       RightArrow
-    SequentialStatements
+    SequenceOfStatements
       ProcedureCallStatement
         Name
           NameDesignatorPrefix

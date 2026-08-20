@@ -19,7 +19,7 @@ IfStatement
           NameDesignatorPrefix
             Identifier 'true'
     Keyword(Then)
-  SequentialStatements
+  SequenceOfStatements
     ProcedureCallStatement
       Name
         NameDesignatorPrefix
@@ -53,7 +53,7 @@ IfStatement
           NameDesignatorPrefix
             Identifier 'false'
     Keyword(Then)
-    SequentialStatements
+    SequenceOfStatements
       SimpleVariableAssignment
         NameTarget
           Name
@@ -65,7 +65,7 @@ IfStatement
         SemiColon
   IfStatementElse
     Keyword(Else)
-    SequentialStatements
+    SequenceOfStatements
       SimpleVariableAssignment
         NameTarget
           Name

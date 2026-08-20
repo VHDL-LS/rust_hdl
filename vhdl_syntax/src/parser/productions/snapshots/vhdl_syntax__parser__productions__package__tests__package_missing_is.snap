@@ -8,7 +8,7 @@ package math_pkg
 end package;
 
 == tree ==
-Package
+PackageDeclaration
   PackagePreamble
     Keyword(Package)
     Identifier 'math_pkg'
