@@ -1837,7 +1837,7 @@ impl AstNode for BlockConfigurationPreambleSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "block_specification",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
         ],
@@ -1856,7 +1856,7 @@ impl BlockConfigurationPreambleSyntax {
             .filter(|token| token.kind() == TokenKind::Keyword(Kw::For))
             .nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn block_specification(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
 }
@@ -14532,7 +14532,7 @@ impl AstNode for QualifiedExpressionSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "type_mark",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
             LayoutItem {
@@ -14557,7 +14557,7 @@ impl AstNode for QualifiedExpressionSyntax {
     }
 }
 impl QualifiedExpressionSyntax {
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn type_mark(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
     pub fn tick_token(&self) -> Option<SyntaxToken> {
@@ -17881,7 +17881,7 @@ impl AstNode for SubtypeIndicationSyntax {
             LayoutItem {
                 optional: false,
                 repeated: false,
-                name: "name",
+                name: "type_mark",
                 kind: LayoutItemKind::Node(NodeKind::Name),
             },
         ],
@@ -17900,7 +17900,7 @@ impl SubtypeIndicationSyntax {
             .filter_map(ResolutionIndicationSyntax::cast)
             .nth(0)
     }
-    pub fn name(&self) -> Option<NameSyntax> {
+    pub fn type_mark(&self) -> Option<NameSyntax> {
         self.0.children().filter_map(NameSyntax::cast).nth(0)
     }
 }

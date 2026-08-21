@@ -407,7 +407,7 @@ SubtypeDeclaration =
 // becomes `Name`, and constraints (range/index/record) are absorbed as
 // `NameTail` items, so no explicit `Constraint` slot is needed.
 SubtypeIndication =
-  ResolutionIndication? Name
+  ResolutionIndication? TypeMark
 
 TypeDeclaration =
   FullTypeDeclaration | IncompleteTypeDeclaration
@@ -444,8 +444,10 @@ ArchitectureBody =
 ConfigurationItem =
   block_configuration_item:BlockConfiguration | ComponentConfiguration
 
+BlockSpecification = Name
+
 BlockConfiguration =
-  block_configuration_preamble:('for' Name)
+  block_configuration_preamble:('for' BlockSpecification)
   UseClause*
   ConfigurationItem*
   block_configuration_epilogue:('end' 'for' ';')
@@ -600,7 +602,7 @@ BinaryExpression =
   Lhs BinaryOperator Rhs
 
 QualifiedExpression =
-  Name '\'' ParenthesizedExpressionOrAggregate
+  TypeMark '\'' ParenthesizedExpressionOrAggregate
 
 Expression =
   literal_expression:Literal

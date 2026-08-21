@@ -1458,13 +1458,13 @@ impl From<BlockConfigurationItemBuilder> for BlockConfigurationItemSyntax {
 }
 pub struct BlockConfigurationPreambleBuilder {
     for_token: Token,
-    name: NameSyntax,
+    block_specification: NameSyntax,
 }
 impl BlockConfigurationPreambleBuilder {
-    pub fn new(name: impl Into<NameSyntax>) -> Self {
+    pub fn new(block_specification: impl Into<NameSyntax>) -> Self {
         Self {
             for_token: Kw::For.canonical_token(),
-            name: name.into(),
+            block_specification: block_specification.into(),
         }
     }
     pub fn with_for_token(mut self, t: impl Into<Token>) -> Self {
@@ -1475,15 +1475,15 @@ impl BlockConfigurationPreambleBuilder {
         self.for_token.set_leading_trivia(trivia);
         self
     }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
+    pub fn with_block_specification(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.block_specification = n.into();
         self
     }
     pub fn build(self) -> BlockConfigurationPreambleSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::BlockConfigurationPreamble);
         builder.push(self.for_token);
-        builder.push_node(self.name.raw().green().clone());
+        builder.push_node(self.block_specification.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
@@ -11976,23 +11976,23 @@ impl From<ProtectedTypeDeclarationEpilogueBuilder> for ProtectedTypeDeclarationE
     }
 }
 pub struct QualifiedExpressionBuilder {
-    name: NameSyntax,
+    type_mark: NameSyntax,
     tick_token: Token,
     parenthesized_expression_or_aggregate: ParenthesizedExpressionOrAggregateSyntax,
 }
 impl QualifiedExpressionBuilder {
     pub fn new(
-        name: impl Into<NameSyntax>,
+        type_mark: impl Into<NameSyntax>,
         parenthesized_expression_or_aggregate: impl Into<ParenthesizedExpressionOrAggregateSyntax>,
     ) -> Self {
         Self {
-            name: name.into(),
+            type_mark: type_mark.into(),
             tick_token: TokenKind::Tick.canonical_token().unwrap(),
             parenthesized_expression_or_aggregate: parenthesized_expression_or_aggregate.into(),
         }
     }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
+    pub fn with_type_mark(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.type_mark = n.into();
         self
     }
     pub fn with_tick_token(mut self, t: impl Into<Token>) -> Self {
@@ -12013,7 +12013,7 @@ impl QualifiedExpressionBuilder {
     pub fn build(self) -> QualifiedExpressionSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::QualifiedExpression);
-        builder.push_node(self.name.raw().green().clone());
+        builder.push_node(self.type_mark.raw().green().clone());
         builder.push(self.tick_token);
         builder.push_node(
             self.parenthesized_expression_or_aggregate
@@ -14522,21 +14522,21 @@ impl From<SubtypeDeclarationBuilder> for SubtypeDeclarationSyntax {
 }
 pub struct SubtypeIndicationBuilder {
     resolution_indication: Option<ResolutionIndicationSyntax>,
-    name: NameSyntax,
+    type_mark: NameSyntax,
 }
 impl SubtypeIndicationBuilder {
-    pub fn new(name: impl Into<NameSyntax>) -> Self {
+    pub fn new(type_mark: impl Into<NameSyntax>) -> Self {
         Self {
             resolution_indication: None,
-            name: name.into(),
+            type_mark: type_mark.into(),
         }
     }
     pub fn with_resolution_indication(mut self, n: impl Into<ResolutionIndicationSyntax>) -> Self {
         self.resolution_indication = Some(n.into());
         self
     }
-    pub fn with_name(mut self, n: impl Into<NameSyntax>) -> Self {
-        self.name = n.into();
+    pub fn with_type_mark(mut self, n: impl Into<NameSyntax>) -> Self {
+        self.type_mark = n.into();
         self
     }
     pub fn build(self) -> SubtypeIndicationSyntax {
@@ -14545,7 +14545,7 @@ impl SubtypeIndicationBuilder {
         if let Some(n) = self.resolution_indication {
             builder.push_node(n.raw().green().clone());
         }
-        builder.push_node(self.name.raw().green().clone());
+        builder.push_node(self.type_mark.raw().green().clone());
         builder.end_node();
         let green = builder.end();
         let node = SyntaxNode::new_root(green);
