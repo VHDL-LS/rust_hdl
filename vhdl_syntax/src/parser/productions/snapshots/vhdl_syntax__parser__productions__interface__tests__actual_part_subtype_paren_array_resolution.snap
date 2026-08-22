@@ -8,11 +8,10 @@ ActualPart
       ParenthesizedElementResolution
         LeftPar
         ElementResolutionResolutionIndication
-          ResolutionIndicationElementResolution
-            NameResolutionIndication
-              Name
-                NameDesignatorPrefix
-                  Identifier 'resolve'
+          NameResolutionIndication
+            Name
+              NameDesignatorPrefix
+                Identifier 'resolve'
         RightPar
       Name
         NameDesignatorPrefix

@@ -16,7 +16,7 @@ IfStatement
           NameDesignatorPrefix
             Identifier 'true'
     Keyword(Then)
-  SequentialStatements
+  SequenceOfStatements
     ProcedureCallStatement
       Name
         NameDesignatorPrefix

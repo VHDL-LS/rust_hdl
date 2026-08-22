@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nname: block is\n  generic(gen: integer := 1);\n  generic map(gen => 1);\n  port(prt: integer := 1);\n  port map(prt => 2);\nbegin\nend block;\",)"
 ---
 BlockStatement
-  Label
+  StmtLabel
     Identifier 'name'
     Colon
   BlockPreamble
@@ -12,9 +12,8 @@ BlockStatement
   BlockHeader
     GenericPart
       GenericClause
-        GenericClausePreamble
-          Keyword(Generic)
-          LeftPar
+        Keyword(Generic)
+        LeftPar
         InterfaceList
           InterfaceObjectDeclaration
             IdentifierList
@@ -28,9 +27,8 @@ BlockStatement
               ColonEq
               LiteralExpression
                 AbstractLiteral '1'
-        GenericClauseEpilogue
-          RightPar
-          SemiColon
+        RightPar
+        SemiColon
       GenericMap
         GenericMapAspect
           Keyword(Generic)
@@ -39,10 +37,9 @@ BlockStatement
           AssociationList
             AssociationElement
               Formal
-                FormalPart
-                  Name
-                    NameDesignatorPrefix
-                      Identifier 'gen'
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'gen'
                 RightArrow
               ActualPart
                 ActualPartExpression
@@ -52,9 +49,8 @@ BlockStatement
         SemiColon
     PortPart
       PortClause
-        PortClausePreamble
-          Keyword(Port)
-          LeftPar
+        Keyword(Port)
+        LeftPar
         InterfaceList
           InterfaceObjectDeclaration
             IdentifierList
@@ -68,9 +64,8 @@ BlockStatement
               ColonEq
               LiteralExpression
                 AbstractLiteral '1'
-        PortClauseEpilogue
-          RightPar
-          SemiColon
+        RightPar
+        SemiColon
       PortMap
         PortMapAspect
           Keyword(Port)
@@ -79,10 +74,9 @@ BlockStatement
           AssociationList
             AssociationElement
               Formal
-                FormalPart
-                  Name
-                    NameDesignatorPrefix
-                      Identifier 'prt'
+                Name
+                  NameDesignatorPrefix
+                    Identifier 'prt'
                 RightArrow
               ActualPart
                 ActualPartExpression

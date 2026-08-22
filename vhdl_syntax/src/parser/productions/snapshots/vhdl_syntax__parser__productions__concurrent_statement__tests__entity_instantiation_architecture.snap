@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"inst: entity lib.foo.bar(arch);\",)"
 ---
 ComponentInstantiationStatement
-  Label
+  StmtLabel
     Identifier 'inst'
     Colon
   InstantiatedEntity

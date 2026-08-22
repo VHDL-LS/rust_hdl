@@ -5,7 +5,7 @@ use crate::tokens::token_kind::TokenKind::*;
 
 impl Parser {
     pub fn package(&mut self) {
-        self.start_node(Package);
+        self.start_node(PackageDeclaration);
         self.package_preamble();
         self.package_header();
         self.declarations();
@@ -65,8 +65,12 @@ impl Parser {
     pub fn package_body_epilogue(&mut self) {
         self.start_node(PackageBodyEpilogue);
         self.expect_kw(Kw::End);
-        self.opt_token(Keyword(Kw::Package));
-        self.opt_token(Keyword(Kw::Body));
+        if self.next_is(Keyword(Kw::Package)) {
+            self.start_node(EndPackageBody);
+            self.skip(); // Kw::Package
+            self.expect_kw(Kw::Body);
+            self.end_node();
+        }
         self.opt_identifier();
         self.expect_token(SemiColon);
         self.end_node();
@@ -182,6 +186,16 @@ package math_pkg is
 package math_pkg is
   constant pi : real := 3.14;
 end package body;",
+            Parser::package_body
+        );
+    }
+
+    #[test]
+    fn package_body_end_package_without_body_keyword() {
+        assert_recovery_snapshot!(
+            "\
+package body math_pkg is
+end package;",
             Parser::package_body
         );
     }

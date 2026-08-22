@@ -11,7 +11,7 @@ use crate::generate::naming::{
 use crate::generate::Generator;
 use crate::model::{
     Cardinality, ChoiceNode, Field, ListNode, Model, Node, NodeKind, NodeOrTokenKind,
-    NodesOrTokens, SequenceNode, TokenKind,
+    NodesOrTokens, RepeatedCardinality, SequenceNode, TokenKind,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -79,10 +79,10 @@ impl Generator for BuilderGenerator {
 
         // Token choice nodes (e.g., `ForceModeToken`)
         token_stream.extend(choice_nodes.iter().map(|c| {
-            let NodesOrTokens::Tokens(tokens) = &c.items else {
+            let NodesOrTokens::Tokens(alternatives) = &c.items else {
                 unreachable!()
             };
-            generate_token_choice_token(&c.name, tokens)
+            generate_token_choice_token(&c.name, alternatives, model)
         }));
 
         vec![("builders".to_string(), token_stream)]
@@ -124,13 +124,14 @@ fn domain_type(kind: &TokenKind) -> Option<TokenStream> {
 /// Returns true when a sequence item can be default-constructed: optional and repeated items
 /// default to absent/empty, tokens with canonical text to that text and node references to the
 /// referenced node's own default (when it has one).
-fn is_defaultable_item(item: &Field, defaultable: &HashSet<NodeKind>) -> bool {
+fn is_defaultable_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -> bool {
     if item.may_be_absent() {
         return true;
     }
-    match &item.kind {
-        NodeOrTokenKind::Token(kind) => has_canonical_text(kind),
-        NodeOrTokenKind::Node(kind) => defaultable.contains(kind),
+    // Only a materialized node has a builder, so ask under the kind the reference resolves to.
+    match model.resolved_kind(item) {
+        NodeOrTokenKind::Token(kind) => has_canonical_text(&kind),
+        NodeOrTokenKind::Node(kind) => defaultable.contains(&kind),
     }
 }
 
@@ -155,7 +156,7 @@ fn compute_defaultable_nodes(model: &Model) -> HashSet<NodeKind> {
                 let is_defaultable = seq
                     .items
                     .iter()
-                    .all(|item| is_defaultable_item(item, &defaultable));
+                    .all(|item| is_defaultable_item(item, model, &defaultable));
 
                 if is_defaultable {
                     defaultable.insert(seq.name.clone());
@@ -203,7 +204,7 @@ fn generate_token_trivia_setter(item: &Field, kind: &TokenKind) -> TokenStream {
     let with_trivia = format_ident!("with_{}_trivia", item.getter_name());
 
     match item.cardinality {
-        Cardinality::Repeated => quote! {},
+        Cardinality::Repeated(_) => quote! {},
         Cardinality::Optional { .. } if has_canonical_text(kind) => {
             let default_expr = token_default_expr(kind);
             quote! {
@@ -242,13 +243,15 @@ struct ItemDescriptor {
 }
 
 fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -> ItemDescriptor {
-    let is_ctor_arg = !is_defaultable_item(item, defaultable);
-    match &item.kind {
+    let is_ctor_arg = !is_defaultable_item(item, model, defaultable);
+    // The field keeps its own name — the alias, where the reference is to one — while what the
+    // reference resolves to decides the type it holds.
+    match &model.resolved_kind(item) {
         NodeOrTokenKind::Token(token_kind) => {
             let field = format_ident!("{}", item.getter_name());
 
             let field_decl = match item.cardinality {
-                Cardinality::Repeated => quote! { #field: Vec<Token> },
+                Cardinality::Repeated(_) => quote! { #field: Vec<Token> },
                 Cardinality::Optional { .. } => quote! { #field: Option<Token> },
                 Cardinality::Required { .. } => quote! { #field: Token },
             };
@@ -282,7 +285,18 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let field_init = match item.cardinality {
-                Cardinality::Repeated => quote! { #field: Vec::new() },
+                Cardinality::Repeated(RepeatedCardinality::ZeroOrMore) => {
+                    quote! { #field: Vec::new() }
+                }
+                // One-or-more always contributes an element, so the vec is seeded with one:
+                // the constructor argument where there is one, else the element's own default.
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore) if is_ctor_arg => {
+                    quote! { #field: vec![#field.#convert_into_token] }
+                }
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore) => {
+                    let default = token_default_expr(token_kind);
+                    quote! { #field: vec![#default] }
+                }
                 Cardinality::Optional { .. } => quote! { #field: None },
                 Cardinality::Required { .. } if is_ctor_arg => {
                     quote! { #field: #field.#convert_into_token }
@@ -294,7 +308,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let mut setter = match item.cardinality {
-                Cardinality::Repeated => {
+                Cardinality::Repeated(_) => {
                     let add = format_ident!("add_{}", item.getter_name());
                     quote! {
                         pub fn #add(mut self, t: impl Into<#parameter_type>) -> Self {
@@ -325,7 +339,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             setter.extend(generate_token_trivia_setter(item, token_kind));
 
             let build_stmt = match item.cardinality {
-                Cardinality::Repeated => quote! {
+                Cardinality::Repeated(_) => quote! {
                     for t in self.#field {
                         builder.push(t);
                     }
@@ -355,7 +369,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let field_decl = match item.cardinality {
-                Cardinality::Repeated => quote! { #field: Vec<#ty> },
+                Cardinality::Repeated(_) => quote! { #field: Vec<#ty> },
                 Cardinality::Optional { .. } => quote! { #field: Option<#ty> },
                 Cardinality::Required { .. } => quote! { #field: #ty },
             };
@@ -367,7 +381,18 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let field_init = match item.cardinality {
-                Cardinality::Repeated => quote! { #field: Vec::new() },
+                Cardinality::Repeated(RepeatedCardinality::ZeroOrMore) => {
+                    quote! { #field: Vec::new() }
+                }
+                // One-or-more always contributes an element, so the vec is seeded with one:
+                // the constructor argument where there is one, else the element's own default.
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore) if is_ctor_arg => {
+                    quote! { #field: vec![#field.into()] }
+                }
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore) => {
+                    let node_builder = builder_ident(node_kind);
+                    quote! { #field: vec![#node_builder::default().build()] }
+                }
                 Cardinality::Optional { .. } => quote! { #field: None },
                 Cardinality::Required { .. } if is_ctor_arg => quote! { #field: #field.into() },
                 Cardinality::Required { .. } => {
@@ -377,7 +402,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let setter = match item.cardinality {
-                Cardinality::Repeated => {
+                Cardinality::Repeated(_) => {
                     let add = format_ident!("add_{}", item.getter_name());
                     quote! {
                         pub fn #add(mut self, n: impl Into<#ty>) -> Self {
@@ -420,7 +445,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
                 )
             };
             let build_stmt = match item.cardinality {
-                Cardinality::Repeated => quote! {
+                Cardinality::Repeated(_) => quote! {
                     for n in self.#field {
                         #push_bound
                     }
@@ -527,7 +552,7 @@ struct ElementShape {
 }
 
 fn element_shape(element: &Field, model: &Model) -> ElementShape {
-    match &element.kind {
+    match &model.resolved_kind(element) {
         NodeOrTokenKind::Token(kind) => match domain_type(kind) {
             Some(domain) => ElementShape {
                 ty: domain,
@@ -635,15 +660,22 @@ fn generate_list_builder(list: &ListNode, model: &Model) -> TokenStream {
 
 /// Generates `pub struct XyzToken(pub(crate) Token)` with named constructors and
 /// `From` impls for each token-choice choice node.
-fn generate_token_choice_token(name: &NodeKind, tokens: &[TokenKind]) -> TokenStream {
+fn generate_token_choice_token(
+    name: &NodeKind,
+    alternatives: &[Field],
+    model: &Model,
+) -> TokenStream {
     let token_name = token_type_ident(name);
     let syntax_name = syntax_type_ident(name);
 
     // For ForceModeToken: `fn in() -> ForceModeToken` and `fn out() -> ForceModeToken`
-    let constructors: Vec<TokenStream> = tokens
+    let constructors: Vec<TokenStream> = alternatives
         .iter()
-        .map(|kind| {
-            let method = method_ident(kind.default_name());
+        .map(|alternative| {
+            // The alternative names the constructor — an alternative that renames a token
+            // (`OperatorSymbol = '#string_literal'`) is built as `operator_symbol()`.
+            let method = method_ident(&alternative.name);
+            let kind = &model.alternative_token(alternative);
             if let Some(domain) = domain_type(kind) {
                 quote! {
                     pub fn #method(v: impl Into<#domain>) -> Self {
@@ -672,11 +704,11 @@ fn generate_token_choice_token(name: &NodeKind, tokens: &[TokenKind]) -> TokenSt
 
     // For ForceModeToken: no impl.
     // For `LiteralToken`: From<BitStringLiteral>, From<CharLiteral>, From<StringLiteral>
-    let from_domain_impls: Vec<TokenStream> = tokens
+    let from_domain_impls: Vec<TokenStream> = alternatives
         .iter()
-        .filter_map(|kind| {
-            let domain = domain_type(kind)?;
-            let method = method_ident(kind.default_name());
+        .filter_map(|alternative| {
+            let domain = domain_type(&model.alternative_token(alternative))?;
+            let method = method_ident(&alternative.name);
             Some(quote! {
                 impl From<#domain> for #token_name {
                     fn from(v: #domain) -> Self {
@@ -701,7 +733,7 @@ fn generate_token_choice_token(name: &NodeKind, tokens: &[TokenKind]) -> TokenSt
 mod tests {
     use super::*;
     use crate::model::token::TokenKind;
-    use crate::model::{ChoiceNode, Field, Node, NodeKind, NodesOrTokens, SequenceNode};
+    use crate::model::{AliasNode, ChoiceNode, Field, Node, NodeKind, NodesOrTokens, SequenceNode};
 
     fn make_test_model() -> Model {
         let mut model = Model::default();
@@ -709,7 +741,10 @@ mod tests {
         // A token-choice node (no builder generated for this, but used as a child)
         let choice = ChoiceNode {
             name: NodeKind::from("RelOp"),
-            items: NodesOrTokens::Tokens(vec![TokenKind::EQ, TokenKind::NE]),
+            items: NodesOrTokens::Tokens(vec![
+                Field::token(TokenKind::EQ),
+                Field::token(TokenKind::NE),
+            ]),
         };
         model.push_node(Node::Choices(choice));
 
@@ -805,6 +840,41 @@ mod tests {
         assert!(
             !defaultable.contains("ParentNode"),
             "ParentNode (has Identifier arg) should not be defaultable"
+        );
+    }
+
+    /// The builder field is named after the alias but typed and defaulted with the aliased node.
+    #[test]
+    fn builder_field_for_an_alias_uses_the_aliased_node() {
+        let mut model = Model::default();
+        model.push_node(SequenceNode::new(
+            "Expression",
+            vec![Field::token(TokenKind::SemiColon)],
+        ));
+        model.push_node(AliasNode::node("Condition", "Expression"));
+        model.push_node(SequenceNode::new(
+            "DesignFile",
+            vec![Field::node("Condition")],
+        ));
+        model.do_postprocessing();
+
+        let code = BuilderGenerator.generate_files(&model)[0].1.to_string();
+        let design_file = code
+            .split("pub struct DesignFileBuilder")
+            .nth(1)
+            .expect("DesignFileBuilder not found");
+        assert!(
+            design_file.contains("condition : ExpressionSyntax"),
+            "expected a `condition` field of the aliased type:\n{design_file}"
+        );
+        // Expression is defaultable, so the field is initialized from the aliased node's builder.
+        assert!(
+            design_file.contains("ExpressionBuilder :: default ()"),
+            "expected the aliased node's builder to supply the default:\n{design_file}"
+        );
+        assert!(
+            !code.contains("ConditionBuilder"),
+            "an alias must not get a builder of its own:\n{code}"
         );
     }
 

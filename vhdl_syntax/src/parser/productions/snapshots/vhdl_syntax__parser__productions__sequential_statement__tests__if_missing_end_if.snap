@@ -15,7 +15,7 @@ IfStatement
         NameDesignatorPrefix
           Identifier 'cond'
     Keyword(Then)
-  SequentialStatements
+  SequenceOfStatements
     SimpleVariableAssignment
       NameTarget
         Name

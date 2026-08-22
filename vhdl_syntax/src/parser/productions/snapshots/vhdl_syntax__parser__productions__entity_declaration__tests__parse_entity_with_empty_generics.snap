@@ -17,12 +17,10 @@ EntityDeclaration
     Keyword(Is)
   EntityHeader
     GenericClause
-      GenericClausePreamble
-        Keyword(Generic)
-        LeftPar
-      GenericClauseEpilogue
-        RightPar
-        SemiColon
+      Keyword(Generic)
+      LeftPar
+      RightPar
+      SemiColon
   EntityStatementPart
     DeclarationStatementSeparator
       Keyword(Begin)

@@ -30,7 +30,7 @@ impl Parser {
         self.start_node(BlockPreamble);
         self.expect_kw(Kw::Block);
         if self.next_is(LeftPar) {
-            self.start_node(ParenthesizedExpression);
+            self.start_node(ParenthesizedCondition);
             self.skip(); // LeftPar
             self.expression();
             self.expect_token(RightPar);
@@ -79,7 +79,6 @@ impl Parser {
     }
 
     pub fn concurrent_statements(&mut self) {
-        self.start_node(ConcurrentStatements);
         let mut guard = StallGuard::new();
         while guard.should_continue(self) {
             match self.peek_token() {
@@ -89,7 +88,6 @@ impl Parser {
                 _ => self.concurrent_statement(),
             }
         }
-        self.end_node();
     }
 
     pub fn component_instantiated_unit(&mut self) {

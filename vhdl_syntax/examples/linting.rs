@@ -30,11 +30,11 @@ end entity bar;
     }) {
         if let Some(first_ident) = entity_declaration
             .entity_declaration_preamble()
-            .and_then(|preamble| preamble.name_token())
+            .and_then(|preamble| preamble.identifier_token())
         {
             if let Some(second_ident) = entity_declaration
                 .entity_declaration_epilogue()
-                .and_then(|epilogue| epilogue.identifier_token())
+                .and_then(|epilogue| epilogue.simple_name())
             {
                 // print, if the identifiers mismatch.
                 // Note that the text position is the number of chars.

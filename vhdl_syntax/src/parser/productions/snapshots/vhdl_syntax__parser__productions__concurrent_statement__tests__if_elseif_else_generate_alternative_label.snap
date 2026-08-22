@@ -3,12 +3,12 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen: if alt1: cond = true generate\nelsif cond2 = true generate\nend alt2;\nelse alt3: generate\nend alt4;\nend generate;\",)"
 ---
 IfGenerateStatement
-  Label
+  StmtLabel
     Identifier 'gen'
     Colon
   IfGenerateIf
     Keyword(If)
-    Label
+    StmtLabel
       Identifier 'alt1'
       Colon
     BinaryExpression
@@ -42,7 +42,7 @@ IfGenerateStatement
         SemiColon
   IfGenerateElse
     Keyword(Else)
-    Label
+    StmtLabel
       Identifier 'alt3'
       Colon
     Keyword(Generate)

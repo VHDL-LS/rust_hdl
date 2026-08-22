@@ -10,7 +10,7 @@ ContextDeclaration
   ContextClause
     LibraryClause
       Keyword(Library)
-      IdentifierList
+      LogicalNameList
         Identifier 'foo'
       SemiColon
     UseClauseContextItem

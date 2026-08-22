@@ -6,16 +6,14 @@ SubtypeIndication
   ParenthesizedElementResolution
     LeftPar
     ElementResolutionResolutionIndication
-      ResolutionIndicationElementResolution
-        ParenthesizedElementResolution
-          LeftPar
-          ElementResolutionResolutionIndication
-            ResolutionIndicationElementResolution
-              NameResolutionIndication
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'resolved'
-          RightPar
+      ParenthesizedElementResolution
+        LeftPar
+        ElementResolutionResolutionIndication
+          NameResolutionIndication
+            Name
+              NameDesignatorPrefix
+                Identifier 'resolved'
+        RightPar
     RightPar
   Name
     NameDesignatorPrefix

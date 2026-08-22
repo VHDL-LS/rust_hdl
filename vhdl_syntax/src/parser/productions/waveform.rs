@@ -73,7 +73,7 @@ impl Parser {
             self.expression();
             self.end_node();
         }
-        self.end_node()
+        self.end_node();
     }
 }
 

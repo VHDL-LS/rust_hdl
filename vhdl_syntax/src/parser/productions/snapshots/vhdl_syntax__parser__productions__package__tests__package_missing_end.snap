@@ -7,7 +7,7 @@ package math_pkg is
   constant pi : real := 3.14;
 
 == tree ==
-Package
+PackageDeclaration
   PackagePreamble
     Keyword(Package)
     Identifier 'math_pkg'

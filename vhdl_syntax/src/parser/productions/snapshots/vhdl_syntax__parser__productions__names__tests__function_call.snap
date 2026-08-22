@@ -10,10 +10,9 @@ Name
     AssociationList
       AssociationElement
         Formal
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'arg'
+          Name
+            NameDesignatorPrefix
+              Identifier 'arg'
           RightArrow
         ActualPart
           ActualPartExpression

@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/sequential_statement.rs
 expression: "stmt_to_test_text(\"\\\nlbl: with x select\n   foo <= bar when others;\n        \")"
 ---
 SelectedWaveformAssignment
-  Label
+  StmtLabel
     Identifier 'lbl'
     Colon
   SelectedAssignmentPreamble

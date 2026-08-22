@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/sequential_statement.rs
 expression: "stmt_to_test_text(\"name: (foo, 1 => bar) := bar;\")"
 ---
 SimpleVariableAssignment
-  Label
+  StmtLabel
     Identifier 'name'
     Colon
   AggregateTarget

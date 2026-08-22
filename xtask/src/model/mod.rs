@@ -16,24 +16,29 @@ use std::str::FromStr;
 use ungrammar::Rule;
 
 pub fn load_model(file: &Path) -> Model {
-    let mut model = Model::default();
-
     let grammar_str = std::fs::read_to_string(file)
         .unwrap_or_else(|err| panic!("Cannot read {}: {err}", file.display()));
     let grammar = ungrammar::Grammar::from_str(&grammar_str)
         .unwrap_or_else(|err| panic!("{}:{err}", file.display()));
+    map_grammar(&grammar)
+}
+
+/// Maps a parsed ungrammar onto the model, checked and postprocessed.
+fn map_grammar(grammar: &ungrammar::Grammar) -> Model {
+    let mut model = Model::default();
 
     for node in grammar.iter() {
         let data = &grammar[node];
         let node = map_rule(
             NodeKind::from(data.name.clone()),
             &data.rule,
-            &grammar,
+            grammar,
             &mut model,
         );
         model.push_node(node);
     }
 
+    model.fixup_nth_by_resolved_kind();
     model.fixup_empty_capable_optional_markers();
     model.do_checks();
     model.do_postprocessing();
@@ -73,17 +78,18 @@ fn map_single(
             let (inner, marker) = match rule.as_ref() {
                 ungrammar::Rule::Opt(inner) => (inner, GroupMarker::Optional),
                 ungrammar::Rule::Rep(inner) => (inner, GroupMarker::Repeated),
+                ungrammar::Rule::Token(_) | ungrammar::Rule::Node(_) => {
+                    let kind: NodeKind = label.to_case(Case::Pascal).into();
+                    let node = Node::Items(SequenceNode {
+                        name: kind.clone(),
+                        items: vec![map_single(production, rule, grammar, model)],
+                    });
+                    model.push_node(node);
+                    return Field::node(kind);
+                }
                 _ => (rule, GroupMarker::None),
             };
-            let mut node = map_rule(label.to_case(Case::Pascal).into(), inner, grammar, model);
-            // Collapse single items `name:Production`
-            // TODO: revisit this decision
-            if let Node::Items(sequence_node) = &mut node {
-                if sequence_node.items.len() == 1 {
-                    let field = sequence_node.items.pop().unwrap();
-                    return marker.apply(field).with_name(label);
-                }
-            }
+            let node = map_rule(label.to_case(Case::Pascal).into(), inner, grammar, model);
             let field = marker.apply(Field::node(node.name()));
             model.push_node(node);
             field
@@ -115,6 +121,29 @@ fn map_single(
     }
 }
 
+/// Folds `E E*` into a single [`Cardinality::RepeatedAtLeastOnce`] field.
+fn fold_one_or_more(items: Vec<Field>) -> Vec<Field> {
+    let mut folded: Vec<Field> = Vec::with_capacity(items.len());
+    for item in items {
+        // `E? E*` is just `E*` and does not fold: the first occurrence must be required.
+        let repeats_the_previous = folded.last().is_some_and(|previous| {
+            previous.kind == item.kind
+                && matches!(previous.cardinality, Cardinality::Required { .. })
+                && item.cardinality == Cardinality::Repeated(RepeatedCardinality::ZeroOrMore)
+        });
+        if repeats_the_previous {
+            folded.pop();
+            folded.push(Field {
+                cardinality: Cardinality::Repeated(RepeatedCardinality::OneOrMore),
+                ..item
+            });
+        } else {
+            folded.push(item);
+        }
+    }
+    folded
+}
+
 /// An alternation stores only the kind of each alternative, so anything else the grammar could
 /// attach to it (a label, `?`, `*`) would be silently dropped. Reject it instead.
 fn assert_bare_alternative(production: &str, kind: &str, item: &Field) {
@@ -123,6 +152,32 @@ fn assert_bare_alternative(production: &str, kind: &str, item: &Field) {
         "Alternative {kind} of production {production} is labelled, optional or repeated; \
          an alternative must be a bare node or token reference."
     );
+}
+
+/// The name an alternative is spelled with: the node kind it references, or the token's own name.
+fn alternative_name(alternative: &Field) -> String {
+    match &alternative.kind {
+        NodeOrTokenKind::Node(kind) => kind.as_str().to_owned(),
+        NodeOrTokenKind::Token(kind) => kind.default_name(),
+    }
+}
+
+/// Whether an alternative of an alternation denotes a token: either it is one, or it references a
+/// production that renames one (`OperatorSymbol = '#string_literal'`), through as many renames as
+/// it takes.
+///
+/// This asks the grammar rather than the model, because the model is still being built and the
+/// renaming production may not have been mapped yet.
+fn alternative_denotes_token(rule: &Rule, grammar: &ungrammar::Grammar, fuel: usize) -> bool {
+    match rule {
+        Rule::Token(_) => true,
+        // `fuel` runs out on a cycle (`A = B` / `B = A`); the alternation is then not a token
+        // choice, and `Model::resolve_alias` reports the cycle itself.
+        Rule::Node(node) if fuel > 0 => {
+            alternative_denotes_token(&grammar[*node].rule, grammar, fuel - 1)
+        }
+        _ => false,
+    }
 }
 
 fn map_rule(
@@ -135,10 +190,16 @@ fn map_rule(
         ungrammar::Rule::Labeled { .. } => {
             panic!("Production {name} is a single labelled item; drop the label, the production name is the label")
         }
-        ungrammar::Rule::Node(_)
-        | ungrammar::Rule::Token(_)
-        | ungrammar::Rule::Rep(_)
-        | ungrammar::Rule::Opt(_) => {
+        // `Foo = Bar` introduces no structure of its own: it gives `Bar` a second name, which is
+        // what a choice needs to name its alternatives (`ActualPartOpen = 'open'`). The tree
+        // holds a `Bar`, never a `Foo`.
+        ungrammar::Rule::Node(_) | ungrammar::Rule::Token(_) => {
+            let aliased = map_single(name.as_str(), rule, grammar, model);
+            Node::Alias(AliasNode::new(name, aliased.kind))
+        }
+        // `Foo = Bar?` / `Foo = Bar*` do: the node is what carries the "absent" and the
+        // "repeated" of the reference.
+        ungrammar::Rule::Rep(_) | ungrammar::Rule::Opt(_) => {
             let mapped = map_single(name.as_str(), rule, grammar, model);
             Node::Items(SequenceNode {
                 name,
@@ -146,6 +207,7 @@ fn map_rule(
             })
         }
         ungrammar::Rule::Seq(rules) => {
+            // Foo (`,` Foo)* -> ListNode
             if let [element @ Rule::Node(_) | element @ Rule::Token(_), Rule::Rep(subrule)] =
                 &rules[..]
             {
@@ -166,15 +228,14 @@ fn map_rule(
                     }
                 }
             }
-            let mut mapped = Vec::new();
-            for rule in rules {
-                let next = map_single(name.as_str(), rule, grammar, model);
-                let nth = mapped
+            // Every item is left at ordinal 0; `Model::fixup_nth_by_resolved_kind` numbers them
+            // once the whole model is known, since two spellings can be one kind in the tree.
+            let mapped = fold_one_or_more(
+                rules
                     .iter()
-                    .filter(|el: &&Field| el.kind == next.kind)
-                    .count();
-                mapped.push(next.with_nth(nth));
-            }
+                    .map(|rule| map_single(name.as_str(), rule, grammar, model))
+                    .collect(),
+            );
             Node::Items(SequenceNode {
                 name,
                 items: mapped,
@@ -185,22 +246,32 @@ fn map_rule(
                 .iter()
                 .map(|rule| map_single(name.as_str(), rule, grammar, model))
                 .collect::<Vec<_>>();
-            let result: NodesOrTokens = if mapped.iter().all(|rule| rule.as_node_kind().is_some()) {
+            // A choice is a token choice when every alternative *denotes* a token, whether it is
+            // one or renames one — so it is decided before the alternatives are resolved, and an
+            // alternative that renames a token keeps its name.
+            let fuel = grammar.iter().count();
+            let all_tokens = rules
+                .iter()
+                .all(|rule| alternative_denotes_token(rule, grammar, fuel));
+            let result: NodesOrTokens = if all_tokens {
+                mapped
+                    .iter()
+                    .map(|alternative| {
+                        assert_bare_alternative(
+                            name.as_str(),
+                            &alternative_name(alternative),
+                            alternative,
+                        );
+                        alternative.clone()
+                    })
+                    .collect()
+            } else if mapped.iter().all(|rule| rule.as_node_kind().is_some()) {
                 mapped
                     .iter()
                     .map(|rule| {
                         let kind = rule.as_node_kind().expect("checked above");
                         assert_bare_alternative(name.as_str(), kind.as_str(), rule);
                         kind.to_owned()
-                    })
-                    .collect()
-            } else if mapped.iter().all(|rule| rule.as_token_kind().is_some()) {
-                mapped
-                    .iter()
-                    .map(|rule| {
-                        let kind = *rule.as_token_kind().expect("checked above");
-                        assert_bare_alternative(name.as_str(), &kind.default_name(), rule);
-                        kind
                     })
                     .collect()
             } else {
@@ -211,5 +282,284 @@ fn map_rule(
                 items: result,
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn model_of(grammar: &str) -> Model {
+        map_grammar(&ungrammar::Grammar::from_str(grammar).expect("test grammar does not parse"))
+    }
+
+    /// The ordinals and cardinalities of a production's fields, for the one-or-more tests.
+    fn fields_of(model: &Model, production: &str) -> Vec<(String, Cardinality)> {
+        let Some(Node::Items(seq)) = model.node(&production.into()) else {
+            panic!("{production} should be a sequence node")
+        };
+        seq.items
+            .iter()
+            .map(|item| (item.getter_name(), item.cardinality))
+            .collect()
+    }
+
+    /// `E E*` is one field, not two: the green tree holds nothing that tells the required
+    /// occurrence apart from the repeated ones.
+    #[test]
+    fn a_required_element_followed_by_a_repetition_folds_into_one_field() {
+        let model = model_of(
+            "
+            DesignFile = 'record' ElementDeclaration ElementDeclaration* 'end'
+            ElementDeclaration = '#identifier' ';'
+            ",
+        );
+        assert_eq!(
+            fields_of(&model, "DesignFile"),
+            [
+                ("record_token".to_owned(), Cardinality::Required { nth: 0 }),
+                (
+                    "element_declarations".to_owned(),
+                    Cardinality::Repeated(RepeatedCardinality::OneOrMore)
+                ),
+                ("end_token".to_owned(), Cardinality::Required { nth: 0 }),
+            ]
+        );
+    }
+
+    /// A labelled group is an element like any other, which is what `(X ';') (X ';')*` needs.
+    #[test]
+    fn a_repeated_labelled_group_folds_with_its_required_twin() {
+        let model = model_of(
+            "
+            DesignFile =
+              binding:(VerificationUnit ';')
+              binding:(VerificationUnit ';')*
+            VerificationUnit = '#identifier'
+            ",
+        );
+        assert_eq!(
+            fields_of(&model, "DesignFile"),
+            [(
+                "bindings".to_owned(),
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore)
+            )]
+        );
+    }
+
+    /// One-or-more always contributes a child, so a node made only of it is not empty-capable
+    /// and `fixup_empty_capable_optional_markers` leaves references to it required.
+    #[test]
+    fn a_one_or_more_node_is_not_empty_capable() {
+        let model = model_of(
+            "
+            DesignFile = Items ';'
+            Items = Element Element*
+            Element = '#identifier'
+            ",
+        );
+        assert!(!model
+            .compute_empty_capable_nodes()
+            .contains(&NodeKind::from("Items")));
+        assert_eq!(
+            fields_of(&model, "DesignFile"),
+            [
+                ("items".to_owned(), Cardinality::Required { nth: 0 }),
+                (
+                    "semi_colon_token".to_owned(),
+                    Cardinality::Required { nth: 0 }
+                ),
+            ]
+        );
+    }
+
+    /// Whether mapping `grammar` is rejected by one of the model's checks.
+    fn is_rejected(grammar: &'static str) -> bool {
+        // The checks report the violation on stdout before panicking; the hook keeps the test
+        // output readable.
+        let previous = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let result = std::panic::catch_unwind(|| model_of(grammar));
+        std::panic::set_hook(previous);
+        result.is_err()
+    }
+
+    /// `E? E*` is just `E*` -- the first occurrence has to be required for the fold to apply,
+    /// so this stays two fields of one kind that nothing can address apart.
+    #[test]
+    fn an_optional_element_before_a_repetition_does_not_fold() {
+        assert!(is_rejected(
+            "
+            DesignFile = Element? Element*
+            Element = '#identifier'
+            "
+        ));
+    }
+
+    /// The fold matches the spelling, not the resolved kind: `TypeMark Name*` stays two fields
+    /// and is rejected, rather than silently becoming a one-or-more of `Name`.
+    #[test]
+    fn two_spellings_of_one_kind_do_not_fold() {
+        assert!(is_rejected(
+            "
+            DesignFile = TypeMark Name*
+            TypeMark = Name
+            Name = '#identifier'
+            "
+        ));
+    }
+
+    /// `Foo = Bar` introduces a name, not a node.
+    #[test]
+    fn a_production_that_is_a_single_reference_becomes_an_alias() {
+        let model = model_of(
+            "
+            DesignFile = Condition OthersChoice
+            Condition = Expression
+            OthersChoice = 'others'
+            Expression = '#identifier' ';'
+            ",
+        );
+        assert_eq!(
+            model.node(&"Condition".into()),
+            Some(&Node::Alias(AliasNode::node("Condition", "Expression")))
+        );
+        assert_eq!(
+            model.node(&"OthersChoice".into()),
+            Some(&Node::Alias(AliasNode::token(
+                "OthersChoice",
+                str_to_token_kind("others").unwrap()
+            )))
+        );
+        // Neither is a node in the tree; the getters reach the aliased kinds directly.
+        assert!(!model
+            .collect_all_materialized_node_kinds()
+            .contains("Condition"));
+        assert!(!model
+            .collect_all_materialized_node_kinds()
+            .contains("OthersChoice"));
+    }
+
+    /// An alternation is a token choice when every alternative *denotes* a token, so one that
+    /// renames a token stands beside bare tokens — under its own name.
+    #[test]
+    fn an_alternation_mixing_tokens_and_renamed_tokens_is_a_token_choice() {
+        let model = model_of(
+            "
+            DesignFile = AliasDesignator
+            OperatorSymbol = '#string_literal'
+            AliasDesignator = '#identifier' | '#character_literal' | OperatorSymbol
+            ",
+        );
+        let Some(Node::Choices(choice)) = model.node(&"AliasDesignator".into()) else {
+            panic!("AliasDesignator should be a choice node")
+        };
+        let NodesOrTokens::Tokens(alternatives) = &choice.items else {
+            panic!(
+                "AliasDesignator should be a token choice, got {:?}",
+                choice.items
+            )
+        };
+        let named: Vec<(&str, TokenKind)> = alternatives
+            .iter()
+            .map(|alternative| {
+                (
+                    alternative.name.as_str(),
+                    model.alternative_token(alternative),
+                )
+            })
+            .collect();
+        assert_eq!(
+            named,
+            [
+                ("Identifier", str_to_token_kind("identifier").unwrap()),
+                (
+                    "CharacterLiteral",
+                    str_to_token_kind("character_literal").unwrap()
+                ),
+                (
+                    "OperatorSymbol",
+                    str_to_token_kind("string_literal").unwrap()
+                ),
+            ]
+        );
+        // The renaming production is a use site, so it does not look unreferenced.
+        model.check_all_nodes_exist();
+    }
+
+    /// An alias and the node it renames are one kind in the tree, so the ordinals run across
+    /// both: `expression()` reaches the first child, `condition()` the second.
+    #[test]
+    fn an_alias_and_its_target_are_numbered_as_one_kind() {
+        let model = model_of(
+            "
+            DesignFile = ';' else_when_expression:('else' Expression 'when' Condition)
+            Condition = Expression
+            Expression = '#identifier' ';'
+            ",
+        );
+        let Some(Node::Items(seq)) = model.node(&"ElseWhenExpression".into()) else {
+            panic!("ElseWhenExpression should be a sequence node")
+        };
+        let ordinals: Vec<(String, Cardinality)> = seq
+            .items
+            .iter()
+            .map(|item| (item.getter_name(), item.cardinality))
+            .collect();
+        assert_eq!(
+            ordinals,
+            [
+                ("else_token".to_owned(), Cardinality::Required { nth: 0 }),
+                ("expression".to_owned(), Cardinality::Required { nth: 0 }),
+                ("when_token".to_owned(), Cardinality::Required { nth: 0 }),
+                ("condition".to_owned(), Cardinality::Required { nth: 1 }),
+            ]
+        );
+    }
+
+    /// `Foo = Bar?` and `Foo = Bar*` still need a node: it is what carries the cardinality.
+    #[test]
+    fn a_production_that_is_an_optional_or_repeated_reference_stays_a_node() {
+        let model = model_of(
+            "
+            DesignFile = Maybe Many
+            Maybe = ';'?
+            Many = ','*
+            ",
+        );
+        for kind in ["Maybe", "Many"] {
+            assert!(
+                matches!(model.node(&kind.into()), Some(Node::Items(_))),
+                "{kind} should still be a sequence node"
+            );
+        }
+    }
+
+    /// A label on a single reference wraps it in a node of its own, named after the label — the
+    /// label names a place in the tree, where a production that is a single reference names the
+    /// same node twice.
+    #[test]
+    fn a_labelled_single_reference_becomes_a_wrapper_node() {
+        let model = model_of(
+            "
+            DesignFile = ';' condition:Expression
+            Expression = '#identifier' ';'
+            ",
+        );
+        assert_eq!(
+            model.node(&"Condition".into()),
+            Some(&Node::Items(SequenceNode::new(
+                "Condition",
+                vec![Field::node("Expression")]
+            )))
+        );
+        let Some(Node::Items(design_file)) = model.node(&"DesignFile".into()) else {
+            panic!("DesignFile should be a sequence node")
+        };
+        assert_eq!(design_file.items[1].getter_name(), "condition");
+        assert_eq!(
+            design_file.items[1].kind,
+            NodeOrTokenKind::Node("Condition".into())
+        );
     }
 }

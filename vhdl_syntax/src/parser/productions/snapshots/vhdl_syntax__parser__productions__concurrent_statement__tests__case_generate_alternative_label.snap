@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen1: case expr(0) + 2 generate\n  when alt1: 1 | 2 =>\n    sig <= value;\n  when alt2: others =>\n    foo(clk);\nend generate gen1;\",)"
 ---
 CaseGenerateStatement
-  Label
+  StmtLabel
     Identifier 'gen1'
     Colon
   CaseGeneratePreamble
@@ -28,7 +28,7 @@ CaseGenerateStatement
     Keyword(Generate)
   CaseGenerateAlternative
     Keyword(When)
-    Label
+    StmtLabel
       Identifier 'alt1'
       Colon
     Choices
@@ -41,23 +41,22 @@ CaseGenerateStatement
           AbstractLiteral '2'
     RightArrow
     GenerateStatementBody
-      ConcurrentStatements
-        ConcurrentSimpleSignalAssignment
-          NameTarget
-            Name
-              NameDesignatorPrefix
-                Identifier 'sig'
-          LTE
-          WaveformElements
-            WaveformElement
-              NameExpression
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'value'
-          SemiColon
+      ConcurrentSimpleSignalAssignment
+        NameTarget
+          Name
+            NameDesignatorPrefix
+              Identifier 'sig'
+        LTE
+        WaveformElements
+          WaveformElement
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'value'
+        SemiColon
   CaseGenerateAlternative
     Keyword(When)
-    Label
+    StmtLabel
       Identifier 'alt2'
       Colon
     Choices
@@ -65,23 +64,22 @@ CaseGenerateStatement
         Keyword(Others)
     RightArrow
     GenerateStatementBody
-      ConcurrentStatements
-        ConcurrentProcedureCallOrComponentInstantiationStatement
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'clk'
-              RightPar
-          SemiColon
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'clk'
+            RightPar
+        SemiColon
   GenerateEpilogue
     Keyword(End)
     Keyword(Generate)

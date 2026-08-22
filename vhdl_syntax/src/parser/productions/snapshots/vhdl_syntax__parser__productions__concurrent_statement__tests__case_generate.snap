@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen: case expr(0) + 2 generate\n  when 1 | 2 =>\n    sig <= value;\n  when others =>\n    foo(clk);\nend generate;\",)"
 ---
 CaseGenerateStatement
-  Label
+  StmtLabel
     Identifier 'gen'
     Colon
   CaseGeneratePreamble
@@ -38,20 +38,19 @@ CaseGenerateStatement
           AbstractLiteral '2'
     RightArrow
     GenerateStatementBody
-      ConcurrentStatements
-        ConcurrentSimpleSignalAssignment
-          NameTarget
-            Name
-              NameDesignatorPrefix
-                Identifier 'sig'
-          LTE
-          WaveformElements
-            WaveformElement
-              NameExpression
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'value'
-          SemiColon
+      ConcurrentSimpleSignalAssignment
+        NameTarget
+          Name
+            NameDesignatorPrefix
+              Identifier 'sig'
+        LTE
+        WaveformElements
+          WaveformElement
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'value'
+        SemiColon
   CaseGenerateAlternative
     Keyword(When)
     Choices
@@ -59,23 +58,22 @@ CaseGenerateStatement
         Keyword(Others)
     RightArrow
     GenerateStatementBody
-      ConcurrentStatements
-        ConcurrentProcedureCallOrComponentInstantiationStatement
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'clk'
-              RightPar
-          SemiColon
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'clk'
+            RightPar
+        SemiColon
   GenerateEpilogue
     Keyword(End)
     Keyword(Generate)

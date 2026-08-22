@@ -4,11 +4,11 @@ expression: "to_test_text(Parser::loop_statement,\n\"\\\nlbl: loop\n  stmt1;\n  
 ---
 LoopStatement
   LoopStatementPreamble
-    Label
+    StmtLabel
       Identifier 'lbl'
       Colon
     Keyword(Loop)
-  SequentialStatements
+  SequenceOfStatements
     ProcedureCallStatement
       Name
         NameDesignatorPrefix

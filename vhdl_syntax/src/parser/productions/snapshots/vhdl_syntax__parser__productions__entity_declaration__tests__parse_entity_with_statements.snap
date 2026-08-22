@@ -10,31 +10,30 @@ EntityDeclaration
   EntityStatementPart
     DeclarationStatementSeparator
       Keyword(Begin)
-    ConcurrentStatements
-      ConcurrentProcedureCallOrComponentInstantiationStatement
-        Name
-          NameDesignatorPrefix
-            Identifier 'check'
-          ParenthesizedName
-            LeftPar
-            AssociationList
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    NameExpression
-                      Name
-                        NameDesignatorPrefix
-                          Identifier 'clk'
-              Comma
-              AssociationElement
-                ActualPart
-                  ActualPartExpression
-                    NameExpression
-                      Name
-                        NameDesignatorPrefix
-                          Identifier 'valid'
-            RightPar
-        SemiColon
+    ConcurrentProcedureCallOrComponentInstantiationStatement
+      Name
+        NameDesignatorPrefix
+          Identifier 'check'
+        ParenthesizedName
+          LeftPar
+          AssociationList
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  NameExpression
+                    Name
+                      NameDesignatorPrefix
+                        Identifier 'clk'
+            Comma
+            AssociationElement
+              ActualPart
+                ActualPartExpression
+                  NameExpression
+                    Name
+                      NameDesignatorPrefix
+                        Identifier 'valid'
+          RightPar
+      SemiColon
   EntityDeclarationEpilogue
     Keyword(End)
     Keyword(Entity)

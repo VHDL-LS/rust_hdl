@@ -17,7 +17,7 @@ LoopStatement
             NameDesignatorPrefix
               Identifier 'true'
     Keyword(Loop)
-  SequentialStatements
+  SequenceOfStatements
     ProcedureCallStatement
       Name
         NameDesignatorPrefix

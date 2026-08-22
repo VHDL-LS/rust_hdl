@@ -4,7 +4,7 @@ expression: "to_test_text(Parser::if_statement,\n\"\\\nmylabel: if cond = true t
 ---
 IfStatement
   IfStatementPreamble
-    Label
+    StmtLabel
       Identifier 'mylabel'
       Colon
     Keyword(If)
@@ -19,7 +19,7 @@ IfStatement
           NameDesignatorPrefix
             Identifier 'true'
     Keyword(Then)
-  SequentialStatements
+  SequenceOfStatements
     ProcedureCallStatement
       Name
         NameDesignatorPrefix
@@ -42,7 +42,7 @@ IfStatement
       SemiColon
   IfStatementElse
     Keyword(Else)
-    SequentialStatements
+    SequenceOfStatements
       SimpleVariableAssignment
         NameTarget
           Name

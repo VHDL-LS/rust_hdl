@@ -4,6 +4,6 @@ expression: "to_test_text(Parser::library_clause, \"library foo;\",)"
 ---
 LibraryClause
   Keyword(Library)
-  IdentifierList
+  LogicalNameList
     Identifier 'foo'
   SemiColon

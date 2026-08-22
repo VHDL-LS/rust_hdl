@@ -3,12 +3,12 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\nname : block (cond = true) is\nbegin\nend block;\",)"
 ---
 BlockStatement
-  Label
+  StmtLabel
     Identifier 'name'
     Colon
   BlockPreamble
     Keyword(Block)
-    ParenthesizedExpression
+    ParenthesizedCondition
       LeftPar
       BinaryExpression
         NameExpression

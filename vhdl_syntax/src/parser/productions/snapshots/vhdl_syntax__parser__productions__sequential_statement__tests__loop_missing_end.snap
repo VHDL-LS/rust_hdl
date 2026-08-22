@@ -10,7 +10,7 @@ loop
 LoopStatement
   LoopStatementPreamble
     Keyword(Loop)
-  SequentialStatements
+  SequenceOfStatements
     SimpleVariableAssignment
       NameTarget
         Name

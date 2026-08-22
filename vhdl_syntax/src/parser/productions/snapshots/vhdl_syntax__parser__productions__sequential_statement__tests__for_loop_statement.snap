@@ -16,7 +16,7 @@ LoopStatement
           LiteralExpression
             AbstractLiteral '3'
     Keyword(Loop)
-  SequentialStatements
+  SequenceOfStatements
     ProcedureCallStatement
       Name
         NameDesignatorPrefix

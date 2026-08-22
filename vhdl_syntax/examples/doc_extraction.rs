@@ -45,7 +45,7 @@ end bar;
             // If the entity has a name token, add the extracted documentation to the map
             if let Some(ident) = entity
                 .entity_declaration_preamble()
-                .and_then(|preamble| preamble.name_token())
+                .and_then(|preamble| preamble.identifier_token())
             {
                 if !comment.is_empty() {
                     comments.insert(ident.text().to_string(), comment);

@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ngen: if cond = true generate\n  variable v1 : boolean;\nbegin\n  foo1(clk);\nelsif cond2 = true generate\n  variable v2 : boolean;\nbegin\n  foo2(clk);\nelse generate\n  variable v3 : boolean;\nbegin\n  foo3(clk);\nend generate;\",)"
 ---
 IfGenerateStatement
-  Label
+  StmtLabel
     Identifier 'gen'
     Colon
   IfGenerateIf
@@ -34,23 +34,22 @@ IfGenerateStatement
             SemiColon
         DeclarationStatementSeparator
           Keyword(Begin)
-      ConcurrentStatements
-        ConcurrentProcedureCallOrComponentInstantiationStatement
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo1'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'clk'
-              RightPar
-          SemiColon
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo1'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'clk'
+            RightPar
+        SemiColon
   IfGenerateElsif
     Keyword(Elsif)
     BinaryExpression
@@ -79,23 +78,22 @@ IfGenerateStatement
             SemiColon
         DeclarationStatementSeparator
           Keyword(Begin)
-      ConcurrentStatements
-        ConcurrentProcedureCallOrComponentInstantiationStatement
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo2'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'clk'
-              RightPar
-          SemiColon
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo2'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'clk'
+            RightPar
+        SemiColon
   IfGenerateElse
     Keyword(Else)
     Keyword(Generate)
@@ -114,23 +112,22 @@ IfGenerateStatement
             SemiColon
         DeclarationStatementSeparator
           Keyword(Begin)
-      ConcurrentStatements
-        ConcurrentProcedureCallOrComponentInstantiationStatement
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo3'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'clk'
-              RightPar
-          SemiColon
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo3'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'clk'
+            RightPar
+        SemiColon
   GenerateEpilogue
     Keyword(End)
     Keyword(Generate)

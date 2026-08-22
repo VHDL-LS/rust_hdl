@@ -10,7 +10,7 @@ u_cpu: entity work.cpu
 
 == tree ==
 ComponentInstantiationStatement
-  Label
+  StmtLabel
     Identifier 'u_cpu'
     Colon
   InstantiatedEntity
@@ -28,10 +28,9 @@ ComponentInstantiationStatement
     AssociationList
       AssociationElement
         Formal
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'clk'
+          Name
+            NameDesignatorPrefix
+              Identifier 'clk'
           RightArrow
         ActualPart
           ActualPartExpression

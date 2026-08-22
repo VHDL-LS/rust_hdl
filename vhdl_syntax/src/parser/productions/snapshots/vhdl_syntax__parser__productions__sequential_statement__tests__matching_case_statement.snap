@@ -27,7 +27,7 @@ CaseStatement
         OthersChoice
           Keyword(Others)
       RightArrow
-    SequentialStatements
+    SequenceOfStatements
       NullStatement
         Keyword(Null)
         SemiColon

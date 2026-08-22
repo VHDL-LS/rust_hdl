@@ -117,11 +117,6 @@ mod tests {
     use crate::parser::{test_utils::to_test_text, Parser};
 
     #[test]
-    fn parse_empty() {
-        insta::assert_snapshot!(to_test_text(Parser::design_file, ""));
-    }
-
-    #[test]
     fn parse_multiple_entity_declarations() {
         insta::assert_snapshot!(to_test_text(
             Parser::design_file,

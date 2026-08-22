@@ -6,7 +6,7 @@ WaitStatement
   Keyword(Wait)
   SensitivityClause
     Keyword(On)
-    NameList
+    SensitivityList
       Name
         NameDesignatorPrefix
           Identifier 'foo'

@@ -7,9 +7,8 @@ generic (width : integer
 
 == tree ==
 GenericClause
-  GenericClausePreamble
-    Keyword(Generic)
-    LeftPar
+  Keyword(Generic)
+  LeftPar
   InterfaceList
     InterfaceObjectDeclaration
       IdentifierList

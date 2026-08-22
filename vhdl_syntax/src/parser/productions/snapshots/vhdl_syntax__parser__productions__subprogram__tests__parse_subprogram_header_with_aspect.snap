@@ -36,10 +36,9 @@ SubprogramHeader
     AssociationList
       AssociationElement
         Formal
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'x'
+          Name
+            NameDesignatorPrefix
+              Identifier 'x'
           RightArrow
         ActualPart
           ActualPartExpression
@@ -48,10 +47,9 @@ SubprogramHeader
       Comma
       AssociationElement
         Formal
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'y'
+          Name
+            NameDesignatorPrefix
+              Identifier 'y'
           RightArrow
         ActualPart
           ActualPartExpression

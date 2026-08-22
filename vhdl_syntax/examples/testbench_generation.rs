@@ -65,7 +65,7 @@ fn extract_entity_declaration(event: WalkEvent<SyntaxNode>) -> Option<EntityDecl
 fn extract_entity_name(entity: &EntityDeclarationSyntax) -> String {
     entity
         .entity_declaration_preamble()
-        .and_then(|p| p.name_token())
+        .and_then(|p| p.identifier_token())
         .map(|t| t.text().to_string())
         .expect("Invalid VHDL")
 }
@@ -74,7 +74,7 @@ fn extract_generics(entity: &EntityDeclarationSyntax) -> Vec<String> {
     entity
         .entity_header()
         .and_then(|h| h.generic_clause())
-        .and_then(|c| c.interface_list())
+        .and_then(|c| c.generic_list())
         .map(|l| interface_names(&l))
         .unwrap_or_default()
 }
@@ -83,7 +83,7 @@ fn extract_ports(entity: &EntityDeclarationSyntax) -> Vec<String> {
     entity
         .entity_header()
         .and_then(|h| h.port_clause())
-        .and_then(|c| c.interface_list())
+        .and_then(|c| c.port_list())
         .map(|l| interface_names(&l))
         .unwrap_or_default()
 }
@@ -92,7 +92,7 @@ fn extract_ports(entity: &EntityDeclarationSyntax) -> Vec<String> {
 /// interface list. Subprogram/package/type interfaces are skipped for the simple example.
 fn interface_names(list: &InterfaceListSyntax) -> Vec<String> {
     let mut names = Vec::new();
-    for decl in list.interface_declarations() {
+    for decl in list.interface_elements() {
         let id_list = match decl {
             InterfaceDeclarationSyntax::InterfaceObjectDeclaration(d) => d.identifier_list(),
             InterfaceDeclarationSyntax::InterfaceFileDeclaration(d) => d.identifier_list(),

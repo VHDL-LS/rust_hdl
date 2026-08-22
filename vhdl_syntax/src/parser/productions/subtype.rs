@@ -40,9 +40,7 @@ impl Parser {
             self.record_resolution();
             self.end_node();
         } else {
-            self.start_node(ResolutionIndicationElementResolution);
             self.resolution_indication();
-            self.end_node();
         }
         self.end_node();
     }

@@ -259,10 +259,3 @@ pub enum Keyword {
     Xnor,
     Xor,
 }
-
-impl TokenKind {
-    /// The accessor name for a token of this kind, when it carries no grammar label.
-    pub fn getter_name(&self) -> String {
-        format!("{}_token", self.default_name().to_case(Case::Snake))
-    }
-}

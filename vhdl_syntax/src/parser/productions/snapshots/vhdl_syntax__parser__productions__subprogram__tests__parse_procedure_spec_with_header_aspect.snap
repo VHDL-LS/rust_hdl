@@ -44,10 +44,9 @@ SubprogramDeclaration
         AssociationList
           AssociationElement
             Formal
-              FormalPart
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'x'
+              Name
+                NameDesignatorPrefix
+                  Identifier 'x'
               RightArrow
             ActualPart
               ActualPartExpression

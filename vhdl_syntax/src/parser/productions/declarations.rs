@@ -103,7 +103,7 @@ impl Parser {
     }
 
     pub fn package_declaration(&mut self) {
-        self.start_node(PackageDeclaration);
+        self.start_node(PackageDeclarationItem);
         self.package();
         self.end_node();
     }

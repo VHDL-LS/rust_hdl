@@ -3,7 +3,7 @@ source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
 expression: "stmt_to_test_text(\"\\\ninst: lib.foo.bar\n  port map (\n   clk => clk_foo\n  );\",)"
 ---
 ComponentInstantiationStatement
-  Label
+  StmtLabel
     Identifier 'inst'
     Colon
   InstantiatedComponent
@@ -23,10 +23,9 @@ ComponentInstantiationStatement
     AssociationList
       AssociationElement
         Formal
-          FormalPart
-            Name
-              NameDesignatorPrefix
-                Identifier 'clk'
+          Name
+            NameDesignatorPrefix
+              Identifier 'clk'
           RightArrow
         ActualPart
           ActualPartExpression

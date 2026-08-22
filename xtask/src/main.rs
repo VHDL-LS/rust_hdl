@@ -33,11 +33,18 @@ enum Commands {
         check: bool,
     },
     /// Compare the unmodified LRM grammar with the grammar modelled by `vhdl_syntax`,
-    /// ignoring labels
+    /// ignoring labels and the nesting of unmarked groups. A difference the user
+    /// guide quotes verbatim is counted as explained instead of being listed
     DiffGrammar {
         /// Only compare this production instead of the whole grammar
         #[arg(long)]
         production: Option<String>,
+        /// Compare the group nesting too, instead of flattening unmarked groups.
+        /// A group carrying no `?` or `*` accepts the same token sequences as its
+        /// elements spelled inline, so the modified grammar's scoping groups are not
+        /// deviations -- this shows them anyway.
+        #[arg(long)]
+        exact: bool,
     },
 }
 
@@ -73,11 +80,23 @@ fn main() {
                 println!("Generated files written to {}", output_dir.display());
             }
         }
-        Commands::DiffGrammar { production } => {
+        Commands::DiffGrammar { production, exact } => {
             let lrm_file = workspace_root.join("xtask/doc/vhdl-08.ungram");
             let modified_file = workspace_root.join("xtask/doc/vhdl-08-modified.ungram");
-            diff::diff_grammar(&lrm_file, &modified_file, production.as_deref())
-                .expect("failed to diff the grammars");
+            let book_dir = workspace_root.join("book/src/lrm-differences");
+            let nesting = if exact {
+                diff::Nesting::Exact
+            } else {
+                diff::Nesting::Flattened
+            };
+            diff::diff_grammar(
+                &lrm_file,
+                &modified_file,
+                &book_dir,
+                production.as_deref(),
+                nesting,
+            )
+            .expect("failed to diff the grammars");
         }
     }
 }

@@ -57,7 +57,7 @@ end foobar;
         EntityDeclarationEpilogueBuilder::new()
             // Replace space between 'is' and 'end' with newline
             .with_end_token_trivia(Trivia::from([TriviaPiece::LineFeeds(1)]))
-            .with_identifier_token(b"no_longer_foo")
+            .with_simple_name(b"no_longer_foo")
             .with_semi_colon_token_trivia(Trivia::new()),
     )
     .build();
@@ -68,7 +68,7 @@ end foobar;
             Some(ent)
                 if ent
                     .entity_declaration_preamble()
-                    .and_then(|preamble| preamble.name_token())
+                    .and_then(|preamble| preamble.identifier_token())
                     .is_some_and(|tok| tok.text() == "foo") =>
             {
                 RewriteAction::Change(SyntaxElement::Node(replacement_entity.raw()))
