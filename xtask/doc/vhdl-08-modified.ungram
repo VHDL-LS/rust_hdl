@@ -38,7 +38,7 @@ CaseGenerateAlternative =
 CaseGenerateStatement =
   stmt_label:(Label ':')
   case_generate_preamble:('case' Expression 'generate')
-  CaseGenerateAlternative*
+  CaseGenerateAlternative CaseGenerateAlternative*
   generate_epilogue:('end' 'generate' Label? ';')
 
 ComponentInstantiationStatement =
@@ -743,7 +743,7 @@ CaseStatementAlternative =
 
 CaseStatement =
   case_statement_preamble:(stmt_label:(Label ':')? 'case' '?'? Expression 'is')
-  CaseStatementAlternative*
+  CaseStatementAlternative CaseStatementAlternative*
   case_statement_epilogue:('end' 'case' '?'? Label? ';')
 
 ConditionClause =
@@ -954,6 +954,7 @@ CompoundConfigurationSpecification =
   component_configuration_preamble:('for' ComponentSpecification)
   BindingIndication
   ';'
+  verification_unit_binding:(VerificationUnitBindingIndication ';')
   verification_unit_binding:(VerificationUnitBindingIndication ';')*
   component_configuration_epilogue:('end' 'for' ';')
 
@@ -1181,7 +1182,7 @@ RecordTypeDefinition =
   record_type_definition_epilogue:('end' 'record' SimpleName?)
 
 RecordElementDeclarations =
-  ElementDeclaration*
+  ElementDeclaration ElementDeclaration*
 
 ScalarTypeDefinition =
   EnumerationTypeDefinition

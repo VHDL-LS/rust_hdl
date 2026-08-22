@@ -80,6 +80,12 @@ impl NodeOrTokenKind {
     }
 }
 
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum RepeatedCardinality {
+    ZeroOrMore,
+    OneOrMore,
+}
+
 /// How often a [`Field`] occurs in its parent production.
 ///
 /// `nth` distinguishes several fields of the same kind within one production (the 2nd
@@ -87,9 +93,13 @@ impl NodeOrTokenKind {
 /// occurrence of its kind — hence it lives in the variants rather than beside them.
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum Cardinality {
-    Required { nth: usize },
-    Optional { nth: usize },
-    Repeated,
+    Required {
+        nth: usize,
+    },
+    Optional {
+        nth: usize,
+    },
+    Repeated(RepeatedCardinality),
 }
 
 impl Cardinality {
@@ -98,12 +108,16 @@ impl Cardinality {
     }
 
     pub fn is_repeated(self) -> bool {
-        matches!(self, Cardinality::Repeated)
+        matches!(self, Cardinality::Repeated(_))
     }
 
-    /// Whether the field may be absent from the green tree — i.e. everything but `Required`.
+    /// Whether the field may be absent from the green tree — i.e. everything but `Required`
+    /// and `RepeatedAtLeastOnce`, both of which always contribute at least one child.
     pub fn may_be_absent(self) -> bool {
-        !matches!(self, Cardinality::Required { .. })
+        matches!(
+            self,
+            Cardinality::Optional { .. } | Cardinality::Repeated(RepeatedCardinality::ZeroOrMore)
+        )
     }
 }
 
@@ -153,7 +167,7 @@ impl Field {
         self.cardinality = match self.cardinality {
             Cardinality::Required { .. } => Cardinality::Required { nth },
             Cardinality::Optional { .. } => Cardinality::Optional { nth },
-            Cardinality::Repeated => Cardinality::Repeated,
+            repeated @ Cardinality::Repeated(_) => repeated,
         };
     }
 
@@ -180,7 +194,7 @@ impl Field {
         }
 
         Field {
-            cardinality: Cardinality::Repeated,
+            cardinality: Cardinality::Repeated(RepeatedCardinality::ZeroOrMore),
             ..self
         }
     }

@@ -1889,11 +1889,12 @@ impl CaseGenerateStatementBuilder {
     pub fn new(
         stmt_label: impl Into<StmtLabelSyntax>,
         case_generate_preamble: impl Into<CaseGeneratePreambleSyntax>,
+        case_generate_alternatives: impl Into<CaseGenerateAlternativeSyntax>,
     ) -> Self {
         Self {
             stmt_label: stmt_label.into(),
             case_generate_preamble: case_generate_preamble.into(),
-            case_generate_alternatives: Vec::new(),
+            case_generate_alternatives: vec![case_generate_alternatives.into()],
             generate_epilogue: GenerateEpilogueBuilder::default().build(),
         }
     }
@@ -1942,10 +1943,13 @@ pub struct CaseStatementBuilder {
     case_statement_epilogue: CaseStatementEpilogueSyntax,
 }
 impl CaseStatementBuilder {
-    pub fn new(case_statement_preamble: impl Into<CaseStatementPreambleSyntax>) -> Self {
+    pub fn new(
+        case_statement_preamble: impl Into<CaseStatementPreambleSyntax>,
+        case_statement_alternatives: impl Into<CaseStatementAlternativeSyntax>,
+    ) -> Self {
         Self {
             case_statement_preamble: case_statement_preamble.into(),
-            case_statement_alternatives: Vec::new(),
+            case_statement_alternatives: vec![case_statement_alternatives.into()],
             case_statement_epilogue: CaseStatementEpilogueBuilder::default().build(),
         }
     }
@@ -2746,12 +2750,13 @@ pub struct CompoundConfigurationSpecificationBuilder {
 impl CompoundConfigurationSpecificationBuilder {
     pub fn new(
         component_configuration_preamble: impl Into<ComponentConfigurationPreambleSyntax>,
+        verification_unit_bindings: impl Into<VerificationUnitBindingSyntax>,
     ) -> Self {
         Self {
             component_configuration_preamble: component_configuration_preamble.into(),
             binding_indication: None,
             semi_colon_token: TokenKind::SemiColon.canonical_token().unwrap(),
-            verification_unit_bindings: Vec::new(),
+            verification_unit_bindings: vec![verification_unit_bindings.into()],
             component_configuration_epilogue: ComponentConfigurationEpilogueBuilder::default()
                 .build(),
         }
@@ -12074,15 +12079,10 @@ impl From<RangeConstraintBuilder> for RangeConstraintSyntax {
 pub struct RecordElementDeclarationsBuilder {
     element_declarations: Vec<ElementDeclarationSyntax>,
 }
-impl Default for RecordElementDeclarationsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl RecordElementDeclarationsBuilder {
-    pub fn new() -> Self {
+    pub fn new(element_declarations: impl Into<ElementDeclarationSyntax>) -> Self {
         Self {
-            element_declarations: Vec::new(),
+            element_declarations: vec![element_declarations.into()],
         }
     }
     pub fn add_element_declarations(mut self, n: impl Into<ElementDeclarationSyntax>) -> Self {
@@ -12178,19 +12178,14 @@ impl From<RecordResolutionElementResolutionBuilder> for RecordResolutionElementR
 }
 pub struct RecordTypeDefinitionBuilder {
     record_type_definition_preamble: RecordTypeDefinitionPreambleSyntax,
-    record_element_declarations: Option<RecordElementDeclarationsSyntax>,
+    record_element_declarations: RecordElementDeclarationsSyntax,
     record_type_definition_epilogue: RecordTypeDefinitionEpilogueSyntax,
 }
-impl Default for RecordTypeDefinitionBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl RecordTypeDefinitionBuilder {
-    pub fn new() -> Self {
+    pub fn new(record_element_declarations: impl Into<RecordElementDeclarationsSyntax>) -> Self {
         Self {
             record_type_definition_preamble: RecordTypeDefinitionPreambleBuilder::default().build(),
-            record_element_declarations: None,
+            record_element_declarations: record_element_declarations.into(),
             record_type_definition_epilogue: RecordTypeDefinitionEpilogueBuilder::default().build(),
         }
     }
@@ -12205,7 +12200,7 @@ impl RecordTypeDefinitionBuilder {
         mut self,
         n: impl Into<RecordElementDeclarationsSyntax>,
     ) -> Self {
-        self.record_element_declarations = Some(n.into());
+        self.record_element_declarations = n.into();
         self
     }
     pub fn with_record_type_definition_epilogue(
@@ -12219,9 +12214,7 @@ impl RecordTypeDefinitionBuilder {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::RecordTypeDefinition);
         builder.push_node(self.record_type_definition_preamble.raw().green().clone());
-        if let Some(n) = self.record_element_declarations {
-            builder.push_node(n.raw().green().clone());
-        }
+        builder.push_node(self.record_element_declarations.raw().green().clone());
         builder.push_node(self.record_type_definition_epilogue.raw().green().clone());
         builder.end_node();
         let green = builder.end();

@@ -108,7 +108,7 @@ fn match_children(node: &SyntaxNode, items: &[LayoutItem], err: &mut ValidationE
     }
 
     for (i, item) in items.iter().enumerate() {
-        if !item.optional && !item.repeated && filled[i].is_none() {
+        if !item.optional && filled[i].is_none() {
             // The anchor is the nearest preceding slot that actually matched a
             // child; `None` if the gap is at the start of the parent.
             let previous = (0..i).rev().find_map(|j| filled[j].clone());

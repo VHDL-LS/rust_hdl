@@ -11,7 +11,7 @@ use crate::generate::naming::{
 use crate::generate::Generator;
 use crate::model::{
     Cardinality, ChoiceNode, Field, ListNode, Model, Node, NodeKind, NodeOrTokenKind,
-    NodesOrTokens, SequenceNode, TokenKind,
+    NodesOrTokens, RepeatedCardinality, SequenceNode, TokenKind,
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -204,7 +204,7 @@ fn generate_token_trivia_setter(item: &Field, kind: &TokenKind) -> TokenStream {
     let with_trivia = format_ident!("with_{}_trivia", item.getter_name());
 
     match item.cardinality {
-        Cardinality::Repeated => quote! {},
+        Cardinality::Repeated(_) => quote! {},
         Cardinality::Optional { .. } if has_canonical_text(kind) => {
             let default_expr = token_default_expr(kind);
             quote! {
@@ -251,7 +251,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             let field = format_ident!("{}", item.getter_name());
 
             let field_decl = match item.cardinality {
-                Cardinality::Repeated => quote! { #field: Vec<Token> },
+                Cardinality::Repeated(_) => quote! { #field: Vec<Token> },
                 Cardinality::Optional { .. } => quote! { #field: Option<Token> },
                 Cardinality::Required { .. } => quote! { #field: Token },
             };
@@ -285,7 +285,18 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let field_init = match item.cardinality {
-                Cardinality::Repeated => quote! { #field: Vec::new() },
+                Cardinality::Repeated(RepeatedCardinality::ZeroOrMore) => {
+                    quote! { #field: Vec::new() }
+                }
+                // One-or-more always contributes an element, so the vec is seeded with one:
+                // the constructor argument where there is one, else the element's own default.
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore) if is_ctor_arg => {
+                    quote! { #field: vec![#field.#convert_into_token] }
+                }
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore) => {
+                    let default = token_default_expr(token_kind);
+                    quote! { #field: vec![#default] }
+                }
                 Cardinality::Optional { .. } => quote! { #field: None },
                 Cardinality::Required { .. } if is_ctor_arg => {
                     quote! { #field: #field.#convert_into_token }
@@ -297,7 +308,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let mut setter = match item.cardinality {
-                Cardinality::Repeated => {
+                Cardinality::Repeated(_) => {
                     let add = format_ident!("add_{}", item.getter_name());
                     quote! {
                         pub fn #add(mut self, t: impl Into<#parameter_type>) -> Self {
@@ -328,7 +339,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             setter.extend(generate_token_trivia_setter(item, token_kind));
 
             let build_stmt = match item.cardinality {
-                Cardinality::Repeated => quote! {
+                Cardinality::Repeated(_) => quote! {
                     for t in self.#field {
                         builder.push(t);
                     }
@@ -358,7 +369,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let field_decl = match item.cardinality {
-                Cardinality::Repeated => quote! { #field: Vec<#ty> },
+                Cardinality::Repeated(_) => quote! { #field: Vec<#ty> },
                 Cardinality::Optional { .. } => quote! { #field: Option<#ty> },
                 Cardinality::Required { .. } => quote! { #field: #ty },
             };
@@ -370,7 +381,18 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let field_init = match item.cardinality {
-                Cardinality::Repeated => quote! { #field: Vec::new() },
+                Cardinality::Repeated(RepeatedCardinality::ZeroOrMore) => {
+                    quote! { #field: Vec::new() }
+                }
+                // One-or-more always contributes an element, so the vec is seeded with one:
+                // the constructor argument where there is one, else the element's own default.
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore) if is_ctor_arg => {
+                    quote! { #field: vec![#field.into()] }
+                }
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore) => {
+                    let node_builder = builder_ident(node_kind);
+                    quote! { #field: vec![#node_builder::default().build()] }
+                }
                 Cardinality::Optional { .. } => quote! { #field: None },
                 Cardinality::Required { .. } if is_ctor_arg => quote! { #field: #field.into() },
                 Cardinality::Required { .. } => {
@@ -380,7 +402,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
             };
 
             let setter = match item.cardinality {
-                Cardinality::Repeated => {
+                Cardinality::Repeated(_) => {
                     let add = format_ident!("add_{}", item.getter_name());
                     quote! {
                         pub fn #add(mut self, n: impl Into<#ty>) -> Self {
@@ -423,7 +445,7 @@ fn describe_item(item: &Field, model: &Model, defaultable: &HashSet<NodeKind>) -
                 )
             };
             let build_stmt = match item.cardinality {
-                Cardinality::Repeated => quote! {
+                Cardinality::Repeated(_) => quote! {
                     for n in self.#field {
                         #push_bound
                     }

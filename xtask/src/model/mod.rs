@@ -121,6 +121,29 @@ fn map_single(
     }
 }
 
+/// Folds `E E*` into a single [`Cardinality::RepeatedAtLeastOnce`] field.
+fn fold_one_or_more(items: Vec<Field>) -> Vec<Field> {
+    let mut folded: Vec<Field> = Vec::with_capacity(items.len());
+    for item in items {
+        // `E? E*` is just `E*` and does not fold: the first occurrence must be required.
+        let repeats_the_previous = folded.last().is_some_and(|previous| {
+            previous.kind == item.kind
+                && matches!(previous.cardinality, Cardinality::Required { .. })
+                && item.cardinality == Cardinality::Repeated(RepeatedCardinality::ZeroOrMore)
+        });
+        if repeats_the_previous {
+            folded.pop();
+            folded.push(Field {
+                cardinality: Cardinality::Repeated(RepeatedCardinality::OneOrMore),
+                ..item
+            });
+        } else {
+            folded.push(item);
+        }
+    }
+    folded
+}
+
 /// An alternation stores only the kind of each alternative, so anything else the grammar could
 /// attach to it (a label, `?`, `*`) would be silently dropped. Reject it instead.
 fn assert_bare_alternative(production: &str, kind: &str, item: &Field) {
@@ -184,6 +207,7 @@ fn map_rule(
             })
         }
         ungrammar::Rule::Seq(rules) => {
+            // Foo (`,` Foo)* -> ListNode
             if let [element @ Rule::Node(_) | element @ Rule::Token(_), Rule::Rep(subrule)] =
                 &rules[..]
             {
@@ -206,10 +230,12 @@ fn map_rule(
             }
             // Every item is left at ordinal 0; `Model::fixup_nth_by_resolved_kind` numbers them
             // once the whole model is known, since two spellings can be one kind in the tree.
-            let mapped = rules
-                .iter()
-                .map(|rule| map_single(name.as_str(), rule, grammar, model))
-                .collect();
+            let mapped = fold_one_or_more(
+                rules
+                    .iter()
+                    .map(|rule| map_single(name.as_str(), rule, grammar, model))
+                    .collect(),
+            );
             Node::Items(SequenceNode {
                 name,
                 items: mapped,
@@ -265,6 +291,122 @@ mod tests {
 
     fn model_of(grammar: &str) -> Model {
         map_grammar(&ungrammar::Grammar::from_str(grammar).expect("test grammar does not parse"))
+    }
+
+    /// The ordinals and cardinalities of a production's fields, for the one-or-more tests.
+    fn fields_of(model: &Model, production: &str) -> Vec<(String, Cardinality)> {
+        let Some(Node::Items(seq)) = model.node(&production.into()) else {
+            panic!("{production} should be a sequence node")
+        };
+        seq.items
+            .iter()
+            .map(|item| (item.getter_name(), item.cardinality))
+            .collect()
+    }
+
+    /// `E E*` is one field, not two: the green tree holds nothing that tells the required
+    /// occurrence apart from the repeated ones.
+    #[test]
+    fn a_required_element_followed_by_a_repetition_folds_into_one_field() {
+        let model = model_of(
+            "
+            DesignFile = 'record' ElementDeclaration ElementDeclaration* 'end'
+            ElementDeclaration = '#identifier' ';'
+            ",
+        );
+        assert_eq!(
+            fields_of(&model, "DesignFile"),
+            [
+                ("record_token".to_owned(), Cardinality::Required { nth: 0 }),
+                (
+                    "element_declarations".to_owned(),
+                    Cardinality::Repeated(RepeatedCardinality::OneOrMore)
+                ),
+                ("end_token".to_owned(), Cardinality::Required { nth: 0 }),
+            ]
+        );
+    }
+
+    /// A labelled group is an element like any other, which is what `(X ';') (X ';')*` needs.
+    #[test]
+    fn a_repeated_labelled_group_folds_with_its_required_twin() {
+        let model = model_of(
+            "
+            DesignFile =
+              binding:(VerificationUnit ';')
+              binding:(VerificationUnit ';')*
+            VerificationUnit = '#identifier'
+            ",
+        );
+        assert_eq!(
+            fields_of(&model, "DesignFile"),
+            [(
+                "bindings".to_owned(),
+                Cardinality::Repeated(RepeatedCardinality::OneOrMore)
+            )]
+        );
+    }
+
+    /// One-or-more always contributes a child, so a node made only of it is not empty-capable
+    /// and `fixup_empty_capable_optional_markers` leaves references to it required.
+    #[test]
+    fn a_one_or_more_node_is_not_empty_capable() {
+        let model = model_of(
+            "
+            DesignFile = Items ';'
+            Items = Element Element*
+            Element = '#identifier'
+            ",
+        );
+        assert!(!model
+            .compute_empty_capable_nodes()
+            .contains(&NodeKind::from("Items")));
+        assert_eq!(
+            fields_of(&model, "DesignFile"),
+            [
+                ("items".to_owned(), Cardinality::Required { nth: 0 }),
+                (
+                    "semi_colon_token".to_owned(),
+                    Cardinality::Required { nth: 0 }
+                ),
+            ]
+        );
+    }
+
+    /// Whether mapping `grammar` is rejected by one of the model's checks.
+    fn is_rejected(grammar: &'static str) -> bool {
+        // The checks report the violation on stdout before panicking; the hook keeps the test
+        // output readable.
+        let previous = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let result = std::panic::catch_unwind(|| model_of(grammar));
+        std::panic::set_hook(previous);
+        result.is_err()
+    }
+
+    /// `E? E*` is just `E*` -- the first occurrence has to be required for the fold to apply,
+    /// so this stays two fields of one kind that nothing can address apart.
+    #[test]
+    fn an_optional_element_before_a_repetition_does_not_fold() {
+        assert!(is_rejected(
+            "
+            DesignFile = Element? Element*
+            Element = '#identifier'
+            "
+        ));
+    }
+
+    /// The fold matches the spelling, not the resolved kind: `TypeMark Name*` stays two fields
+    /// and is rejected, rather than silently becoming a one-or-more of `Name`.
+    #[test]
+    fn two_spellings_of_one_kind_do_not_fold() {
+        assert!(is_rejected(
+            "
+            DesignFile = TypeMark Name*
+            TypeMark = Name
+            Name = '#identifier'
+            "
+        ));
     }
 
     /// `Foo = Bar` introduces a name, not a node.

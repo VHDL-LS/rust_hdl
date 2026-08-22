@@ -414,7 +414,7 @@ fn build_node_getter(item: &Field, node_kind: &NodeKind, model: &Model) -> Token
         quote! { children }
     };
     match item.cardinality {
-        Cardinality::Repeated => quote! {
+        Cardinality::Repeated(_) => quote! {
             pub fn #fn_name(&self) -> impl Iterator<Item = #syntax>  + use<'_> {
                 self.0.#getter_fn_name().filter_map(#syntax::cast)
             }
@@ -434,7 +434,7 @@ fn build_token_getter(item: &Field, token_kind: &TokenKind) -> TokenStream {
     let function_name = format_ident!("{}", item.getter_name());
     let kind_expr = token_kind_path(token_kind);
     match item.cardinality {
-        Cardinality::Repeated => quote! {
+        Cardinality::Repeated(_) => quote! {
             pub fn #function_name(&self) -> impl Iterator<Item = SyntaxToken>  + use<'_> {
                 self.0
                     .tokens()

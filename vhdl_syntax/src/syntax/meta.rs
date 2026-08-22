@@ -37,7 +37,8 @@ pub struct List {
 pub struct LayoutItem {
     /// Whether this item can be missing in correctly formed VHDL
     pub optional: bool,
-    /// Whether this item can appear multiple times (a `repeated` item is always `optional`, i.e., zero or more)
+    /// Whether this item can appear multiple times.
+    /// A zero-or-more item is encoded via `optional=true`
     pub repeated: bool,
     /// The name of this item. Mostly for informative purposes.
     /// Usually derived from the `kind`, but may be overwritten. For example, the left hand side of a `BinaryExpression`

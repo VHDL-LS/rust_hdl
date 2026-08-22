@@ -14769,7 +14769,7 @@ impl AstNode for RecordTypeDefinitionSyntax {
                 kind: LayoutItemKind::Node(NodeKind::RecordTypeDefinitionPreamble),
             },
             LayoutItem {
-                optional: true,
+                optional: false,
                 repeated: false,
                 name: "record_element_declarations",
                 kind: LayoutItemKind::Node(NodeKind::RecordElementDeclarations),
