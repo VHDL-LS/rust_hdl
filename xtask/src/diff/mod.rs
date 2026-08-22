@@ -25,13 +25,22 @@
 //! alternative ordering and optional markers are likewise left alone: each of those
 //! would hide a real divergence. Pass [`Nesting::Exact`] to compare the group nesting
 //! as well.
+//!
+//! What is left is a list of real divergences, and every one of them is meant to be a
+//! deliberate, explainable one. The [`explained`] module reads those explanations back
+//! out of the developer book, so a difference somebody has written up stops taking up
+//! room in the listing and is counted on its own -- and an explanation the grammar has
+//! moved out from under is reported instead of quietly still counting.
 
+use crate::diff::explained::Explanation;
 use anyhow::{Context, Result};
 use similar::{ChangeTag, TextDiff};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::Path;
 use std::str::FromStr;
+
+mod explained;
 
 /// Whether the comparison takes the nesting of unmarked groups into account.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -213,17 +222,49 @@ fn load(file: &Path) -> Result<BTreeMap<String, Rule>> {
         .collect())
 }
 
+/// The difference between the two rules, one element per line, exactly as it is
+/// printed and as the book has to quote it for the difference to count as explained.
+fn render_diff(lrm_rule: &Rule, modified_rule: &Rule) -> Vec<String> {
+    let lrm_body = lrm_rule.to_body_lines();
+    let modified_body = modified_rule.to_body_lines();
+    let lines = TextDiff::from_lines(&lrm_body, &modified_body)
+        .iter_all_changes()
+        .map(|change| {
+            let sign = match change.tag() {
+                ChangeTag::Delete => '-',
+                ChangeTag::Insert => '+',
+                ChangeTag::Equal => ' ',
+            };
+            format!("{sign}{}", change.value())
+        })
+        .collect();
+    explained::normalize(lines)
+}
+
 /// Prints the diff of the two grammars.
+///
+/// A difference the developer book in `book_dir` quotes verbatim is counted and listed
+/// as *explained* rather than printed in full: it has been looked at, written down and
+/// justified, so what stays in the listing is the part still awaiting that treatment.
 pub fn diff_grammar(
     lrm_file: &Path,
     modified_file: &Path,
+    book_dir: &Path,
     filter: Option<&str>,
     nesting: Nesting,
 ) -> Result<()> {
     let lrm = load(lrm_file)?;
     let modified = load(modified_file)?;
+    // Under a filter the rest of the book is out of scope, and would otherwise all be
+    // reported as unmatched.
+    let explanations: Vec<Explanation> = explained::load(book_dir)?
+        .into_iter()
+        .filter(|explanation| filter.is_none_or(|filter| filter == explanation.production))
+        .collect();
+    let mut is_matched = vec![false; explanations.len()];
 
     let mut differing = Vec::new();
+    let mut explained = Vec::new();
     let mut identical = 0usize;
     // Identical only because the grouping was flattened away -- reported separately, so
     // that a relaxation of the comparison never passes for an exact match.
@@ -245,25 +286,32 @@ pub fn diff_grammar(
             if lrm.get(name) != modified.get(name) {
                 identical_when_flattened += 1;
             }
-        } else {
-            differing.push((name, lrm_rule, modified_rule));
+            continue;
+        }
+
+        let diff = render_diff(&lrm_rule, &modified_rule);
+        let explanation = explanations
+            .iter()
+            .position(|explanation| explanation.production == *name && explanation.diff == diff);
+        match explanation {
+            Some(index) => {
+                is_matched[index] = true;
+                explained.push((name, &explanations[index]));
+            }
+            None => differing.push((name, diff)),
         }
     }
 
-    for (name, lrm_rule, modified_rule) in &differing {
+    for (name, diff) in &differing {
         println!("~~ {name} ~~");
-        let lrm_body = lrm_rule.to_body_lines();
-        let modified_body = modified_rule.to_body_lines();
-        for change in TextDiff::from_lines(&lrm_body, &modified_body).iter_all_changes() {
-            let sign = match change.tag() {
-                ChangeTag::Delete => '-',
-                ChangeTag::Insert => '+',
-                ChangeTag::Equal => ' ',
-            };
-            print!("{sign}{change}");
+        for line in diff {
+            println!("{line}");
         }
         println!();
     }
+
+    print_explained(&explained);
+    print_unmatched(&explanations, &is_matched);
 
     if let Some(filter) = filter {
         match (lrm.contains_key(filter), modified.contains_key(filter)) {
@@ -296,8 +344,13 @@ pub fn diff_grammar(
     } else {
         String::new()
     };
+    let explained_note = if explained.is_empty() {
+        String::new()
+    } else {
+        format!(", {} explained", explained.len())
+    };
     println!(
-        "{} differing, {identical} identical{flattened_note}, {} only in {}, {} only in {}",
+        "{} differing, {identical} identical{flattened_note}, {} only in {}, {} only in {}{explained_note}",
         differing.len(),
         lrm_only.len(),
         file_name(lrm_file),
@@ -306,6 +359,43 @@ pub fn diff_grammar(
     );
 
     Ok(())
+}
+
+/// The differences the book accounts for, named rather than spelled out.
+fn print_explained(explained: &[(&String, &Explanation)]) {
+    if explained.is_empty() {
+        return;
+    }
+    println!("explained ({}):", explained.len());
+    for (name, explanation) in explained {
+        println!("  {name} ({})", explanation.location());
+    }
+    println!();
+}
+
+/// Fences the grammar has moved out from under.
+///
+/// An explanation only counts while it quotes the difference as it stands today, so one
+/// that matches nothing is prose describing a grammar that no longer exists.
+fn print_unmatched(explanations: &[Explanation], is_matched: &[bool]) {
+    let unmatched: Vec<_> = explanations
+        .iter()
+        .zip(is_matched)
+        .filter(|(_, is_matched)| !**is_matched)
+        .map(|(explanation, _)| explanation)
+        .collect();
+    if unmatched.is_empty() {
+        return;
+    }
+    println!(
+        "explaining a difference that is no longer there ({}):",
+        unmatched.len()
+    );
+    for explanation in &unmatched {
+        println!("  {} `{}`", explanation.location(), explanation.production);
+    }
+    println!("update the quoted diff to what this run prints, or drop the fence.");
+    println!();
 }
 
 fn print_only_in(file: &Path, names: &[&String]) {
@@ -398,6 +488,27 @@ mod tests {
             flattened(grammar, "Aggregate"),
             "'(' Element (',' Element)* ')'"
         );
+    }
+
+    /// The two halves of the explanation check -- what the tool renders and what the
+    /// book quotes -- have to agree line for line, so this pins the shape they meet on.
+    #[test]
+    fn a_fence_quoting_the_rendered_diff_compares_equal() {
+        let diff = render_diff(&rule_of("X = 'a' 'b'", "X"), &rule_of("X = 'a' 'c'", "X"));
+        assert_eq!(diff, ["   'a'", "-  'b'", "+  'c'"]);
+
+        let fence = "```diff\nX =\n   'a'\n-  'b'\n+  'c'\n```\n";
+        let explanations = explained::parse(fence, "test.md").expect("fence does not parse");
+        assert_eq!(explanations[0].production, "X");
+        assert_eq!(explanations[0].diff, diff);
+    }
+
+    #[test]
+    fn a_fence_quoting_a_stale_diff_does_not_compare_equal() {
+        let diff = render_diff(&rule_of("X = 'a' 'b'", "X"), &rule_of("X = 'a' 'c'", "X"));
+        let fence = "```diff\nX =\n   'a'\n-  'b'\n+  'd'\n```\n";
+        let explanations = explained::parse(fence, "test.md").expect("fence does not parse");
+        assert_ne!(explanations[0].diff, diff);
     }
 
     #[test]

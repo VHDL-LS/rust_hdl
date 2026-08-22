@@ -33,7 +33,8 @@ enum Commands {
         check: bool,
     },
     /// Compare the unmodified LRM grammar with the grammar modelled by `vhdl_syntax`,
-    /// ignoring labels and the nesting of unmarked groups
+    /// ignoring labels and the nesting of unmarked groups. A difference the user
+    /// guide quotes verbatim is counted as explained instead of being listed
     DiffGrammar {
         /// Only compare this production instead of the whole grammar
         #[arg(long)]
@@ -82,13 +83,20 @@ fn main() {
         Commands::DiffGrammar { production, exact } => {
             let lrm_file = workspace_root.join("xtask/doc/vhdl-08.ungram");
             let modified_file = workspace_root.join("xtask/doc/vhdl-08-modified.ungram");
+            let book_dir = workspace_root.join("book/src/lrm-differences");
             let nesting = if exact {
                 diff::Nesting::Exact
             } else {
                 diff::Nesting::Flattened
             };
-            diff::diff_grammar(&lrm_file, &modified_file, production.as_deref(), nesting)
-                .expect("failed to diff the grammars");
+            diff::diff_grammar(
+                &lrm_file,
+                &modified_file,
+                &book_dir,
+                production.as_deref(),
+                nesting,
+            )
+            .expect("failed to diff the grammars");
         }
     }
 }
