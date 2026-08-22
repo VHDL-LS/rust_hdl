@@ -41,20 +41,19 @@ CaseGenerateStatement
           AbstractLiteral '2'
     RightArrow
     GenerateStatementBody
-      ConcurrentStatements
-        ConcurrentSimpleSignalAssignment
-          NameTarget
-            Name
-              NameDesignatorPrefix
-                Identifier 'sig'
-          LTE
-          WaveformElements
-            WaveformElement
-              NameExpression
-                Name
-                  NameDesignatorPrefix
-                    Identifier 'value'
-          SemiColon
+      ConcurrentSimpleSignalAssignment
+        NameTarget
+          Name
+            NameDesignatorPrefix
+              Identifier 'sig'
+        LTE
+        WaveformElements
+          WaveformElement
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'value'
+        SemiColon
   CaseGenerateAlternative
     Keyword(When)
     StmtLabel
@@ -65,23 +64,22 @@ CaseGenerateStatement
         Keyword(Others)
     RightArrow
     GenerateStatementBody
-      ConcurrentStatements
-        ConcurrentProcedureCallOrComponentInstantiationStatement
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'clk'
-              RightPar
-          SemiColon
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'clk'
+            RightPar
+        SemiColon
   GenerateEpilogue
     Keyword(End)
     Keyword(Generate)

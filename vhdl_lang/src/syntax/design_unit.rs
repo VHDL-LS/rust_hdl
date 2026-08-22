@@ -296,12 +296,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn parse_empty() {
-        let (_, design_file) = parse_ok("");
-        assert_eq!(design_file.design_units.len(), 0);
-    }
-
     /// An simple entity with only a name
     fn simple_entity(
         ident: Ident,

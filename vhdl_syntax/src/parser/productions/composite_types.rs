@@ -40,6 +40,7 @@ impl Parser {
         self.end_node();
 
         self.start_node(RecordElementDeclarations);
+        self.element_declaration();
         while self.next_is(Identifier) {
             self.element_declaration();
         }
@@ -110,11 +111,6 @@ mod tests {
 
     #[test]
     fn record_type_declaration() {
-        insta::assert_snapshot!(to_test_text(
-            Parser::type_declaration,
-            "type rec_t is record end record;",
-        ));
-
         insta::assert_snapshot!(to_test_text(
             Parser::type_declaration,
             "type rec_t is record state: enum_t; end record;",

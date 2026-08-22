@@ -24,42 +24,41 @@ ForGenerateStatement
           AbstractLiteral '7'
     Keyword(Generate)
   GenerateStatementBody
-    ConcurrentStatements
-      ConcurrentSimpleSignalAssignment
-        NameTarget
-          Name
-            NameDesignatorPrefix
-              Identifier 'buf'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'i'
-              RightPar
-        LTE
-        WaveformElements
-          WaveformElement
-            NameExpression
-              Name
-                NameDesignatorPrefix
-                  Identifier 'data'
-                ParenthesizedName
-                  LeftPar
-                  AssociationList
-                    AssociationElement
-                      ActualPart
-                        ActualPartExpression
-                          NameExpression
-                            Name
-                              NameDesignatorPrefix
-                                Identifier 'i'
-                  RightPar
-        SemiColon
+    ConcurrentSimpleSignalAssignment
+      NameTarget
+        Name
+          NameDesignatorPrefix
+            Identifier 'buf'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'i'
+            RightPar
+      LTE
+      WaveformElements
+        WaveformElement
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'data'
+              ParenthesizedName
+                LeftPar
+                AssociationList
+                  AssociationElement
+                    ActualPart
+                      ActualPartExpression
+                        NameExpression
+                          Name
+                            NameDesignatorPrefix
+                              Identifier 'i'
+                RightPar
+      SemiColon
 
 == diagnostics ==
 2:21 Expected([Keyword(End)])

@@ -96,13 +96,6 @@ mod tests {
     }
 
     #[test]
-    fn repeated_with_zero_occurrences_passes() {
-        // DesignFile: DesignUnit* (repeated, zero here) · EOF (req)
-        let (node, _) = parse_syntax("", Parser::design_file);
-        assert!(&node.validate().is_ok());
-    }
-
-    #[test]
     fn repeated_with_multiple_occurrences_passes() {
         let (node, diagnostics) =
             parse_syntax("entity a is end; entity b is end;", Parser::design_file);

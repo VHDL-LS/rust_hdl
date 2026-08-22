@@ -22,20 +22,19 @@ ForGenerateStatement
     GenerateBodyDeclarations
       DeclarationStatementSeparator
         Keyword(Begin)
-    ConcurrentStatements
-      ConcurrentSimpleSignalAssignment
-        NameTarget
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo'
-        LTE
-        WaveformElements
-          WaveformElement
-            NameExpression
-              Name
-                NameDesignatorPrefix
-                  Identifier 'bar'
-        SemiColon
+    ConcurrentSimpleSignalAssignment
+      NameTarget
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo'
+      LTE
+      WaveformElements
+        WaveformElement
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'bar'
+      SemiColon
   GenerateEpilogue
     Keyword(End)
     Keyword(Generate)

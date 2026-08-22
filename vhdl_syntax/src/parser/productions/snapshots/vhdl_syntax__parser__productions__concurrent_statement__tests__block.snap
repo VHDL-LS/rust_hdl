@@ -25,26 +25,25 @@ BlockStatement
       SemiColon
   DeclarationStatementSeparator
     Keyword(Begin)
-  ConcurrentStatements
-    ConcurrentProcedureCallOrComponentInstantiationStatement
-      StmtLabel
-        Identifier 'name2'
-        Colon
-      Name
-        NameDesignatorPrefix
-          Identifier 'foo'
-        ParenthesizedName
-          LeftPar
-          AssociationList
-            AssociationElement
-              ActualPart
-                ActualPartExpression
-                  NameExpression
-                    Name
-                      NameDesignatorPrefix
-                        Identifier 'clk'
-          RightPar
-      SemiColon
+  ConcurrentProcedureCallOrComponentInstantiationStatement
+    StmtLabel
+      Identifier 'name2'
+      Colon
+    Name
+      NameDesignatorPrefix
+        Identifier 'foo'
+      ParenthesizedName
+        LeftPar
+        AssociationList
+          AssociationElement
+            ActualPart
+              ActualPartExpression
+                NameExpression
+                  Name
+                    NameDesignatorPrefix
+                      Identifier 'clk'
+        RightPar
+    SemiColon
   BlockEpilogue
     Keyword(End)
     Keyword(Block)

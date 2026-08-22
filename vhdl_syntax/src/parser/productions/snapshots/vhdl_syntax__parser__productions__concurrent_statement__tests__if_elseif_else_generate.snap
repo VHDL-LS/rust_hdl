@@ -34,23 +34,22 @@ IfGenerateStatement
             SemiColon
         DeclarationStatementSeparator
           Keyword(Begin)
-      ConcurrentStatements
-        ConcurrentProcedureCallOrComponentInstantiationStatement
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo1'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'clk'
-              RightPar
-          SemiColon
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo1'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'clk'
+            RightPar
+        SemiColon
   IfGenerateElsif
     Keyword(Elsif)
     BinaryExpression
@@ -79,23 +78,22 @@ IfGenerateStatement
             SemiColon
         DeclarationStatementSeparator
           Keyword(Begin)
-      ConcurrentStatements
-        ConcurrentProcedureCallOrComponentInstantiationStatement
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo2'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'clk'
-              RightPar
-          SemiColon
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo2'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'clk'
+            RightPar
+        SemiColon
   IfGenerateElse
     Keyword(Else)
     Keyword(Generate)
@@ -114,23 +112,22 @@ IfGenerateStatement
             SemiColon
         DeclarationStatementSeparator
           Keyword(Begin)
-      ConcurrentStatements
-        ConcurrentProcedureCallOrComponentInstantiationStatement
-          Name
-            NameDesignatorPrefix
-              Identifier 'foo3'
-            ParenthesizedName
-              LeftPar
-              AssociationList
-                AssociationElement
-                  ActualPart
-                    ActualPartExpression
-                      NameExpression
-                        Name
-                          NameDesignatorPrefix
-                            Identifier 'clk'
-              RightPar
-          SemiColon
+      ConcurrentProcedureCallOrComponentInstantiationStatement
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo3'
+          ParenthesizedName
+            LeftPar
+            AssociationList
+              AssociationElement
+                ActualPart
+                  ActualPartExpression
+                    NameExpression
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'clk'
+            RightPar
+        SemiColon
   GenerateEpilogue
     Keyword(End)
     Keyword(Generate)
