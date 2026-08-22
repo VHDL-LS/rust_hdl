@@ -29,7 +29,7 @@ BlockStatement =
   BlockHeader
   Declarations
   declaration_statement_separator:'begin'
-  ConcurrentStatements
+  ConcurrentStatement*
   block_epilogue:('end' 'block' Label? ';')
 
 CaseGenerateAlternative =
@@ -97,8 +97,6 @@ ConcurrentStatement =
 | CaseGenerateStatement
 
 // | PslDirective  -- add here if PSL is supported
-ConcurrentStatements =
-  ConcurrentStatement*
 
 ForGenerateStatement =
   stmt_label:(Label ':')
@@ -108,7 +106,7 @@ ForGenerateStatement =
 
 GenerateStatementBody =
   generate_body_declarations:(Declarations? declaration_statement_separator:'begin')?
-  ConcurrentStatements
+  ConcurrentStatement*
   generate_body_epilogue:('end' Label? ';')?
 
 IfGenerateStatement =
@@ -438,7 +436,7 @@ ArchitectureBody =
   architecture_preamble:('architecture' '#identifier' 'of' Name 'is')
   Declarations
   declaration_statement_separator:'begin'
-  ConcurrentStatements
+  ConcurrentStatement*
   architecture_epilogue:('end' 'architecture'? SimpleName? ';')
 
 ConfigurationItem =
@@ -470,7 +468,7 @@ EntityDeclaration =
   entity_declaration_preamble:('entity' '#identifier' 'is')
   EntityHeader
   Declarations
-  entity_statement_part:(declaration_statement_separator:'begin' ConcurrentStatements)?
+  entity_statement_part:(declaration_statement_separator:'begin' ConcurrentStatement*)?
   entity_declaration_epilogue:('end' 'entity'? SimpleName? ';')
 
 EntityHeader =

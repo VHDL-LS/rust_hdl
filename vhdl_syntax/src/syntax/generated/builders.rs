@@ -553,7 +553,7 @@ pub struct ArchitectureBodyBuilder {
     architecture_preamble: ArchitecturePreambleSyntax,
     declarations: Option<DeclarationsSyntax>,
     declaration_statement_separator: DeclarationStatementSeparatorSyntax,
-    concurrent_statements: Option<ConcurrentStatementsSyntax>,
+    concurrent_statements: Vec<ConcurrentStatementSyntax>,
     architecture_epilogue: ArchitectureEpilogueSyntax,
 }
 impl ArchitectureBodyBuilder {
@@ -563,7 +563,7 @@ impl ArchitectureBodyBuilder {
             declarations: None,
             declaration_statement_separator: DeclarationStatementSeparatorBuilder::default()
                 .build(),
-            concurrent_statements: None,
+            concurrent_statements: Vec::new(),
             architecture_epilogue: ArchitectureEpilogueBuilder::default().build(),
         }
     }
@@ -582,8 +582,8 @@ impl ArchitectureBodyBuilder {
         self.declaration_statement_separator = n.into();
         self
     }
-    pub fn with_concurrent_statements(mut self, n: impl Into<ConcurrentStatementsSyntax>) -> Self {
-        self.concurrent_statements = Some(n.into());
+    pub fn add_concurrent_statements(mut self, n: impl Into<ConcurrentStatementSyntax>) -> Self {
+        self.concurrent_statements.push(n.into());
         self
     }
     pub fn with_architecture_epilogue(mut self, n: impl Into<ArchitectureEpilogueSyntax>) -> Self {
@@ -598,7 +598,7 @@ impl ArchitectureBodyBuilder {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.declaration_statement_separator.raw().green().clone());
-        if let Some(n) = self.concurrent_statements {
+        for n in self.concurrent_statements {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.architecture_epilogue.raw().green().clone());
@@ -1684,7 +1684,7 @@ pub struct BlockStatementBuilder {
     block_header: Option<BlockHeaderSyntax>,
     declarations: Option<DeclarationsSyntax>,
     declaration_statement_separator: DeclarationStatementSeparatorSyntax,
-    concurrent_statements: Option<ConcurrentStatementsSyntax>,
+    concurrent_statements: Vec<ConcurrentStatementSyntax>,
     block_epilogue: BlockEpilogueSyntax,
 }
 impl BlockStatementBuilder {
@@ -1696,7 +1696,7 @@ impl BlockStatementBuilder {
             declarations: None,
             declaration_statement_separator: DeclarationStatementSeparatorBuilder::default()
                 .build(),
-            concurrent_statements: None,
+            concurrent_statements: Vec::new(),
             block_epilogue: BlockEpilogueBuilder::default().build(),
         }
     }
@@ -1723,8 +1723,8 @@ impl BlockStatementBuilder {
         self.declaration_statement_separator = n.into();
         self
     }
-    pub fn with_concurrent_statements(mut self, n: impl Into<ConcurrentStatementsSyntax>) -> Self {
-        self.concurrent_statements = Some(n.into());
+    pub fn add_concurrent_statements(mut self, n: impl Into<ConcurrentStatementSyntax>) -> Self {
+        self.concurrent_statements.push(n.into());
         self
     }
     pub fn with_block_epilogue(mut self, n: impl Into<BlockEpilogueSyntax>) -> Self {
@@ -1743,7 +1743,7 @@ impl BlockStatementBuilder {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.declaration_statement_separator.raw().green().clone());
-        if let Some(n) = self.concurrent_statements {
+        for n in self.concurrent_statements {
             builder.push_node(n.raw().green().clone());
         }
         builder.push_node(self.block_epilogue.raw().green().clone());
@@ -3284,41 +3284,6 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
 }
 impl From<ConcurrentSimpleSignalAssignmentBuilder> for ConcurrentSimpleSignalAssignmentSyntax {
     fn from(value: ConcurrentSimpleSignalAssignmentBuilder) -> Self {
-        value.build()
-    }
-}
-pub struct ConcurrentStatementsBuilder {
-    concurrent_statements: Vec<ConcurrentStatementSyntax>,
-}
-impl Default for ConcurrentStatementsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-impl ConcurrentStatementsBuilder {
-    pub fn new() -> Self {
-        Self {
-            concurrent_statements: Vec::new(),
-        }
-    }
-    pub fn add_concurrent_statements(mut self, n: impl Into<ConcurrentStatementSyntax>) -> Self {
-        self.concurrent_statements.push(n.into());
-        self
-    }
-    pub fn build(self) -> ConcurrentStatementsSyntax {
-        let mut builder = NodeBuilder::new();
-        builder.start_node(NodeKind::ConcurrentStatements);
-        for n in self.concurrent_statements {
-            builder.push_node(n.raw().green().clone());
-        }
-        builder.end_node();
-        let green = builder.end();
-        let node = SyntaxNode::new_root(green);
-        ConcurrentStatementsSyntax::cast(node).unwrap()
-    }
-}
-impl From<ConcurrentStatementsBuilder> for ConcurrentStatementsSyntax {
-    fn from(value: ConcurrentStatementsBuilder) -> Self {
         value.build()
     }
 }
@@ -5527,7 +5492,7 @@ impl From<EntitySpecificationBuilder> for EntitySpecificationSyntax {
 }
 pub struct EntityStatementPartBuilder {
     declaration_statement_separator: DeclarationStatementSeparatorSyntax,
-    concurrent_statements: Option<ConcurrentStatementsSyntax>,
+    concurrent_statements: Vec<ConcurrentStatementSyntax>,
 }
 impl Default for EntityStatementPartBuilder {
     fn default() -> Self {
@@ -5539,7 +5504,7 @@ impl EntityStatementPartBuilder {
         Self {
             declaration_statement_separator: DeclarationStatementSeparatorBuilder::default()
                 .build(),
-            concurrent_statements: None,
+            concurrent_statements: Vec::new(),
         }
     }
     pub fn with_declaration_statement_separator(
@@ -5549,15 +5514,15 @@ impl EntityStatementPartBuilder {
         self.declaration_statement_separator = n.into();
         self
     }
-    pub fn with_concurrent_statements(mut self, n: impl Into<ConcurrentStatementsSyntax>) -> Self {
-        self.concurrent_statements = Some(n.into());
+    pub fn add_concurrent_statements(mut self, n: impl Into<ConcurrentStatementSyntax>) -> Self {
+        self.concurrent_statements.push(n.into());
         self
     }
     pub fn build(self) -> EntityStatementPartSyntax {
         let mut builder = NodeBuilder::new();
         builder.start_node(NodeKind::EntityStatementPart);
         builder.push_node(self.declaration_statement_separator.raw().green().clone());
-        if let Some(n) = self.concurrent_statements {
+        for n in self.concurrent_statements {
             builder.push_node(n.raw().green().clone());
         }
         builder.end_node();
@@ -6728,7 +6693,7 @@ impl From<GenerateEpilogueBuilder> for GenerateEpilogueSyntax {
 }
 pub struct GenerateStatementBodyBuilder {
     generate_body_declarations: Option<GenerateBodyDeclarationsSyntax>,
-    concurrent_statements: Option<ConcurrentStatementsSyntax>,
+    concurrent_statements: Vec<ConcurrentStatementSyntax>,
     generate_body_epilogue: Option<GenerateBodyEpilogueSyntax>,
 }
 impl Default for GenerateStatementBodyBuilder {
@@ -6740,7 +6705,7 @@ impl GenerateStatementBodyBuilder {
     pub fn new() -> Self {
         Self {
             generate_body_declarations: None,
-            concurrent_statements: None,
+            concurrent_statements: Vec::new(),
             generate_body_epilogue: None,
         }
     }
@@ -6751,8 +6716,8 @@ impl GenerateStatementBodyBuilder {
         self.generate_body_declarations = Some(n.into());
         self
     }
-    pub fn with_concurrent_statements(mut self, n: impl Into<ConcurrentStatementsSyntax>) -> Self {
-        self.concurrent_statements = Some(n.into());
+    pub fn add_concurrent_statements(mut self, n: impl Into<ConcurrentStatementSyntax>) -> Self {
+        self.concurrent_statements.push(n.into());
         self
     }
     pub fn with_generate_body_epilogue(mut self, n: impl Into<GenerateBodyEpilogueSyntax>) -> Self {
@@ -6765,7 +6730,7 @@ impl GenerateStatementBodyBuilder {
         if let Some(n) = self.generate_body_declarations {
             builder.push_node(n.raw().green().clone());
         }
-        if let Some(n) = self.concurrent_statements {
+        for n in self.concurrent_statements {
             builder.push_node(n.raw().green().clone());
         }
         if let Some(n) = self.generate_body_epilogue {

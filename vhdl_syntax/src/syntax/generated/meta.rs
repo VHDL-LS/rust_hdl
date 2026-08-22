@@ -76,7 +76,6 @@ pub fn layout_of(kind: NodeKind) -> &'static Layout {
             ConcurrentSelectedSignalAssignmentSyntax::META
         }
         NodeKind::ConcurrentSimpleSignalAssignment => ConcurrentSimpleSignalAssignmentSyntax::META,
-        NodeKind::ConcurrentStatements => ConcurrentStatementsSyntax::META,
         NodeKind::ConditionClause => ConditionClauseSyntax::META,
         NodeKind::ConditionalExpressions => ConditionalExpressionsSyntax::META,
         NodeKind::ConditionalForceAssignment => ConditionalForceAssignmentSyntax::META,

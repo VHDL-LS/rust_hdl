@@ -653,10 +653,22 @@ impl AstNode for ArchitectureBodySyntax {
                 kind: LayoutItemKind::Node(NodeKind::DeclarationStatementSeparator),
             },
             LayoutItem {
-                optional: true,
-                repeated: false,
+                optional: false,
+                repeated: true,
                 name: "concurrent_statements",
-                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::BlockStatement,
+                    NodeKind::ProcessStatement,
+                    NodeKind::ConcurrentAssertionStatement,
+                    NodeKind::ComponentInstantiationStatement,
+                    NodeKind::ConcurrentSelectedSignalAssignment,
+                    NodeKind::ConcurrentConditionalSignalAssignment,
+                    NodeKind::ConcurrentSimpleSignalAssignment,
+                    NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement,
+                    NodeKind::ForGenerateStatement,
+                    NodeKind::IfGenerateStatement,
+                    NodeKind::CaseGenerateStatement,
+                ]),
             },
             LayoutItem {
                 optional: false,
@@ -692,11 +704,12 @@ impl ArchitectureBodySyntax {
             .filter_map(DeclarationStatementSeparatorSyntax::cast)
             .nth(0)
     }
-    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+    pub fn concurrent_statements(
+        &self,
+    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
         self.0
             .children()
-            .filter_map(ConcurrentStatementsSyntax::cast)
-            .nth(0)
+            .filter_map(ConcurrentStatementSyntax::cast)
     }
     pub fn architecture_epilogue(&self) -> Option<ArchitectureEpilogueSyntax> {
         self.0
@@ -2050,10 +2063,22 @@ impl AstNode for BlockStatementSyntax {
                 kind: LayoutItemKind::Node(NodeKind::DeclarationStatementSeparator),
             },
             LayoutItem {
-                optional: true,
-                repeated: false,
+                optional: false,
+                repeated: true,
                 name: "concurrent_statements",
-                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::BlockStatement,
+                    NodeKind::ProcessStatement,
+                    NodeKind::ConcurrentAssertionStatement,
+                    NodeKind::ComponentInstantiationStatement,
+                    NodeKind::ConcurrentSelectedSignalAssignment,
+                    NodeKind::ConcurrentConditionalSignalAssignment,
+                    NodeKind::ConcurrentSimpleSignalAssignment,
+                    NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement,
+                    NodeKind::ForGenerateStatement,
+                    NodeKind::IfGenerateStatement,
+                    NodeKind::CaseGenerateStatement,
+                ]),
             },
             LayoutItem {
                 optional: false,
@@ -2095,11 +2120,12 @@ impl BlockStatementSyntax {
             .filter_map(DeclarationStatementSeparatorSyntax::cast)
             .nth(0)
     }
-    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+    pub fn concurrent_statements(
+        &self,
+    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
         self.0
             .children()
-            .filter_map(ConcurrentStatementsSyntax::cast)
-            .nth(0)
+            .filter_map(ConcurrentStatementSyntax::cast)
     }
     pub fn block_epilogue(&self) -> Option<BlockEpilogueSyntax> {
         self.0
@@ -3839,46 +3865,6 @@ impl AstNode for ConcurrentStatementSyntax {
             ConcurrentStatementSyntax::IfGenerateStatement(inner) => inner.raw(),
             ConcurrentStatementSyntax::CaseGenerateStatement(inner) => inner.raw(),
         }
-    }
-}
-#[derive(Debug, Clone)]
-pub struct ConcurrentStatementsSyntax(pub(crate) SyntaxNode);
-impl AstNode for ConcurrentStatementsSyntax {
-    const META: &'static Layout = &Layout::Sequence(Sequence {
-        kind: NodeKind::ConcurrentStatements,
-        items: &[LayoutItem {
-            optional: false,
-            repeated: true,
-            name: "concurrent_statements",
-            kind: LayoutItemKind::NodeChoice(&[
-                NodeKind::BlockStatement,
-                NodeKind::ProcessStatement,
-                NodeKind::ConcurrentAssertionStatement,
-                NodeKind::ComponentInstantiationStatement,
-                NodeKind::ConcurrentSelectedSignalAssignment,
-                NodeKind::ConcurrentConditionalSignalAssignment,
-                NodeKind::ConcurrentSimpleSignalAssignment,
-                NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement,
-                NodeKind::ForGenerateStatement,
-                NodeKind::IfGenerateStatement,
-                NodeKind::CaseGenerateStatement,
-            ]),
-        }],
-    });
-    fn cast_unchecked(node: SyntaxNode) -> Self {
-        ConcurrentStatementsSyntax(node)
-    }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
-    }
-}
-impl ConcurrentStatementsSyntax {
-    pub fn concurrent_statements(
-        &self,
-    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
-        self.0
-            .children()
-            .filter_map(ConcurrentStatementSyntax::cast)
     }
 }
 #[derive(Debug, Clone)]
@@ -6857,10 +6843,22 @@ impl AstNode for EntityStatementPartSyntax {
                 kind: LayoutItemKind::Node(NodeKind::DeclarationStatementSeparator),
             },
             LayoutItem {
-                optional: true,
-                repeated: false,
+                optional: false,
+                repeated: true,
                 name: "concurrent_statements",
-                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::BlockStatement,
+                    NodeKind::ProcessStatement,
+                    NodeKind::ConcurrentAssertionStatement,
+                    NodeKind::ComponentInstantiationStatement,
+                    NodeKind::ConcurrentSelectedSignalAssignment,
+                    NodeKind::ConcurrentConditionalSignalAssignment,
+                    NodeKind::ConcurrentSimpleSignalAssignment,
+                    NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement,
+                    NodeKind::ForGenerateStatement,
+                    NodeKind::IfGenerateStatement,
+                    NodeKind::CaseGenerateStatement,
+                ]),
             },
         ],
     });
@@ -6878,11 +6876,12 @@ impl EntityStatementPartSyntax {
             .filter_map(DeclarationStatementSeparatorSyntax::cast)
             .nth(0)
     }
-    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+    pub fn concurrent_statements(
+        &self,
+    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
         self.0
             .children()
-            .filter_map(ConcurrentStatementsSyntax::cast)
-            .nth(0)
+            .filter_map(ConcurrentStatementSyntax::cast)
     }
 }
 #[derive(Debug, Clone)]
@@ -8426,10 +8425,22 @@ impl AstNode for GenerateStatementBodySyntax {
                 kind: LayoutItemKind::Node(NodeKind::GenerateBodyDeclarations),
             },
             LayoutItem {
-                optional: true,
-                repeated: false,
+                optional: false,
+                repeated: true,
                 name: "concurrent_statements",
-                kind: LayoutItemKind::Node(NodeKind::ConcurrentStatements),
+                kind: LayoutItemKind::NodeChoice(&[
+                    NodeKind::BlockStatement,
+                    NodeKind::ProcessStatement,
+                    NodeKind::ConcurrentAssertionStatement,
+                    NodeKind::ComponentInstantiationStatement,
+                    NodeKind::ConcurrentSelectedSignalAssignment,
+                    NodeKind::ConcurrentConditionalSignalAssignment,
+                    NodeKind::ConcurrentSimpleSignalAssignment,
+                    NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement,
+                    NodeKind::ForGenerateStatement,
+                    NodeKind::IfGenerateStatement,
+                    NodeKind::CaseGenerateStatement,
+                ]),
             },
             LayoutItem {
                 optional: true,
@@ -8453,11 +8464,12 @@ impl GenerateStatementBodySyntax {
             .filter_map(GenerateBodyDeclarationsSyntax::cast)
             .nth(0)
     }
-    pub fn concurrent_statements(&self) -> Option<ConcurrentStatementsSyntax> {
+    pub fn concurrent_statements(
+        &self,
+    ) -> impl Iterator<Item = ConcurrentStatementSyntax> + use<'_> {
         self.0
             .children()
-            .filter_map(ConcurrentStatementsSyntax::cast)
-            .nth(0)
+            .filter_map(ConcurrentStatementSyntax::cast)
     }
     pub fn generate_body_epilogue(&self) -> Option<GenerateBodyEpilogueSyntax> {
         self.0

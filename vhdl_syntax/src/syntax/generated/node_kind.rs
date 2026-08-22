@@ -64,7 +64,6 @@ pub enum NodeKind {
     ConcurrentProcedureCallOrComponentInstantiationStatement,
     ConcurrentSelectedSignalAssignment,
     ConcurrentSimpleSignalAssignment,
-    ConcurrentStatements,
     ConditionClause,
     ConditionalExpressions,
     ConditionalForceAssignment,
