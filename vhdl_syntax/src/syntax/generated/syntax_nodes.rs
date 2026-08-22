@@ -653,7 +653,7 @@ impl AstNode for ArchitectureBodySyntax {
                 kind: LayoutItemKind::Node(NodeKind::DeclarationStatementSeparator),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "concurrent_statements",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -1051,13 +1051,13 @@ impl AstNode for AssociationListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::AssociationList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "association_elements",
             kind: LayoutItemKind::Node(NodeKind::AssociationElement),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -1706,13 +1706,13 @@ impl AstNode for BlockConfigurationSyntax {
                 kind: LayoutItemKind::Node(NodeKind::BlockConfigurationPreamble),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "use_clauses",
                 kind: LayoutItemKind::Node(NodeKind::UseClause),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "configuration_items",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -2063,7 +2063,7 @@ impl AstNode for BlockStatementSyntax {
                 kind: LayoutItemKind::Node(NodeKind::DeclarationStatementSeparator),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "concurrent_statements",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -2665,13 +2665,13 @@ impl AstNode for ChoicesSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::Choices,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "choices",
             kind: LayoutItemKind::NodeChoice(&[NodeKind::ExpressionChoice, NodeKind::OthersChoice]),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "bar",
             kind: LayoutItemKind::Token(TokenKind::Bar),
@@ -2713,7 +2713,7 @@ impl AstNode for ComponentConfigurationSyntax {
                 kind: LayoutItemKind::Node(NodeKind::Binding),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "verification_unit_bindings",
                 kind: LayoutItemKind::Node(NodeKind::VerificationUnitBinding),
@@ -3927,7 +3927,7 @@ impl AstNode for ConditionalExpressionsSyntax {
                 kind: LayoutItemKind::Node(NodeKind::WhenExpression),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "else_when_expressions",
                 kind: LayoutItemKind::Node(NodeKind::ElseWhenExpression),
@@ -4257,7 +4257,7 @@ impl AstNode for ConditionalWaveformsSyntax {
                 kind: LayoutItemKind::Node(NodeKind::WhenWaveform),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "else_when_waveforms",
                 kind: LayoutItemKind::Node(NodeKind::ElseWhenWaveform),
@@ -4313,7 +4313,7 @@ impl AstNode for ConfigurationDeclarationSyntax {
                 kind: LayoutItemKind::Node(NodeKind::Declarations),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "verification_unit_bindings",
                 kind: LayoutItemKind::Node(NodeKind::VerificationUnitBinding),
@@ -4749,7 +4749,7 @@ impl AstNode for ContextClauseSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::ContextClause,
         items: &[LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "context_items",
             kind: LayoutItemKind::NodeChoice(&[
@@ -5249,7 +5249,7 @@ impl AstNode for DeclarationsSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::Declarations,
         items: &[LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "declarations",
             kind: LayoutItemKind::NodeChoice(&[
@@ -5566,13 +5566,13 @@ impl AstNode for ElementAssociationListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::ElementAssociationList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "element_associations",
             kind: LayoutItemKind::Node(NodeKind::ElementAssociation),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -6220,13 +6220,13 @@ impl AstNode for EntityClassEntryListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::EntityClassEntryList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "entity_class_entrys",
             kind: LayoutItemKind::Node(NodeKind::EntityClassEntry),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -6527,13 +6527,13 @@ impl AstNode for EntityDesignatorListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::EntityDesignatorList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "entity_designators",
             kind: LayoutItemKind::Node(NodeKind::EntityDesignator),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -6843,7 +6843,7 @@ impl AstNode for EntityStatementPartSyntax {
                 kind: LayoutItemKind::Node(NodeKind::DeclarationStatementSeparator),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "concurrent_statements",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -6913,7 +6913,7 @@ impl AstNode for EnumerationListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::EnumerationList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "enumeration_literals",
             kind: LayoutItemKind::TokenChoice(&[
@@ -6922,7 +6922,7 @@ impl AstNode for EnumerationListSyntax {
             ]),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -7205,7 +7205,7 @@ impl AstNode for ExpressionListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::ExpressionList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "expressions",
             kind: LayoutItemKind::NodeChoice(&[
@@ -7220,7 +7220,7 @@ impl AstNode for ExpressionListSyntax {
             ]),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -8425,7 +8425,7 @@ impl AstNode for GenerateStatementBodySyntax {
                 kind: LayoutItemKind::Node(NodeKind::GenerateBodyDeclarations),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "concurrent_statements",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -8943,13 +8943,13 @@ impl AstNode for IdentifierListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::IdentifierList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "identifier",
             kind: LayoutItemKind::Token(TokenKind::Identifier),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -9215,7 +9215,7 @@ impl AstNode for IfGenerateStatementSyntax {
                 kind: LayoutItemKind::Node(NodeKind::IfGenerateIf),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "if_generate_elsifs",
                 kind: LayoutItemKind::Node(NodeKind::IfGenerateElsif),
@@ -9286,7 +9286,7 @@ impl AstNode for IfStatementSyntax {
                 kind: LayoutItemKind::Node(NodeKind::SequenceOfStatements),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "if_statement_elsifs",
                 kind: LayoutItemKind::Node(NodeKind::IfStatementElsif),
@@ -9748,13 +9748,13 @@ impl AstNode for IndexSubtypeDefinitionListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::IndexSubtypeDefinitionList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "index_subtype_definitions",
             kind: LayoutItemKind::Node(NodeKind::IndexSubtypeDefinition),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -10102,13 +10102,13 @@ impl AstNode for InstantiationListListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::InstantiationListList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "labels",
             kind: LayoutItemKind::Token(TokenKind::Identifier),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -10417,7 +10417,7 @@ impl AstNode for InterfaceListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::InterfaceList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "interface_elements",
             kind: LayoutItemKind::NodeChoice(&[
@@ -10429,7 +10429,7 @@ impl AstNode for InterfaceListSyntax {
             ]),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "semi_colon",
             kind: LayoutItemKind::Token(TokenKind::SemiColon),
@@ -11309,13 +11309,13 @@ impl AstNode for LogicalNameListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::LogicalNameList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "logical_names",
             kind: LayoutItemKind::Token(TokenKind::Identifier),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -11555,7 +11555,7 @@ impl AstNode for NameSyntax {
                 ]),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "name_tails",
                 kind: LayoutItemKind::NodeChoice(&[
@@ -11677,13 +11677,13 @@ impl AstNode for NameListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::NameList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "names",
             kind: LayoutItemKind::Node(NodeKind::Name),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -12596,13 +12596,13 @@ impl AstNode for PackagePathSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::PackagePath,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "identifier",
             kind: LayoutItemKind::Token(TokenKind::Identifier),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "dot",
             kind: LayoutItemKind::Token(TokenKind::Dot),
@@ -13212,13 +13212,13 @@ impl AstNode for PartialPathnameSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::PartialPathname,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "pathname_elements",
             kind: LayoutItemKind::Node(NodeKind::PathnameElement),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "dot",
             kind: LayoutItemKind::Token(TokenKind::Dot),
@@ -14708,13 +14708,13 @@ impl AstNode for RecordResolutionSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::RecordResolution,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "record_element_resolutions",
             kind: LayoutItemKind::Node(NodeKind::RecordElementResolution),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -14955,7 +14955,7 @@ impl AstNode for RelativePathnameSyntax {
         kind: NodeKind::RelativePathname,
         items: &[
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "up_levels",
                 kind: LayoutItemKind::Node(NodeKind::UpLevel),
@@ -15554,13 +15554,13 @@ impl AstNode for SelectedExpressionsSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::SelectedExpressions,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "selected_expression_items",
             kind: LayoutItemKind::Node(NodeKind::SelectedExpressionItem),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -16018,13 +16018,13 @@ impl AstNode for SelectedWaveformsSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::SelectedWaveforms,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "selected_waveform_items",
             kind: LayoutItemKind::Node(NodeKind::SelectedWaveformItem),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -16098,13 +16098,13 @@ impl AstNode for SensitivityListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::SensitivityList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "names",
             kind: LayoutItemKind::Node(NodeKind::Name),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -16133,7 +16133,7 @@ impl AstNode for SequenceOfStatementsSyntax {
     const META: &'static Layout = &Layout::Sequence(Sequence {
         kind: NodeKind::SequenceOfStatements,
         items: &[LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "sequential_statements",
             kind: LayoutItemKind::NodeChoice(&[
@@ -16593,13 +16593,13 @@ impl AstNode for SignalListListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::SignalListList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "names",
             kind: LayoutItemKind::Node(NodeKind::Name),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -18149,13 +18149,13 @@ impl AstNode for TypeMarkListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::TypeMarkList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "type_marks",
             kind: LayoutItemKind::Node(NodeKind::Name),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -18416,7 +18416,7 @@ impl AstNode for UnitDeclarationsSyntax {
                 kind: LayoutItemKind::Node(NodeKind::PrimaryUnitDeclaration),
             },
             LayoutItem {
-                optional: false,
+                optional: true,
                 repeated: true,
                 name: "secondary_unit_declarations",
                 kind: LayoutItemKind::Node(NodeKind::SecondaryUnitDeclaration),
@@ -18836,13 +18836,13 @@ impl AstNode for VerificationUnitListSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::VerificationUnitList,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "names",
             kind: LayoutItemKind::Node(NodeKind::Name),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),
@@ -19031,13 +19031,13 @@ impl AstNode for WaveformElementsSyntax {
     const META: &'static Layout = &Layout::List(List {
         kind: NodeKind::WaveformElements,
         element: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "waveform_elements",
             kind: LayoutItemKind::Node(NodeKind::WaveformElement),
         },
         separator: &LayoutItem {
-            optional: false,
+            optional: true,
             repeated: true,
             name: "comma",
             kind: LayoutItemKind::Token(TokenKind::Comma),

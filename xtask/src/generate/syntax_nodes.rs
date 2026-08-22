@@ -308,7 +308,7 @@ fn collect_concrete_node_kinds(
 
 /// Build a `LayoutItem { ... }` token-stream for one item in a sequence.
 fn layout_item_ts(item: &Field, model: &Model) -> TokenStream {
-    let optional = item.is_optional();
+    let optional = item.may_be_absent();
     let repeated = item.is_repeated();
     let name_str = item.name.to_case(Case::Snake);
     // A reference through an alias describes whatever the alias resolves to.

@@ -369,7 +369,6 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
         | NodeKind::ConcurrentProcedureCallOrComponentInstantiationStatement
         | NodeKind::ConcurrentSelectedSignalAssignment
         | NodeKind::ConcurrentSimpleSignalAssignment
-        | NodeKind::ConcurrentStatements
         | NodeKind::ConditionalForceAssignment
         | NodeKind::ConditionalVariableAssignment
         | NodeKind::ConditionalWaveformAssignment

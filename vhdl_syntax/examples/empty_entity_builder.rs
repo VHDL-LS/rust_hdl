@@ -49,14 +49,13 @@ fn main() {
             .build();
 
     // build the VHDL file with entity and architecture
-    let file = DesignFileBuilder::new()
-        .add_design_units(DesignUnitBuilder::new(LibraryUnitSyntax::PrimaryUnit(
-            PrimaryUnitSyntax::EntityDeclaration(entity_declaration_node),
-        )))
-        .add_design_units(DesignUnitBuilder::new(LibraryUnitSyntax::SecondaryUnit(
-            SecondaryUnitSyntax::ArchitectureBody(architecture_syntax),
-        )))
-        .build();
+    let file = DesignFileBuilder::new(DesignUnitBuilder::new(LibraryUnitSyntax::PrimaryUnit(
+        PrimaryUnitSyntax::EntityDeclaration(entity_declaration_node),
+    )))
+    .add_design_units(DesignUnitBuilder::new(LibraryUnitSyntax::SecondaryUnit(
+        SecondaryUnitSyntax::ArchitectureBody(architecture_syntax),
+    )))
+    .build();
 
     // The canonical output consists of tokens separated by a single space.
     // Formatters can be used to nicely display this to the user.
