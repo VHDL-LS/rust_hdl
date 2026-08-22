@@ -4398,15 +4398,10 @@ pub struct DesignFileBuilder {
     design_units: Vec<DesignUnitSyntax>,
     eof_token: Token,
 }
-impl Default for DesignFileBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 impl DesignFileBuilder {
-    pub fn new() -> Self {
+    pub fn new(design_units: impl Into<DesignUnitSyntax>) -> Self {
         Self {
-            design_units: Vec::new(),
+            design_units: vec![design_units.into()],
             eof_token: TokenKind::Eof.canonical_token().unwrap(),
         }
     }

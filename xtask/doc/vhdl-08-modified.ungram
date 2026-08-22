@@ -494,7 +494,7 @@ ContextItem =
   LibraryClause | use_clause_context_item:UseClause | ContextReference
 
 DesignFile =
-  DesignUnit* '#eof'
+  DesignUnit DesignUnit* '#eof'
 
 DesignUnit =
   ContextClause LibraryUnit
