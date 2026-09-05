@@ -5,7 +5,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 use crate::latin_1::Latin1Str;
-use crate::string_interning::Symbol;
+use crate::string_interning::InternedLatin1;
 use crate::tokens::{TokenKind, Trivia};
 use std::io::{self, Write};
 
@@ -14,7 +14,7 @@ use std::io::{self, Write};
 pub struct Token {
     pub(crate) leading_trivia: Trivia,
     kind: TokenKind,
-    symbol: Symbol,
+    text: InternedLatin1,
 }
 
 impl Token {
@@ -22,7 +22,7 @@ impl Token {
         Token {
             leading_trivia,
             kind,
-            symbol: Symbol::get(text.as_ref()),
+            text: InternedLatin1::get(text.as_ref()),
         }
     }
 
@@ -48,7 +48,7 @@ impl Token {
     }
 
     pub fn text(&self) -> &Latin1Str {
-        self.symbol.text()
+        self.text.text()
     }
 
     /// The length of the main content of this token in bytes without any trivia

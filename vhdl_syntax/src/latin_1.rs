@@ -461,7 +461,7 @@ pub fn latin1_char_lowercased(chr: u8) -> u8 {
     }
 }
 
-fn latin1_char_uppercased(chr: u8) -> u8 {
+pub fn latin1_char_uppercased(chr: u8) -> u8 {
     match chr {
         b'a'..=b'z' | 0xE0..=0xF6 | 0xF8..=0xFE => chr - 32,
         _ => chr,
