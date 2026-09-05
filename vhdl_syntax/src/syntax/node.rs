@@ -223,7 +223,7 @@ impl SyntaxToken {
         }
     }
 
-    pub fn clone_with_text(&self, text: impl Into<Box<Latin1Str>>) -> SyntaxToken {
+    pub fn clone_with_text(&self, text: impl AsRef<Latin1Str>) -> SyntaxToken {
         let token = Token::new(self.kind(), text, self.green().leading_trivia().clone());
         self.clone_with_token(token)
     }

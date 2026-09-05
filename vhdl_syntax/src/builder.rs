@@ -164,7 +164,7 @@ domain_type!(
 );
 
 impl AbstractLiteral {
-    fn new(text: impl Into<Box<Latin1Str>>) -> Self {
+    fn new(text: impl AsRef<Latin1Str>) -> Self {
         AbstractLiteral(Token::new(
             TokenKind::AbstractLiteral,
             text,
@@ -328,7 +328,7 @@ impl CharLiteral {
         let text = [b'\'', byte, b'\''];
         CharLiteral(Token::new(
             TokenKind::CharacterLiteral,
-            &text,
+            text,
             default_trivia(),
         ))
     }

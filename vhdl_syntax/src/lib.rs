@@ -13,5 +13,5 @@ pub mod serde;
 pub mod standard;
 pub mod syntax;
 pub mod text;
-mod token_interning;
+pub mod string_interning;
 pub mod tokens;

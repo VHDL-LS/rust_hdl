@@ -5,7 +5,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 use crate::latin_1::Latin1Str;
-use crate::token_interning::Symbol;
+use crate::string_interning::Symbol;
 use crate::tokens::{TokenKind, Trivia};
 use std::io::{self, Write};
 
@@ -13,14 +13,16 @@ use std::io::{self, Write};
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Token {
     pub(crate) leading_trivia: Trivia,
+    kind: TokenKind,
     symbol: Symbol,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, text: impl Into<Box<Latin1Str>>, leading_trivia: Trivia) -> Token {
+    pub fn new(kind: TokenKind, text: impl AsRef<Latin1Str>, leading_trivia: Trivia) -> Token {
         Token {
             leading_trivia,
-            symbol: Symbol::allocate(kind, text.into()),
+            kind,
+            symbol: Symbol::get(text.as_ref()),
         }
     }
 
@@ -29,12 +31,12 @@ impl Token {
     }
 
     #[cfg(test)]
-    pub fn simple(kind: TokenKind, text: impl Into<Box<Latin1Str>>) -> Token {
+    pub fn simple(kind: TokenKind, text: impl AsRef<Latin1Str>) -> Token {
         Token::new(kind, text, Trivia::default())
     }
 
     pub fn kind(&self) -> TokenKind {
-        self.symbol.kind()
+        self.kind
     }
 
     pub fn leading_trivia(&self) -> &Trivia {

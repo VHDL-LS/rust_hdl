@@ -217,13 +217,8 @@ impl Clone for Latin1String {
 }
 
 impl From<&Latin1Str> for Box<Latin1Str> {
-    /// Creates a boxed [`Latin1Str`] from a reference.
-    ///
-    /// This will allocate and clone `value` to it.
     fn from(value: &Latin1Str) -> Self {
-        let boxed: Box<[u8]> = value.inner.into();
-        let rw = Box::into_raw(boxed) as *mut Latin1Str;
-        unsafe { Box::from_raw(rw) }
+        value.to_boxed()
     }
 }
 
@@ -233,6 +228,12 @@ impl From<&mut Latin1Str> for Box<Latin1Str> {
     /// This will allocate and clone `value` to it.
     fn from(value: &mut Latin1Str) -> Self {
         Self::from(&*value)
+    }
+}
+
+impl AsRef<Latin1Str> for Latin1String {
+    fn as_ref(&self) -> &Latin1Str {
+        self.as_latin1_str()
     }
 }
 
@@ -453,14 +454,14 @@ pub struct Latin1Str {
     inner: [u8],
 }
 
-fn iso_8859_1_lowercase(chr: u8) -> u8 {
+pub fn latin1_char_lowercased(chr: u8) -> u8 {
     match chr {
         b'A'..=b'Z' | 0xC0..=0xD6 | 0xD8..=0xDE => chr + 32,
         _ => chr,
     }
 }
 
-fn iso_8859_1_uppercase(chr: u8) -> u8 {
+fn latin1_char_uppercased(chr: u8) -> u8 {
     match chr {
         b'a'..=b'z' | 0xE0..=0xF6 | 0xF8..=0xFE => chr - 32,
         _ => chr,
@@ -553,13 +554,13 @@ impl Latin1Str {
 
     pub fn make_lowercase(&mut self) {
         for i in 0..self.inner.len() {
-            self.inner[i] = iso_8859_1_lowercase(self.inner[i]);
+            self.inner[i] = latin1_char_lowercased(self.inner[i]);
         }
     }
 
     pub fn make_uppercase(&mut self) {
         for i in 0..self.inner.len() {
-            self.inner[i] = iso_8859_1_uppercase(self.inner[i]);
+            self.inner[i] = latin1_char_uppercased(self.inner[i]);
         }
     }
 
@@ -626,6 +627,13 @@ impl Latin1Str {
         } else {
             Cow::Owned(iso_8859_1_to_utf8(&self.inner))
         }
+    }
+
+    /// Creates a boxed [`Latin1Str`] from this reference
+    pub fn to_boxed(&self) -> Box<Latin1Str> {
+        let boxed: Box<[u8]> = self.inner.into();
+        let raw = Box::into_raw(boxed) as *mut Latin1Str;
+        unsafe { Box::from_raw(raw) }
     }
 }
 
