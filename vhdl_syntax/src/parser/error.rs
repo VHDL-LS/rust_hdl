@@ -5,7 +5,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 //! Syntax error definitions and printing
-//! 
+//!
 //! As opposed to other implementations, syntax errors are typed, meaning a user can
 //! define the rendering and custom message printing based on their preferences.
 //!

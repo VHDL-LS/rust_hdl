@@ -64,6 +64,7 @@ use crate::syntax::meta::Layout;
 pub use crate::syntax::node::{SyntaxElement, SyntaxNode, SyntaxToken};
 use crate::syntax::rewrite::RewriteAction;
 use crate::syntax::visitor::Preorder;
+pub use crate::tokens::TokenKind;
 pub use generated::*;
 
 pub trait AstNode

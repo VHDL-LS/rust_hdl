@@ -5,7 +5,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 //! Basic building blocks of syntax trees
-//! 
+//!
 //! The first step of processing a VHDL file is tokenizing: turning bytes into small chunks.
 //! A [`Token`] knows its kind, the text, and [`Trivia`] that *precedes* it: the whitespace,
 //! newlines and comments between the previous token and this one.

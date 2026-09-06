@@ -5,7 +5,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
 //! A lossless library for tokenizing, parsing, inspecting and modifying VHDL code.
-//! 
+//!
 //! **Lossless** means that the a parsed tree contains the entire source file including whitespaces,
 //! comments, or fragments that are invalid VHDL. As a consequence, parsing a tree from input and writing
 //! the parsed tree back out reproduces identical input. This is opposed to, for example, a compiler that
@@ -26,9 +26,9 @@
 //! design.raw().write_to(&mut out).unwrap();
 //! assert_eq!(out, src.as_bytes());
 //! ```
-//! 
+//!
 //! # Untyped tree
-//! 
+//!
 //! A consequence of being lossless is that the tree must be able to represent all possible, potentially
 //! incorrect, inputs. To do this, each node can contain arbitrary children.
 //! This is opposed to a typed node that contains a defined subset of children.
