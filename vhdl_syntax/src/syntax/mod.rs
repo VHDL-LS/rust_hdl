@@ -1,9 +1,54 @@
-//! AST elements, Syntax Tokens and methods to traverse and rewrite those.
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
+
+//! The syntax tree: Untyped nodes, and typed views.
+//!
+//! The result of parsing a file, or building a VHDL element is a tree of [`SyntaxNode`]s and
+//! [`SyntaxElement`]s. Every node and every token has the same rust type, they are told apart at
+//! runtime by their [`NodeKind`] or [`TokenKind`].
+//! This enables generic tree traversal, rewriting, and pretty-printing.
+//!
+//! On top of the untyped tree sit generated `*Syntax` types, one per production of the VHDL grammar.
+//! They are simply views of the untyped tree with typed accessors with cheap cloning and concurrent
+//! read characteristics.  
+//!
+//! ```
+//! use vhdl_syntax::parser;
+//! use vhdl_syntax::syntax::visitor::WalkEvent;
+//! use vhdl_syntax::syntax::{AstNode, EntityDeclarationSyntax, NodeKind};
+//!
+//! let (design, _) = parser::parse("\
+//! entity foo is
+//! end foo;
+//! ");
+//!
+//! // Untyped: walk the tree and look at kinds.
+//! let entity = design
+//!     .walk()
+//!     .find_map(|event| match event {
+//!         WalkEvent::Enter(node) if node.kind() == NodeKind::EntityDeclaration => Some(node),
+//!         _ => None,
+//!     })
+//!     .unwrap();
+//!
+//! // Typed: the same node, addressed by name.
+//! let entity = EntityDeclarationSyntax::cast(entity).unwrap();
+//! let name = entity
+//!     .entity_declaration_preamble()
+//!     .unwrap()
+//!     .identifier_token()
+//!     .unwrap();
+//! assert_eq!(name.text(), "foo");
+//! ```
+//!
+//! # Why is every accessor optional?
+//!
+//! Because the parser never fails, a tree may be missing anything: For example, `entity foo` parses, but the resulting
+//! syntax node has no epilogue.
+
 pub(crate) mod builder;
 pub mod child;
 #[allow(unused)]

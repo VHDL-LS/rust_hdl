@@ -4,13 +4,17 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
-//! Syntax errors
+//! Syntax error definitions and printing
+//! 
+//! As opposed to other implementations, syntax errors are typed, meaning a user can
+//! define the rendering and custom message printing based on their preferences.
 //!
-//! Note on display / formatting: The error format is `<span> <error message>`
-//! This is mostly targeted towards debug outputs.
-//! Useful, human-oriented error messages require true source-location information,
-//! and their rendering is opinionated.
-//! For the span <-> source code mapping, consult the [text](crate::text) module.
+//! *Note*: The printed error format is `<span> <error message>` where `span` is a byte-span
+//! (start to end, both inclusive), not a `line:col` span that one might expect.
+//! How to render useful, human-oriented error messages is opinionated and also depends
+//! on the encoding of a text editor a user might see.
+//! This crate aims to stay unopinonated and therefore only provides utilities like
+//! [span to source code mapping](crate::text).
 // TODO: Once a linter crate exists, link that here.
 
 use std::error::Error;
@@ -22,6 +26,7 @@ use crate::syntax::NodeKind;
 use crate::tokens::tokenizer::{LexErr, LexErrKind, LexErrPos, UnterminatedKind};
 use crate::tokens::{Token, TokenKind};
 
+/// A span in the source file as range of byte indices
 pub type Span = Range<usize>;
 
 /// Syntax error kinds that may occur when parsing a VHDL source file

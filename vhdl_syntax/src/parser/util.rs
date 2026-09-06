@@ -30,7 +30,6 @@ use crate::tokens::{Keyword, TokenKind};
 ///     A, B => { /*...*/ }
 /// )
 /// ```
-#[macro_export]
 macro_rules! match_next_token {
     ($parser:expr, $($body:tt)*) => {
         match_next_token!(@inner $parser, [[ $($body)* ]], [[ $($body)* ]])
@@ -38,28 +37,6 @@ macro_rules! match_next_token {
     (@inner $parser:expr, [[ $($($pattern:pat_param),+ => $action:expr),+ $(,)? ]], [[ $($($pattern_expr:expr),+ => $_action_expr:expr),+ $(,)? ]]) => {
         match $parser.peek_token() {
             $($($pattern)|+ => $action),+,
-            _ => {
-                $parser.expect_tokens_recover([$($($pattern_expr),+),+]);
-                Default::default()
-            }
-        }
-    };
-}
-
-/// Allows match-style syntax for tokens.
-/// This function consumes the next token, if found.
-/// If the token was not seen, or the parser is at EOF, this function pushes an error.
-#[macro_export]
-macro_rules! match_next_token_consume {
-    ($parser:expr, $($body:tt)*) => {
-        match_next_token_consume!(@inner $parser, [[ $($body)* ]], [[ $($body)* ]])
-    };
-    (@inner $parser:expr, [[ $($($pattern:pat_param),+ => $action:expr),+ ]], [[ $($($pattern_expr:expr),+ => $_action_expr:expr),+ ]]) => {
-        match $parser.peek_token() {
-            $($($pattern)|+ => {
-                $parser.skip();
-                $action
-            }),+
             _ => {
                 $parser.expect_tokens_recover([$($($pattern_expr),+),+]);
                 Default::default()

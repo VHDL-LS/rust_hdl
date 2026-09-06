@@ -1,4 +1,46 @@
-//! Facilities to rewrite a [SyntaxNode]
+//! Deriving a changed tree from an existing one.
+//!
+//! Syntax trees are immutable, so nothing here edits in place. A rewrite walks the tree, asks a
+//! closure what to do with each child, and builds a new root; everything the closure leaves alone
+//! is shared with the old tree rather than copied. The original stays valid and unchanged, which
+//! is what lets a tool hold on to a parse while it speculates about edits to it.
+//!
+//! Because the tree is lossless, so is the edit: what you did not touch comes back out byte for
+//! byte, including the comments and indentation around what you did.
+//!
+//! ```
+//! use vhdl_syntax::parser;
+//! use vhdl_syntax::syntax::node::SyntaxElement;
+//! use vhdl_syntax::syntax::rewrite::RewriteAction;
+//! use vhdl_syntax::syntax::AstNode;
+//! use vhdl_syntax::tokens::TokenKind;
+//!
+//! let (design, _) = parser::parse("entity foo is -- keep me\nend foo;\n");
+//!
+//! let renamed = design.raw().rewrite_tokens(|token| {
+//!     if token.kind() == TokenKind::Identifier && token.text() == "foo" {
+//!         RewriteAction::Change(SyntaxElement::Token(
+//!             token.clone_with_utf8_text("bar").unwrap(),
+//!         ))
+//!     } else {
+//!         RewriteAction::Leave
+//!     }
+//! });
+//!
+//! let mut out = Vec::new();
+//! renamed.write_to(&mut out).unwrap();
+//! assert_eq!(out, b"entity bar is -- keep me\nend bar;\n");
+//! ```
+//!
+//! # Two things to know
+//!
+//! A rewrite is applied to the *children* of the node it starts from, so a node can never replace
+//! itself — start from an ancestor of what you mean to change.
+//!
+//! [`RewriteAction::Leave`] descends into a node, [`RewriteAction::Change`] does not: a
+//! replacement is taken as final, and the subtree it stands for is never visited. Rewriting an
+//! outer node and its inner ones in a single pass is therefore not possible; run a second pass
+//! over the result instead.
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.

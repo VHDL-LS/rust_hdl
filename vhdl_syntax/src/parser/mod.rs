@@ -1,9 +1,40 @@
-//! Facilities for parsing an input file or string into a [SyntaxNode]
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
+
+//! Parsing tokens into a syntax tree.
+//!
+//! The main entry point is the [`parse`] function that takes some input and produces a tree
+//! covering the whole input plus a list of [`SyntaxErr`](error::SyntaxErr)s.
+//!
+//! ```
+//! use vhdl_syntax::parser;
+//! use vhdl_syntax::syntax::{AstNode, NodeKind};
+//!
+//! // The architecture is missing its name.
+//! let (design, errors) = parser::parse("\
+//! architecture of foo is -- Note: missing architecture name
+//! begin
+//! end;
+//! ");
+//!
+//! assert_eq!(parser::error::display_errors(&errors), "12..12 expected Identifier");
+//!
+//! // The tree still contains an architecture
+//! let kinds: Vec<_> = design
+//!     .raw()
+//!     .children()
+//!     .filter_map(|unit| unit.first_child().map(|node| node.kind()))
+//!     .collect();
+//! assert_eq!(kinds, [NodeKind::ArchitectureBody]);
+//! ```
+//!
+//! # Standards
+//!
+//! [`parse`] currently only works for VHDL-2008 without Property Specification Language (PSL) statements.
+//! Supporting more revisions is forseen in the future.
 use crate::parser::error_recovery::RecoveryState;
 use crate::standard::VHDLStandard;
 use crate::syntax::node::SyntaxNode;
@@ -27,7 +58,7 @@ pub(crate) mod productions;
 /// [Syntax Nodes](crate::syntax::node::SyntaxNode) that form a Concrete Syntax Tree.
 /// These syntax nodes can be converted to [AST Nodes](crate::syntax::AstNode)
 /// to manipulate and traverse the syntax tree.
-pub struct Parser {
+pub(crate) struct Parser {
     token_stream: TokenStream,
     builder: builder::NodeBuilder,
     standard: VHDLStandard,
