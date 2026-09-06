@@ -7,6 +7,7 @@
 //! This example uses the builder-API to show how to programatically create a testbench entity.
 //! The builder-API is feature-complete, but may not be ergonomic for common cases such as
 //! testbench generation.
+
 use vhdl_syntax::{
     fmt::write::FormatToExt,
     syntax::{

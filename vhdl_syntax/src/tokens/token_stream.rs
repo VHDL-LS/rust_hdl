@@ -161,6 +161,18 @@ impl From<&[u8]> for TokenStream {
     }
 }
 
+impl <const N: usize> From<&[u8;N]> for TokenStream {
+    fn from(value: &[u8;N]) -> Self {
+        Tokenizer::new(value.iter().copied()).collect()
+    }
+}
+
+impl <const N: usize> From<[u8;N]> for TokenStream {
+    fn from(value: [u8;N]) -> Self {
+        Tokenizer::new(value.into_iter()).collect()
+    }
+}
+
 impl From<&str> for TokenStream {
     fn from(value: &str) -> Self {
         Tokenizer::new(value.bytes()).collect()

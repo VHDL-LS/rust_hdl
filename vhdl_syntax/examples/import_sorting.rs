@@ -1,10 +1,12 @@
-//! Alphabetically sorts and deduplicates `use` clauses inside a design unit's context clause using
-//! the [`Rewriter`](vhdl_syntax::syntax::rewrite) API.
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
+
+//! Alphabetically sorts and deduplicates `use` clauses inside a design unit's context clause using
+//! the [`Rewriter`](vhdl_syntax::syntax::rewrite) API.
+
 use std::collections::HashMap;
 use vhdl_syntax::fmt::write::FormatToExt;
 use vhdl_syntax::parser;

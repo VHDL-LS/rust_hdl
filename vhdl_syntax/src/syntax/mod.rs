@@ -16,7 +16,7 @@ pub mod validate;
 pub mod visitor;
 
 use crate::syntax::meta::Layout;
-use crate::syntax::node::{SyntaxElement, SyntaxNode};
+pub use crate::syntax::node::{SyntaxElement, SyntaxNode, SyntaxToken};
 use crate::syntax::rewrite::RewriteAction;
 use crate::syntax::visitor::Preorder;
 pub use generated::*;

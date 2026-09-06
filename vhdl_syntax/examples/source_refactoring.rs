@@ -1,3 +1,9 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+//
+// Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
+
 //! Shows how a user can refactor source code based on parsed input.
 //! The goal of this executable is to replace every entity named 'foo' with a new entity named
 //! 'no_longer_foo'.
@@ -8,11 +14,7 @@
 //! function that is applied to every node. The function returns [RewriteAction::Leave], if the
 //! node is to be left as-is. However, the user can also return [RewriteAction::Change] to
 //! change the current node into a different one.
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
-//
-// Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
+
 use vhdl_syntax::fmt::write::FormatToExt;
 use vhdl_syntax::parser;
 use vhdl_syntax::syntax::node::SyntaxElement;

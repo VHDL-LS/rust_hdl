@@ -2,6 +2,8 @@
 
 A lossless library for tokenizing, parsing, inspecting, and modifying VHDL code.
 
+Currently processes VHDL-2008 code.
+
 ## Status
 
 > [!WARNING]
@@ -19,16 +21,25 @@ cargo add vhdl_syntax
 
 To parse a VHDL file, call the `parse` function from the `parser` submodule:
 
-```rust,ignore
+```rust
 use vhdl_syntax::parser;
 
-let vhdl_file = ...
+let vhdl_file = b"\
+library ieee;
+    use ieee.std_logic_1164.all;
+
+entity foo is
+    port (
+        clk : in std_logic
+    );
+end entity foo;
+";
 let (cst, diagnostics) = parser::parse(vhdl_file);
 ```
 
 `diagnostics` is a `Vec<SyntaxErr>` that reports any syntactical errors from the input file. `cst` is the concrete syntax tree describing the parsed VHDL file.
 
-`SyntaxErr` implements `std::error::Error` and `Display` (`<span> <message>`, e.g. `4..12 unterminated string literal`); use `parser::error::display_errors` to render a whole diagnostic list, one error per line. Human-oriented messages with line/column information require true source locations — see the `text` module for that.
+Refer to the examples for concrete use-cases:
 
 ## Examples
 

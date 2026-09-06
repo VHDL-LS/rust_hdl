@@ -1,3 +1,9 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+//
+// Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
+
 //! Public API for abstract and untyped nodes.
 //!
 //! Every language element is either represented by a [SyntaxToken] or a [SyntaxNode].
@@ -42,11 +48,6 @@
 //!
 //! Note that currently the main effort is on creating a public and well-tested API.
 //! Many known optimization possibilities are currently ignored.
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
-//
-// Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
 use crate::latin_1::{Latin1Str, Latin1String, Utf8ToLatin1Error};
 use crate::syntax::child::Child;
@@ -100,7 +101,7 @@ impl From<SyntaxToken> for SyntaxElement {
     }
 }
 
-/// SyntaxTokens, in conjunction with [SyntaxNode](crate::syntax::SyntaxNode)s
+/// SyntaxTokens, in conjunction with [SyntaxNode]s
 /// are the building blocks of the concrete syntax tree.
 #[derive(Clone, Eq, PartialEq)]
 pub struct SyntaxToken(Arc<SyntaxTokenData>);
@@ -338,10 +339,10 @@ pub struct SyntaxTokenData {
     green: GreenToken,
 }
 
-/// SyntaxNodes, in conjunction with [SyntaxToken](crate::syntax::SyntaxToken)s
+/// SyntaxNodes, in conjunction with [SyntaxToken]s
 /// are the building blocks of the concrete syntax tree.
 /// Every syntax node carries
-/// - the [NodeKind](crate::syntax::NodeKind), e.g., `EntityDeclaration`, `Name`, ...
+/// - the [NodeKind], e.g., `EntityDeclaration`, `Name`, ...
 /// - One or more children where each child is either another node or a token
 /// - its position in the tree: the parent, and an index into the parent node
 ///

@@ -635,6 +635,16 @@ impl Latin1Str {
         let raw = Box::into_raw(boxed) as *mut Latin1Str;
         unsafe { Box::from_raw(raw) }
     }
+
+    pub fn eq_ignore_case(&self, other: impl AsRef<Latin1Str>) -> bool {
+        // TODO: optimize this. No need to allocate for comparison only
+        self.to_lowercase() == other.as_ref().to_lowercase()
+    }
+
+    pub fn neq_ignore_case(&self, other: impl AsRef<Latin1Str>) -> bool {
+        // TODO: optimize this. No need to allocate for comparison only
+        self.to_lowercase() != other.as_ref().to_lowercase()
+    }
 }
 
 fn iso_8859_1_to_utf8(bytes: &[u8]) -> String {
