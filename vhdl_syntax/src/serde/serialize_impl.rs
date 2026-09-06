@@ -9,7 +9,7 @@ use crate::{
         green::{GreenChild, GreenNode, GreenToken},
         node::SyntaxNode,
     },
-    tokens::{trivia_piece::Comment, Token, Trivia, TriviaPiece},
+    tokens::{comment::Comment, Token, Trivia, TriviaPiece},
 };
 
 impl<'a> Serialize for Serializable<'a, GreenChild> {

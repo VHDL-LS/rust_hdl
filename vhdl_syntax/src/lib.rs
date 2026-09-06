@@ -6,6 +6,7 @@
 
 pub mod builder;
 pub mod fmt;
+pub(crate) mod interning;
 pub mod latin_1;
 pub mod parser;
 #[cfg(feature = "serde")]
@@ -13,5 +14,4 @@ pub mod serde;
 pub mod standard;
 pub mod syntax;
 pub mod text;
-pub mod string_interning;
 pub mod tokens;

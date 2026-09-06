@@ -7,6 +7,7 @@
 
 #[macro_use]
 pub mod token;
+pub mod comment;
 pub mod token_kind;
 pub mod token_stream;
 pub mod tokenizer;

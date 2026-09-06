@@ -14,7 +14,7 @@ use crate::{
         green::{GreenChild, GreenNode, GreenToken},
         node::{SyntaxNode, SyntaxToken},
     },
-    tokens::{trivia_piece::Comment, Token, Trivia, TriviaPiece},
+    tokens::{comment::Comment, Token, Trivia, TriviaPiece},
 };
 
 // MARK: Token

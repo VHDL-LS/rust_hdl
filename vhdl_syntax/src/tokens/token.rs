@@ -4,17 +4,20 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
+use crate::interning::{Interned, Interner};
 use crate::latin_1::Latin1Str;
-use crate::string_interning::InternedLatin1;
 use crate::tokens::{TokenKind, Trivia};
 use std::io::{self, Write};
+use std::sync::RwLock;
+
+static STR_INTERNER: RwLock<Interner<Latin1Str>> = RwLock::new(Interner::new());
 
 /// A source-code token.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Token {
     pub(crate) leading_trivia: Trivia,
     kind: TokenKind,
-    text: InternedLatin1,
+    text: Interned<Latin1Str>,
 }
 
 impl Token {
@@ -22,7 +25,7 @@ impl Token {
         Token {
             leading_trivia,
             kind,
-            text: InternedLatin1::get(text.as_ref()),
+            text: Interned::get(&STR_INTERNER, text.as_ref()),
         }
     }
 
@@ -48,7 +51,7 @@ impl Token {
     }
 
     pub fn text(&self) -> &Latin1Str {
-        self.text.text()
+        self.text.value(&STR_INTERNER)
     }
 
     /// The length of the main content of this token in bytes without any trivia

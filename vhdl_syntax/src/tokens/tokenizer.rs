@@ -6,7 +6,7 @@
 
 use crate::latin_1::{Latin1Str, Latin1String};
 use crate::standard::VHDLStandard;
-use crate::tokens::trivia_piece::Comment;
+use crate::tokens::comment::Comment;
 use crate::tokens::TokenKind::*;
 use crate::tokens::{Keyword as Kw, Trivia, TriviaPiece};
 use crate::tokens::{Token, TokenKind};
@@ -694,8 +694,8 @@ fn can_be_char(last_token_kind: Option<TokenKind>) -> bool {
 #[cfg(test)]
 mod tests {
 
+    use crate::tokens::comment::Comment;
     use crate::tokens::tokenizer::Tokenize;
-    use crate::tokens::trivia_piece::Comment;
     use crate::tokens::TokenKind;
     use crate::tokens::TokenKind::*;
     use crate::tokens::{Keyword as Kw, Token, Trivia, TriviaPiece};
