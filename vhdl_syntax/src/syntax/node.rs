@@ -60,6 +60,7 @@ use std::iter;
 use std::ops::Range;
 use std::sync::Arc;
 
+/// A union of either a child or a token
 pub type SyntaxElement = Child<SyntaxNode, SyntaxToken>;
 
 impl SyntaxElement {
@@ -99,6 +100,8 @@ impl From<SyntaxToken> for SyntaxElement {
     }
 }
 
+/// SyntaxTokens, in conjunction with [SyntaxNode](crate::syntax::SyntaxNode)s
+/// are the building blocks of the concrete syntax tree.
 #[derive(Clone, Eq, PartialEq)]
 pub struct SyntaxToken(Arc<SyntaxTokenData>);
 
@@ -127,10 +130,14 @@ impl SyntaxToken {
         }))
     }
 
+    /// Returns the offset in bytes of this token.
+    /// This includes leading trivia.
     pub fn offset(&self) -> usize {
         self.0.offset
     }
 
+    /// Returns the offset of the text-portion only.
+    /// This is similar to [SyntaxToken::offset], but excludes leading trivia.
     pub fn text_offset(&self) -> usize {
         self.offset() + self.leading_trivia().byte_len()
     }
@@ -152,14 +159,17 @@ impl SyntaxToken {
         self.text_offset()..self.offset() + self.byte_len()
     }
 
+    /// Returns the token associated to this `SyntaxToken`
     pub fn token(&self) -> &Token {
         self.green().token()
     }
 
+    /// Returns the length, in bytes, of this token (including leading trivia)
     pub fn byte_len(&self) -> usize {
         self.green().byte_len()
     }
 
+    /// Returns the token-kind
     pub fn kind(&self) -> TokenKind {
         self.green().kind()
     }
@@ -179,10 +189,12 @@ impl SyntaxToken {
             .unwrap_or_default()
     }
 
+    /// Returns the token-text, stripped of any trivia
     pub fn text(&self) -> &Latin1Str {
         self.green().text()
     }
 
+    /// Returns the parent node that contains this token
     pub fn parent(&self) -> SyntaxNode {
         self.0.parent.clone()
     }
