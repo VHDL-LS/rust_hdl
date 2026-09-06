@@ -195,10 +195,45 @@ impl SyntaxToken {
         self.0.parent.children_with_tokens()
     }
 
+    /// Returns the previous child or token.
+    ///
+    /// # Example
+    ///
+    /// If the previous element is a node, `prev_sibling` selects the node
+    ///
+    /// ```text
+    /// Parent
+    /// ├── Previous node  <- prev_sibling()
+    /// │   └── "previous"
+    /// └── Self           <- self
+    ///     └── "current"
+    /// ```
+    ///
+    /// If the previous element is a token, `prev_sibling` selects the token
+    ///
+    /// ```text
+    /// Parent
+    /// ├── "previous"  <- prev_sibling()
+    /// └── Self           <- self
+    ///     └── "current"
+    /// ```
     pub fn prev_sibling_or_token(&self) -> Option<SyntaxElement> {
         self.siblings().nth(self.index().checked_sub(1)?)
     }
 
+    /// Returns the next child or token.
+    ///
+    /// # Example
+    ///
+    /// If `self` is the second child, `prev_sibling` selects the first element
+    ///
+    /// ```text
+    /// Parent
+    /// ├── Previous node  <- prev_sibling()
+    /// │   └── "previous"
+    /// └── Self           <- self
+    ///     └── "current"
+    /// ```
     pub fn next_sibling_or_token(&self) -> Option<SyntaxElement> {
         self.siblings().nth(self.index().checked_add(1)?)
     }
@@ -291,6 +326,22 @@ pub struct SyntaxTokenData {
     green: GreenToken,
 }
 
+/// SyntaxNodes, in conjunction with [SyntaxToken](crate::syntax::SyntaxToken)s
+/// are the building blocks of the concrete syntax tree.
+/// Every syntax node carries
+/// - the [NodeKind](crate::syntax::NodeKind), e.g., `EntityDeclaration`, `Name`, ...
+/// - One or more children where each child is either another node or a token
+/// - its position in the tree: the parent, and an index into the parent node
+///
+/// ## Tree traversal
+/// Since a syntax node carries its parent and an index into the parent,
+/// the tree can be traversed: children of this node, siblings, and parents can be visited from this node.
+/// Use, for example, the [SyntaxNode::parent], [SyntaxNode::children], [SyntaxNode::prev_sibling], [SyntaxNode::next_sibling] methods
+///
+/// ## Construction
+/// Syntax nodes are never constructed by the user directly.
+/// Instead, they are either produced by the [parser](crate::parser),
+/// or by one of the [builders](crate::syntax::builders)
 #[derive(Clone, Eq, PartialEq)]
 pub struct SyntaxNode(Arc<SyntaxNodeData>);
 
@@ -312,22 +363,29 @@ pub struct SyntaxNodeData {
 }
 
 impl SyntaxNode {
+    /// Returns the parent, i.e., the syntax node that has this as a direct child.
     pub fn parent(&self) -> Option<SyntaxNode> {
         self.0.parent.clone()
     }
 
+    /// Returns the kind of this node
     pub fn kind(&self) -> NodeKind {
         self.0.green.kind()
     }
 
+    /// Returns the absolute byte-offset of this syntax node from the origin
     pub fn offset(&self) -> usize {
         self.0.offset
     }
 
+    /// Returns the length, in bytes, of the text contained within this syntax nodes
     pub fn byte_len(&self) -> usize {
         self.green().byte_len()
     }
 
+    /// Produces an iterator over all direct children of this node in lexicographical order
+    /// (i.e., as written in the source text).
+    /// As opposed of simply [SyntaxNode::children], this includes tokens too.
     pub fn children_with_tokens(
         &self,
     ) -> impl Iterator<Item = Child<SyntaxNode, SyntaxToken>> + use<'_> {
@@ -352,11 +410,23 @@ impl SyntaxNode {
             })
     }
 
+    /// Produces an iterator over all direct (i.e., not nested) child syntax nodes.
+    /// To iterate over all child nodes and all tokens use [SyntaxNode::children_with_tokens]
     pub fn children(&self) -> impl Iterator<Item = SyntaxNode> + use<'_> {
         self.children_with_tokens()
             .filter_map(|child| child.as_node())
     }
 
+    /// Returns an iterator over all direct (i.e., not nested) child tokens.
+    /// To iterate over all child nodes and all tokens use [SyntaxNode::children_with_tokens]
+    pub fn tokens(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        self.children_with_tokens()
+            .filter_map(|element| element.as_token())
+    }
+
+    /// Return the first token of this node.
+    /// Note that this method searches deep, i.e., also considers tokens of sub-nodes
+    // TODO: drop the `Option` as `SyntaxNode`s cannot be empty.
     pub fn first_token(&self) -> Option<SyntaxToken> {
         self.children_with_tokens()
             .filter_map(|node| match node {
@@ -366,52 +436,110 @@ impl SyntaxNode {
             .next()
     }
 
-    pub fn tokens(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
-        self.children_with_tokens()
-            .filter_map(|element| element.as_token())
-    }
-
+    /// Returns the first child-node of this node.
+    // TODO: drop the `Option` as `SyntaxNode`s cannot be empty.
     pub fn first_child(&self) -> Option<SyntaxNode> {
         self.children().next()
     }
 
+    /// Returns the first element in this node, i.e, a `SyntaxToken` if its a token
+    /// or a `SyntaxNode` if its a node
+    // TODO: drop the `Option` as `SyntaxNode`s cannot be empty.
     pub fn first_child_or_token(&self) -> Option<SyntaxElement> {
         self.children_with_tokens().next()
     }
 
+    /// Returns the `nth` child (i.e., syntax node) of this node
     pub fn nth_child(&self, n: usize) -> Option<SyntaxNode> {
         self.children().nth(n)
     }
 
-    pub fn nth_child_or_token(&self, n: usize) -> Option<Child<SyntaxNode, SyntaxToken>> {
+    /// Returns the `nth` child or token of this node
+    pub fn nth_child_or_token(&self, n: usize) -> Option<SyntaxElement> {
         self.children_with_tokens().nth(n)
     }
 
-    pub fn prev_sibling(&self) -> Option<Child<SyntaxNode, SyntaxToken>> {
-        self.parent()?
-            .nth_child_or_token(self.index().checked_sub(1)?)
+    /// Returns the previous sibling node
+    pub fn prev_sibling(&self) -> Option<SyntaxNode> {
+        self.parent()?.nth_child(self.index().checked_sub(1)?)
     }
 
+    /// Returns the next sibling node
     pub fn next_sibling(&self) -> Option<SyntaxNode> {
         self.parent()?.nth_child(self.0.index + 1)
     }
 
+    /// Returns the previous child or token.
+    ///
+    /// # Example
+    ///
+    /// If the previous element is a node, `prev_sibling` selects the node
+    ///
+    /// ```text
+    /// Parent
+    /// ├── Previous node  <- prev_sibling()
+    /// │   └── "previous"
+    /// └── Self           <- self
+    ///     └── "current"
+    /// ```
+    ///
+    /// If the previous element is a token, `prev_sibling` selects the token
+    ///
+    /// ```text
+    /// Parent
+    /// ├── "previous"  <- prev_sibling()
+    /// └── Self           <- self
+    ///     └── "current"
+    /// ```
+    pub fn prev_sibling_or_token(&self) -> Option<SyntaxElement> {
+        self.parent()?
+            .children_with_tokens()
+            .nth(self.index().checked_sub(1)?)
+    }
+
+    /// Returns the next child or token.
+    ///
+    /// # Example
+    ///
+    /// If `self` is the second child, `prev_sibling` selects the first element
+    ///
+    /// ```text
+    /// Parent
+    /// ├── Previous node  <- prev_sibling()
+    /// │   └── "previous"
+    /// └── Self           <- self
+    ///     └── "current"
+    /// ```
+    pub fn next_sibling_or_token(&self) -> Option<SyntaxElement> {
+        self.parent()?
+            .children_with_tokens()
+            .nth(self.index().checked_add(1)?)
+    }
+
+    /// Returns the last token of the direct children of this node
+    // TODO: drop Option
     pub fn last_token(&self) -> Option<SyntaxToken> {
         self.last_child_or_token()?.last_token()
     }
 
+    /// Returns the last child or token of the direct children of this node
+    // TODO: drop Option
     pub fn last_child_or_token(&self) -> Option<SyntaxElement> {
         self.children_with_tokens().last()
     }
 
+    /// Return an iterator over all ancestors of this node, i.e., the parent,
+    /// the parent of the parent, e.t.c.
     pub fn ancestors(&self) -> impl Iterator<Item = SyntaxNode> {
         iter::successors(Some(self.clone()), SyntaxNode::parent)
     }
 
+    /// Rewrite this node, i.e., change selected elements and produce a different `SyntaxNode`
     pub fn rewrite(&self, rewrite: impl FnMut(&SyntaxElement) -> RewriteAction) -> SyntaxNode {
         Rewriter::new(rewrite).rewrite(self.clone())
     }
 
+    /// Rewrite nodes. Like [SyntaxNode::rewrite], but only called on nodes
     pub fn rewrite_nodes(&self, rewrite: impl Fn(&SyntaxNode) -> RewriteAction) -> SyntaxNode {
         Rewriter::new(|element| match element {
             SyntaxElement::Node(node) => rewrite(node),
@@ -420,6 +548,7 @@ impl SyntaxNode {
         .rewrite(self.clone())
     }
 
+    /// Rewrite tokens. Like [SyntaxNode::rewrite], but only called on tokens
     pub fn rewrite_tokens(&self, rewrite: impl Fn(&SyntaxToken) -> RewriteAction) -> SyntaxNode {
         Rewriter::new(|element| match element {
             SyntaxElement::Node(_) => RewriteAction::Leave,
@@ -452,18 +581,6 @@ impl SyntaxNode {
 
     fn index(&self) -> usize {
         self.0.index
-    }
-
-    fn prev_sibling_or_token(&self) -> Option<SyntaxElement> {
-        self.parent()?
-            .children_with_tokens()
-            .nth(self.index().checked_sub(1)?)
-    }
-
-    fn next_sibling_or_token(&self) -> Option<SyntaxElement> {
-        self.parent()?
-            .children_with_tokens()
-            .nth(self.index().checked_add(1)?)
     }
 
     #[cfg(test)]
