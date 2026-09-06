@@ -10,7 +10,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::*;
 
 impl Parser {
-    pub fn array_type_definition(&mut self) {
+    pub(crate) fn array_type_definition(&mut self) {
         let unknown = self.start_unknown();
         self.expect_kw(Kw::Array);
         let box_found = self.lookahead_skip_n(1, [BOX]).is_ok();
@@ -36,7 +36,7 @@ impl Parser {
         array_definition.complete(self);
     }
 
-    pub fn record_type_definition(&mut self) {
+    pub(crate) fn record_type_definition(&mut self) {
         self.node(RecordTypeDefinition, |p| {
             p.node(RecordTypeDefinitionPreamble, |p| {
                 p.expect_kw(Kw::Record);
@@ -56,7 +56,7 @@ impl Parser {
         });
     }
 
-    pub fn element_declaration(&mut self) {
+    pub(crate) fn element_declaration(&mut self) {
         self.node(ElementDeclaration, |p| {
             p.identifier_list();
             p.expect_token(Colon);
@@ -65,14 +65,14 @@ impl Parser {
         });
     }
 
-    pub fn index_subtype_definition(&mut self) {
+    pub(crate) fn index_subtype_definition(&mut self) {
         self.node(IndexSubtypeDefinition, |p| {
             p.type_mark();
             p.expect_tokens([Keyword(Kw::Range), BOX]);
         });
     }
 
-    pub fn index_constraint(&mut self) {
+    pub(crate) fn index_constraint(&mut self) {
         self.node(IndexConstraint, |p| {
             p.expect_token(LeftPar);
             p.separated_list(ExpressionList, Parser::expression, Comma);

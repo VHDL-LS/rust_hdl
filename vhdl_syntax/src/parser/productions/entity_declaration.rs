@@ -12,7 +12,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 
 impl Parser {
-    pub fn entity_declaration(&mut self) {
+    pub(crate) fn entity_declaration(&mut self) {
         self.node(EntityDeclaration, |p| {
             p.entity_declaration_preamble();
             p.entity_header();
@@ -27,7 +27,7 @@ impl Parser {
         });
     }
 
-    pub fn entity_declaration_preamble(&mut self) {
+    pub(crate) fn entity_declaration_preamble(&mut self) {
         self.node(EntityDeclarationPreamble, |p| {
             p.expect_token(Keyword(Kw::Entity));
             p.identifier();
@@ -35,7 +35,7 @@ impl Parser {
         });
     }
 
-    pub fn entity_declaration_epilogue(&mut self) {
+    pub(crate) fn entity_declaration_epilogue(&mut self) {
         self.node(EntityDeclarationEpilogue, |p| {
             p.expect_token(Keyword(Kw::End));
             p.opt_token(Keyword(Kw::Entity));
@@ -51,11 +51,11 @@ impl Parser {
         });
     }
 
-    pub fn entity_declarative_part(&mut self) {
+    pub(crate) fn entity_declarative_part(&mut self) {
         self.declarations(EntityDeclarativePart, EntityDeclarativeItemSyntax::META);
     }
 
-    pub fn entity_statement_part(&mut self) {
+    pub(crate) fn entity_statement_part(&mut self) {
         self.concurrent_statements(EntityStatementPart, EntityStatementSyntax::META);
     }
 }

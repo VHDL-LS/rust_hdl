@@ -11,7 +11,7 @@ use crate::tokens::TokenKind::*;
 use crate::tokens::{Keyword as Kw, TokenKind};
 
 impl Parser {
-    pub fn configuration_declaration(&mut self) {
+    pub(crate) fn configuration_declaration(&mut self) {
         self.node(NodeKind::ConfigurationDeclaration, |p| {
             p.configuration_declaration_preamble();
             p.configuration_declarative_part();
@@ -26,7 +26,7 @@ impl Parser {
         });
     }
 
-    pub fn configuration_declaration_preamble(&mut self) {
+    pub(crate) fn configuration_declaration_preamble(&mut self) {
         self.node(NodeKind::ConfigurationDeclarationPreamble, |p| {
             p.expect_kw(Kw::Configuration);
             p.identifier();
@@ -36,7 +36,7 @@ impl Parser {
         });
     }
 
-    pub fn configuration_declaration_epilogue(&mut self) {
+    pub(crate) fn configuration_declaration_epilogue(&mut self) {
         self.node(NodeKind::ConfigurationDeclarationEpilogue, |p| {
             p.expect_kw(Kw::End);
             p.opt_token(Keyword(Kw::Configuration));
@@ -45,7 +45,7 @@ impl Parser {
         });
     }
 
-    pub fn group_declaration_or_template_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn group_declaration_or_template_declaration(&mut self) -> CompletedMarker {
         if self.next_nth_is(Keyword(Kw::Is), 2) {
             self.group_template_declaration()
         } else {
@@ -53,7 +53,7 @@ impl Parser {
         }
     }
 
-    pub fn group_template_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn group_template_declaration(&mut self) -> CompletedMarker {
         self.node(NodeKind::GroupTemplateDeclaration, |p| {
             p.expect_kw(Kw::Group);
             p.identifier();
@@ -65,7 +65,7 @@ impl Parser {
         })
     }
 
-    pub fn group_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn group_declaration(&mut self) -> CompletedMarker {
         self.node(NodeKind::GroupDeclaration, |p| {
             p.expect_kw(Kw::Group);
             p.identifier();
@@ -75,14 +75,14 @@ impl Parser {
         })
     }
 
-    pub fn entity_class_entry(&mut self) {
+    pub(crate) fn entity_class_entry(&mut self) {
         self.node(NodeKind::EntityClassEntry, |p| {
             p.entity_class();
             p.opt_token(BOX);
         });
     }
 
-    pub fn entity_class_entry_list(&mut self) {
+    pub(crate) fn entity_class_entry_list(&mut self) {
         self.separated_list(
             NodeKind::EntityClassEntryList,
             Parser::entity_class_entry,
@@ -90,7 +90,7 @@ impl Parser {
         );
     }
 
-    pub fn configuration_declarative_part(&mut self) {
+    pub(crate) fn configuration_declarative_part(&mut self) {
         self.node(ConfigurationDeclarativePart, |p| loop {
             if p.next_is(Keyword(Kw::Use)) && !p.next_nth_is(Keyword(Kw::Vunit), 1) {
                 p.use_clause_declaration();
@@ -104,7 +104,7 @@ impl Parser {
         });
     }
 
-    pub fn configuration_item(&mut self) {
+    pub(crate) fn configuration_item(&mut self) {
         match self.peek_nth_token(1) {
             Keyword(Kw::All | Kw::Others) => self.component_configuration(),
             Identifier if self.next_nth_is(Comma, 2) || self.next_nth_is(Colon, 2) => {
@@ -122,14 +122,14 @@ impl Parser {
         }
     }
 
-    pub fn block_configuration(&mut self) {
+    pub(crate) fn block_configuration(&mut self) {
         self.node(NodeKind::BlockConfiguration, |p| {
             p.block_configuration_preamble();
             p.block_configuration_known_spec();
         });
     }
 
-    pub fn block_configuration_preamble(&mut self) {
+    pub(crate) fn block_configuration_preamble(&mut self) {
         self.node(NodeKind::BlockConfigurationPreamble, |p| {
             p.expect_kw(Kw::For);
             p.name();
@@ -146,7 +146,7 @@ impl Parser {
         self.block_configuration_epilogue();
     }
 
-    pub fn block_configuration_epilogue(&mut self) {
+    pub(crate) fn block_configuration_epilogue(&mut self) {
         self.node(NodeKind::BlockConfigurationEpilogue, |p| {
             p.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
         });
@@ -174,7 +174,7 @@ impl Parser {
         });
     }
 
-    pub fn component_configuration_epilogue(&mut self) {
+    pub(crate) fn component_configuration_epilogue(&mut self) {
         self.node(NodeKind::ComponentConfigurationEpilogue, |p| {
             p.expect_tokens([Keyword(Kw::End), Keyword(Kw::For), SemiColon]);
         });

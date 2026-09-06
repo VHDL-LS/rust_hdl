@@ -10,7 +10,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 
 impl Parser {
-    pub fn signature(&mut self) {
+    pub(crate) fn signature(&mut self) {
         // LRM §4.5.3
         // signature ::= `[` [ name { `,` name } ] [ `return` name ] `]`;
         self.node(Signature, |p| {

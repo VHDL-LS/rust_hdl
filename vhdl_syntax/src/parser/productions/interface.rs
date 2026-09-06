@@ -33,17 +33,17 @@ impl Parser {
         }
     }
 
-    pub fn generic_clause(&mut self) {
+    pub(crate) fn generic_clause(&mut self) {
         self.port_or_generic_clause(GENERIC_SPEC);
     }
 
-    pub fn opt_port_clause(&mut self) {
+    pub(crate) fn opt_port_clause(&mut self) {
         if self.next_is(Keyword(Kw::Port)) {
             self.port_clause();
         }
     }
 
-    pub fn port_clause(&mut self) {
+    pub(crate) fn port_clause(&mut self) {
         self.port_or_generic_clause(PORT_SPEC);
     }
 
@@ -56,11 +56,11 @@ impl Parser {
         });
     }
 
-    pub fn interface_list(&mut self) {
+    pub(crate) fn interface_list(&mut self) {
         self.separated_list(InterfaceList, Parser::interface_declaration, SemiColon);
     }
 
-    pub fn interface_declaration(&mut self) {
+    pub(crate) fn interface_declaration(&mut self) {
         match_next_token!(self,
             Keyword(Kw::Signal), Keyword(Kw::Constant), Keyword(Kw::Variable), Identifier => {
                 self.interface_object_declaration();
@@ -74,7 +74,7 @@ impl Parser {
         );
     }
 
-    pub fn interface_file_declaration(&mut self) {
+    pub(crate) fn interface_file_declaration(&mut self) {
         self.node(InterfaceFileDeclaration, |p| {
             p.expect_kw(Kw::File);
             p.identifier_list();
@@ -83,14 +83,14 @@ impl Parser {
         });
     }
 
-    pub fn interface_type_declaration(&mut self) {
+    pub(crate) fn interface_type_declaration(&mut self) {
         self.node(InterfaceIncompleteTypeDeclaration, |p| {
             p.expect_kw(Kw::Type);
             p.identifier();
         });
     }
 
-    pub fn interface_subprogram_declaration(&mut self) {
+    pub(crate) fn interface_subprogram_declaration(&mut self) {
         self.node(InterfaceSubprogramDeclaration, |p| {
             p.interface_subprogram_specification();
             if p.next_is(Keyword(Kw::Is)) {
@@ -102,7 +102,7 @@ impl Parser {
         });
     }
 
-    pub fn interface_subprogram_default(&mut self) {
+    pub(crate) fn interface_subprogram_default(&mut self) {
         if self.next_is(BOX) {
             self.skip_into_node(InterfaceSubprogramDefaultBox);
         } else {
@@ -112,7 +112,7 @@ impl Parser {
         }
     }
 
-    pub fn interface_subprogram_specification(&mut self) {
+    pub(crate) fn interface_subprogram_specification(&mut self) {
         if self.next_is(Keyword(Kw::Procedure)) {
             self.interface_procedure_specification();
         } else {
@@ -120,7 +120,7 @@ impl Parser {
         }
     }
 
-    pub fn interface_procedure_specification(&mut self) {
+    pub(crate) fn interface_procedure_specification(&mut self) {
         self.node(InterfaceProcedureSpecification, |p| {
             p.expect_kw(Kw::Procedure);
             p.designator();
@@ -128,7 +128,7 @@ impl Parser {
         });
     }
 
-    pub fn interface_function_specification(&mut self) {
+    pub(crate) fn interface_function_specification(&mut self) {
         self.node(InterfaceFunctionSpecification, |p| {
             p.opt_function_purity();
             p.expect_kw(Kw::Function);
@@ -139,11 +139,11 @@ impl Parser {
         });
     }
 
-    pub fn opt_function_purity(&mut self) {
+    pub(crate) fn opt_function_purity(&mut self) {
         self.opt_tokens([Keyword(Kw::Pure), Keyword(Kw::Impure)]);
     }
 
-    pub fn interface_package_declaration(&mut self) {
+    pub(crate) fn interface_package_declaration(&mut self) {
         self.node(InterfacePackageDeclaration, |p| {
             p.interface_package_declaration_preamble();
             p.expect_kw(Kw::New);
@@ -152,7 +152,7 @@ impl Parser {
         });
     }
 
-    pub fn interface_package_declaration_preamble(&mut self) {
+    pub(crate) fn interface_package_declaration_preamble(&mut self) {
         self.node(InterfacePackageDeclarationPreamble, |p| {
             p.expect_kw(Kw::Package);
             p.identifier();
@@ -160,7 +160,7 @@ impl Parser {
         });
     }
 
-    pub fn interface_package_generic_map_aspect(&mut self) {
+    pub(crate) fn interface_package_generic_map_aspect(&mut self) {
         self.node(InterfacePackageGenericMapAspect, |p| {
             p.expect_kw(Kw::Generic);
             p.expect_kw(Kw::Map);
@@ -178,7 +178,7 @@ impl Parser {
         });
     }
 
-    pub fn interface_object_declaration(&mut self) {
+    pub(crate) fn interface_object_declaration(&mut self) {
         // The object class (constant/signal/variable) is optional and not
         // reliably distinguishable here, so a single node covers all three; the
         // explicit class keyword, when present, is kept as a child.
@@ -202,7 +202,7 @@ impl Parser {
         });
     }
 
-    pub fn opt_mode(&mut self) {
+    pub(crate) fn opt_mode(&mut self) {
         self.opt_tokens([
             Keyword(Kw::In),
             Keyword(Kw::Out),
@@ -212,7 +212,7 @@ impl Parser {
         ]);
     }
 
-    pub fn association_list(&mut self) {
+    pub(crate) fn association_list(&mut self) {
         self.separated_list(
             AssociationList,
             |parser| {
@@ -240,12 +240,12 @@ impl Parser {
         });
     }
 
-    pub fn formal_part(&mut self) {
+    pub(crate) fn formal_part(&mut self) {
         // Note: `self.name()` will already consume any trailing parenthesized names!
         self.name();
     }
 
-    pub fn actual_part(&mut self) {
+    pub(crate) fn actual_part(&mut self) {
         // actual_part       ::= actual_designator | name "(" actual_designator ")"
         //                     | type_mark "(" actual_designator ")"
         // actual_designator ::= [inertial] expression | subtype_indication | open

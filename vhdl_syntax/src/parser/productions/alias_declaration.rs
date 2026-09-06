@@ -11,7 +11,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 
 impl Parser {
-    pub fn alias_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn alias_declaration(&mut self) -> CompletedMarker {
         self.node(AliasDeclaration, |p| {
             p.expect_kw(Kw::Alias);
             p.alias_designator();
@@ -30,7 +30,7 @@ impl Parser {
         })
     }
 
-    pub fn alias_designator(&mut self) {
+    pub(crate) fn alias_designator(&mut self) {
         self.expect_one_of_tokens([Identifier, StringLiteral, CharacterLiteral]);
     }
 }

@@ -29,7 +29,7 @@ impl Parser {
         }
     }
 
-    pub fn element_resolution(&mut self) {
+    pub(crate) fn element_resolution(&mut self) {
         self.node(ElementResolutionResolutionIndication, |p| {
             if p.next_is(Identifier)
                 && (matches!(
@@ -46,18 +46,18 @@ impl Parser {
         });
     }
 
-    pub fn record_element_resolution(&mut self) {
+    pub(crate) fn record_element_resolution(&mut self) {
         self.node(RecordElementResolution, |p| {
             p.identifier();
             p.resolution_indication();
         });
     }
 
-    pub fn record_resolution(&mut self) {
+    pub(crate) fn record_resolution(&mut self) {
         self.separated_list(RecordResolution, Parser::record_element_resolution, Comma);
     }
 
-    pub fn subtype_indication(&mut self) {
+    pub(crate) fn subtype_indication(&mut self) {
         // subtype_indication ::= [resolution_indication] name
         // Constraints (range/index/record) are now `NameTail`s on the type-mark
         // `Name`, so no separate constraint slot is needed here.
@@ -82,7 +82,7 @@ impl Parser {
     /// `range_constraint ::= "range" expression`. `to`/`downto` are binary
     /// operators in the expression grammar, so the old `range` production is
     /// gone and the constraint body is just an expression.
-    pub fn range_constraint(&mut self) {
+    pub(crate) fn range_constraint(&mut self) {
         self.node(RangeConstraint, |p| {
             p.expect_kw(Kw::Range);
             p.expression();

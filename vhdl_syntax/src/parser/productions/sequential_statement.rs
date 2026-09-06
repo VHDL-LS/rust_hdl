@@ -15,7 +15,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::{self, *};
 
 impl Parser {
-    pub fn wait_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn wait_statement(&mut self) -> CompletedMarker {
         self.node(WaitStatement, |p| {
             p.opt_label();
             p.expect_kw(Kw::Wait);
@@ -41,7 +41,7 @@ impl Parser {
         })
     }
 
-    pub fn assert_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn assert_statement(&mut self) -> CompletedMarker {
         self.node(AssertionStatement, |p| {
             p.opt_label();
             p.assertion();
@@ -49,7 +49,7 @@ impl Parser {
         })
     }
 
-    pub fn report_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn report_statement(&mut self) -> CompletedMarker {
         self.node(ReportStatement, |p| {
             p.opt_label();
             p.expect_kw(Kw::Report);
@@ -64,7 +64,7 @@ impl Parser {
         })
     }
 
-    pub fn next_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn next_statement(&mut self) -> CompletedMarker {
         self.node(NextStatement, |p| {
             p.opt_label();
             p.expect_kw(Kw::Next);
@@ -79,7 +79,7 @@ impl Parser {
         })
     }
 
-    pub fn exit_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn exit_statement(&mut self) -> CompletedMarker {
         self.node(ExitStatement, |p| {
             p.opt_label();
             p.expect_kw(Kw::Exit);
@@ -94,7 +94,7 @@ impl Parser {
         })
     }
 
-    pub fn return_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn return_statement(&mut self) -> CompletedMarker {
         self.node(ReturnStatement, |p| {
             p.opt_label();
             p.expect_kw(Kw::Return);
@@ -105,7 +105,7 @@ impl Parser {
         })
     }
 
-    pub fn null_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn null_statement(&mut self) -> CompletedMarker {
         self.node(NullStatement, |p| {
             p.opt_label();
             p.expect_kw(Kw::Null);
@@ -113,7 +113,7 @@ impl Parser {
         })
     }
 
-    pub fn if_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn if_statement(&mut self) -> CompletedMarker {
         self.node(IfStatement, |p| {
             p.if_statement_preamble();
             p.sequence_of_statements();
@@ -135,7 +135,7 @@ impl Parser {
         })
     }
 
-    pub fn if_statement_preamble(&mut self) {
+    pub(crate) fn if_statement_preamble(&mut self) {
         self.node(IfStatementPreamble, |p| {
             p.opt_label();
             p.expect_kw(Kw::If);
@@ -144,7 +144,7 @@ impl Parser {
         });
     }
 
-    pub fn if_statement_epilogue(&mut self) {
+    pub(crate) fn if_statement_epilogue(&mut self) {
         self.node(IfStatementEpilogue, |p| {
             p.expect_tokens([Keyword(Kw::End), Keyword(Kw::If)]);
             p.opt_identifier();
@@ -152,7 +152,7 @@ impl Parser {
         });
     }
 
-    pub fn case_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn case_statement(&mut self) -> CompletedMarker {
         self.node(CaseStatement, |p| {
             p.case_statement_preamble();
             p.case_statement_alternative();
@@ -163,7 +163,7 @@ impl Parser {
         })
     }
 
-    pub fn case_statement_preamble(&mut self) {
+    pub(crate) fn case_statement_preamble(&mut self) {
         self.node(CaseStatementPreamble, |p| {
             p.opt_label();
             p.expect_kw(Kw::Case);
@@ -173,7 +173,7 @@ impl Parser {
         });
     }
 
-    pub fn case_statement_epilogue(&mut self) {
+    pub(crate) fn case_statement_epilogue(&mut self) {
         self.node(CaseStatementEpilogue, |p| {
             p.expect_tokens([Keyword(Kw::End), Keyword(Kw::Case)]);
             p.opt_token(Que);
@@ -182,14 +182,14 @@ impl Parser {
         });
     }
 
-    pub fn case_statement_alternative(&mut self) {
+    pub(crate) fn case_statement_alternative(&mut self) {
         self.node(CaseStatementAlternative, |p| {
             p.case_statement_alternative_preamble();
             p.sequence_of_statements();
         });
     }
 
-    pub fn case_statement_alternative_preamble(&mut self) {
+    pub(crate) fn case_statement_alternative_preamble(&mut self) {
         self.node(CaseStatementAlternativePreamble, |p| {
             p.expect_kw(Kw::When);
             p.choices();
@@ -197,7 +197,7 @@ impl Parser {
         });
     }
 
-    pub fn aggregate(&mut self) {
+    pub(crate) fn aggregate(&mut self) {
         self.node(Aggregate, |p| {
             p.aggregate_inner();
         });
@@ -209,7 +209,7 @@ impl Parser {
         self.expect_token(RightPar);
     }
 
-    pub fn element_association(&mut self) {
+    pub(crate) fn element_association(&mut self) {
         self.node(ElementAssociation, |p| {
             let has_choices = matches!(
                 p.lookahead_max_token_index(usize::MAX, [RightArrow, Comma]),
@@ -225,7 +225,7 @@ impl Parser {
         });
     }
 
-    pub fn loop_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn loop_statement(&mut self) -> CompletedMarker {
         self.node(LoopStatement, |p| {
             p.loop_statement_preamble();
             p.sequence_of_statements();
@@ -233,7 +233,7 @@ impl Parser {
         })
     }
 
-    pub fn loop_statement_preamble(&mut self) {
+    pub(crate) fn loop_statement_preamble(&mut self) {
         self.node(LoopStatementPreamble, |p| {
             p.opt_label();
             p.opt_iteration_scheme();
@@ -241,7 +241,7 @@ impl Parser {
         });
     }
 
-    pub fn loop_statement_epilogue(&mut self) {
+    pub(crate) fn loop_statement_epilogue(&mut self) {
         self.node(LoopStatementEpilogue, |p| {
             p.expect_tokens([Keyword(Kw::End), Keyword(Kw::Loop)]);
             p.opt_identifier();
@@ -280,7 +280,7 @@ impl Parser {
         });
     }
 
-    pub fn sequence_of_statements(&mut self) {
+    pub(crate) fn sequence_of_statements(&mut self) {
         self.sequential_statements(SequenceOfStatements, SequentialStatementSyntax::META);
     }
 
@@ -288,7 +288,7 @@ impl Parser {
         self.opt_tokens([Keyword(Kw::In), Keyword(Kw::Out)]);
     }
 
-    pub fn selected_expressions(&mut self) {
+    pub(crate) fn selected_expressions(&mut self) {
         self.separated_list(SelectedExpressions, Parser::selected_expression, Comma);
     }
 
@@ -308,7 +308,7 @@ impl Parser {
         }
     }
 
-    pub fn sequential_statement(&mut self) -> Option<CompletedMarker> {
+    pub(crate) fn sequential_statement(&mut self) -> Option<CompletedMarker> {
         match self.sequential_statement_start() {
             Keyword(Kw::Wait) => Some(self.wait_statement()),
             Keyword(Kw::Assert) => Some(self.assert_statement()),

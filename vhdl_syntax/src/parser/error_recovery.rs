@@ -18,36 +18,36 @@ pub(crate) struct RecoveryState {
 }
 
 impl RecoveryState {
-    pub fn new() -> RecoveryState {
+    pub(crate) fn new() -> RecoveryState {
         RecoveryState {
             sync_stack: Vec::new(),
         }
     }
 
     /// Does `tok` follow any of the continuations of `tokens`?
-    pub fn is_in_continuation_set(&self, tokens: &[TokenKind], tok: TokenKind) -> bool {
+    pub(crate) fn is_in_continuation_set(&self, tokens: &[TokenKind], tok: TokenKind) -> bool {
         self.current_node()
             .map(|node| continuation_first(node, tokens))
             .is_some_and(|continuations| continuations.contains(&tok))
     }
 
     /// Is `tok` somewhere in the follow set of any currently-open node?
-    pub fn is_in_follow_set(&self, tok: TokenKind) -> bool {
+    pub(crate) fn is_in_follow_set(&self, tok: TokenKind) -> bool {
         self.sync_stack
             .iter()
             .any(|kind| sync_tokens_for_node_kind(*kind).contains(&tok))
     }
 
     /// The innermost currently-open node, i.e. the production being parsed.
-    pub fn current_node(&self) -> Option<NodeKind> {
+    pub(crate) fn current_node(&self) -> Option<NodeKind> {
         self.sync_stack.last().copied()
     }
 
-    pub fn push(&mut self, node: NodeKind) {
+    pub(crate) fn push(&mut self, node: NodeKind) {
         self.sync_stack.push(node);
     }
 
-    pub fn pop(&mut self) {
+    pub(crate) fn pop(&mut self) {
         self.sync_stack.pop();
     }
 }

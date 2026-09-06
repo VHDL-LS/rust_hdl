@@ -11,14 +11,14 @@ use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::{SemiColon, *};
 
 impl Parser {
-    pub fn package_instantiation_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn package_instantiation_declaration(&mut self) -> CompletedMarker {
         self.node(
             PackageInstantiationDeclarationItem,
             Parser::package_instantiation,
         )
     }
 
-    pub fn package_instantiation(&mut self) {
+    pub(crate) fn package_instantiation(&mut self) {
         self.node(PackageInstantiationDeclaration, |p| {
             p.package_instantiation_preamble();
             p.opt_generic_map_aspect();
@@ -26,7 +26,7 @@ impl Parser {
         });
     }
 
-    pub fn package_instantiation_preamble(&mut self) {
+    pub(crate) fn package_instantiation_preamble(&mut self) {
         self.node(PackageInstantiationPreamble, |p| {
             p.expect_kw(Kw::Package);
             p.identifier();

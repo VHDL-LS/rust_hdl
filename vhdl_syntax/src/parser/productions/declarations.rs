@@ -111,13 +111,13 @@ impl Parser {
         Some(marker)
     }
 
-    pub fn use_clause_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn use_clause_declaration(&mut self) -> CompletedMarker {
         self.node(UseClauseDeclaration, |p| {
             p.use_clause();
         })
     }
 
-    pub fn package_declarative_item(&mut self) -> CompletedMarker {
+    pub(crate) fn package_declarative_item(&mut self) -> CompletedMarker {
         if self.next_nth_is(Keyword(Kw::Body), 1) {
             self.package_body_declaration()
         } else if self.next_nth_is(Keyword(Kw::New), 3) {
@@ -127,15 +127,15 @@ impl Parser {
         }
     }
 
-    pub fn package_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn package_declaration(&mut self) -> CompletedMarker {
         self.node(PackageDeclarationItem, Parser::package)
     }
 
-    pub fn package_body_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn package_body_declaration(&mut self) -> CompletedMarker {
         self.node(PackageBodyDeclaration, Parser::package_body)
     }
 
-    pub fn disconnection_specification(&mut self) -> CompletedMarker {
+    pub(crate) fn disconnection_specification(&mut self) -> CompletedMarker {
         self.node(DisconnectionSpecification, |p| {
             p.expect_kw(Kw::Disconnect);
             p.guarded_signal_specification();
@@ -145,7 +145,7 @@ impl Parser {
         })
     }
 
-    pub fn guarded_signal_specification(&mut self) {
+    pub(crate) fn guarded_signal_specification(&mut self) {
         self.node(GuardedSignalSpecification, |p| {
             p.signal_list();
             p.expect_token(Colon);
@@ -153,7 +153,7 @@ impl Parser {
         });
     }
 
-    pub fn signal_list(&mut self) {
+    pub(crate) fn signal_list(&mut self) {
         match_next_token!(self,
             Keyword(Kw::All) => {
                 self.skip_into_node(SignalListAll);
@@ -167,7 +167,7 @@ impl Parser {
         );
     }
 
-    pub fn configuration_specification(&mut self) -> CompletedMarker {
+    pub(crate) fn configuration_specification(&mut self) -> CompletedMarker {
         let unknown = self.start_unknown();
         self.node(ComponentConfigurationPreamble, |p| {
             p.expect_kw(Kw::For);
@@ -194,7 +194,7 @@ impl Parser {
         }
     }
 
-    pub fn component_specification(&mut self) {
+    pub(crate) fn component_specification(&mut self) {
         self.node(NodeKind::ComponentSpecification, |p| {
             match_next_token!(p,
                 Keyword(Kw::All) => {

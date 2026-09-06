@@ -19,7 +19,7 @@ enum Object {
 }
 
 impl Object {
-    pub fn kind(&self) -> NodeKind {
+    pub(crate) fn kind(&self) -> NodeKind {
         match self {
             Object::Constant => ConstantDeclaration,
             Object::Signal => SignalDeclaration,
@@ -27,7 +27,7 @@ impl Object {
         }
     }
 
-    pub fn initial_token(&self) -> TokenKind {
+    pub(crate) fn initial_token(&self) -> TokenKind {
         match self {
             Object::Constant => Keyword(Kw::Constant),
             Object::Signal => Keyword(Kw::Signal),
@@ -37,15 +37,15 @@ impl Object {
 }
 
 impl Parser {
-    pub fn constant_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn constant_declaration(&mut self) -> CompletedMarker {
         self.any_object_declaration(Object::Constant)
     }
 
-    pub fn signal_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn signal_declaration(&mut self) -> CompletedMarker {
         self.any_object_declaration(Object::Signal)
     }
 
-    pub fn variable_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn variable_declaration(&mut self) -> CompletedMarker {
         self.any_object_declaration(Object::Variable)
     }
 
@@ -69,7 +69,7 @@ impl Parser {
         })
     }
 
-    pub fn file_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn file_declaration(&mut self) -> CompletedMarker {
         self.node(FileDeclaration, |p| {
             p.expect_token(Keyword(Kw::File));
             p.identifier_list();

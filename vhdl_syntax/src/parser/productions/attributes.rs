@@ -11,7 +11,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::*;
 
 impl Parser {
-    pub fn attribute_specification(&mut self) -> CompletedMarker {
+    pub(crate) fn attribute_specification(&mut self) -> CompletedMarker {
         self.node(AttributeSpecification, |p| {
             p.expect_kw(Kw::Attribute);
             p.identifier();
@@ -23,7 +23,7 @@ impl Parser {
         })
     }
 
-    pub fn entity_specification(&mut self) {
+    pub(crate) fn entity_specification(&mut self) {
         self.node(EntitySpecification, |p| {
             p.entity_name_list();
             p.expect_token(Colon);
@@ -31,7 +31,7 @@ impl Parser {
         });
     }
 
-    pub fn entity_name_list(&mut self) -> Option<CompletedMarker> {
+    pub(crate) fn entity_name_list(&mut self) -> Option<CompletedMarker> {
         match_next_token!(self,
             Keyword(Kw::All) => Some(self.skip_into_node(EntityNameListAll)),
             Keyword(Kw::Others) => Some(self.skip_into_node(EntityNameListOthers)),
@@ -41,7 +41,7 @@ impl Parser {
         )
     }
 
-    pub fn entity_class(&mut self) {
+    pub(crate) fn entity_class(&mut self) {
         self.expect_one_of_tokens([
             Keyword(Kw::Entity),
             Keyword(Kw::Architecture),
@@ -65,7 +65,7 @@ impl Parser {
         ]);
     }
 
-    pub fn entity_designator(&mut self) {
+    pub(crate) fn entity_designator(&mut self) {
         self.node(EntityDesignator, |p| {
             p.entity_tag();
             if p.peek_token() == LeftSquare {
@@ -74,7 +74,7 @@ impl Parser {
         });
     }
 
-    pub fn entity_tag(&mut self) {
+    pub(crate) fn entity_tag(&mut self) {
         self.expect_one_of_tokens([Identifier, CharacterLiteral, StringLiteral]);
     }
 

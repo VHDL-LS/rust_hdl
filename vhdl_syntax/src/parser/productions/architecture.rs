@@ -6,7 +6,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 
 impl Parser {
-    pub fn architecture(&mut self) {
+    pub(crate) fn architecture(&mut self) {
         self.node(ArchitectureBody, |p| {
             p.architecture_preamble();
             p.architecture_declarative_part();
@@ -18,7 +18,7 @@ impl Parser {
         });
     }
 
-    pub fn architecture_preamble(&mut self) {
+    pub(crate) fn architecture_preamble(&mut self) {
         self.node(ArchitecturePreamble, |p| {
             p.expect_kw(Kw::Architecture);
             p.identifier();
@@ -28,7 +28,7 @@ impl Parser {
         });
     }
 
-    pub fn architecture_epilogue(&mut self) {
+    pub(crate) fn architecture_epilogue(&mut self) {
         self.node(ArchitectureEpilogue, |p| {
             p.expect_kw(Kw::End);
             p.opt_token(Keyword(Kw::Architecture));
@@ -37,14 +37,14 @@ impl Parser {
         });
     }
 
-    pub fn architecture_declarative_part(&mut self) {
+    pub(crate) fn architecture_declarative_part(&mut self) {
         self.declarations(
             ArchitectureDeclarativePart,
             BlockDeclarativeItemSyntax::META,
         );
     }
 
-    pub fn architecture_statement_part(&mut self) {
+    pub(crate) fn architecture_statement_part(&mut self) {
         self.concurrent_statements(ArchitectureStatementPart, ConcurrentStatementSyntax::META);
     }
 }

@@ -21,7 +21,7 @@ impl Parser {
         }
     }
 
-    pub fn delay_mechanism(&mut self) -> Option<CompletedMarker> {
+    pub(crate) fn delay_mechanism(&mut self) -> Option<CompletedMarker> {
         match_next_token!(self,
             Keyword(Kw::Transport) => Some(self.skip_into_node(TransportDelayMechanism)),
             Keyword(Kw::Inertial) => Some(self.skip_into_node(InertialDelayMechanism)),
@@ -37,7 +37,7 @@ impl Parser {
         )
     }
 
-    pub fn selected_waveforms(&mut self) {
+    pub(crate) fn selected_waveforms(&mut self) {
         self.separated_list(SelectedWaveforms, Parser::selected_waveform, Comma);
     }
 
@@ -49,11 +49,11 @@ impl Parser {
         });
     }
 
-    pub fn waveform_elements(&mut self) -> CompletedMarker {
+    pub(crate) fn waveform_elements(&mut self) -> CompletedMarker {
         self.separated_list(WaveformElements, Parser::waveform_element, Comma)
     }
 
-    pub fn waveform(&mut self) -> CompletedMarker {
+    pub(crate) fn waveform(&mut self) -> CompletedMarker {
         if self.next_is(Keyword(Kw::Unaffected)) {
             self.skip_into_node(UnaffectedWaveform)
         } else {
@@ -61,7 +61,7 @@ impl Parser {
         }
     }
 
-    pub fn waveform_element(&mut self) {
+    pub(crate) fn waveform_element(&mut self) {
         self.node(WaveformElement, |p| {
             p.expression();
             if p.next_is(Keyword(Kw::After)) {

@@ -10,15 +10,15 @@ use crate::tokens::TokenKind;
 use crate::tokens::TokenKind::Comma;
 
 impl Parser {
-    pub fn identifier(&mut self) {
+    pub(crate) fn identifier(&mut self) {
         self.expect_token(TokenKind::Identifier)
     }
 
-    pub fn opt_identifier(&mut self) -> bool {
+    pub(crate) fn opt_identifier(&mut self) -> bool {
         self.opt_token(TokenKind::Identifier)
     }
 
-    pub fn identifier_list(&mut self) {
+    pub(crate) fn identifier_list(&mut self) {
         self.separated_list(IdentifierList, Parser::identifier, Comma);
     }
 }

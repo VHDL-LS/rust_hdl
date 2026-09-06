@@ -5,7 +5,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 
 impl Parser {
-    pub fn package(&mut self) {
+    pub(crate) fn package(&mut self) {
         self.node(PackageDeclaration, |p| {
             p.package_preamble();
             p.package_header();
@@ -14,11 +14,11 @@ impl Parser {
         });
     }
 
-    pub fn package_declarative_part(&mut self) {
+    pub(crate) fn package_declarative_part(&mut self) {
         self.declarations(PackageDeclarativePart, PackageDeclarativeItemSyntax::META);
     }
 
-    pub fn package_preamble(&mut self) {
+    pub(crate) fn package_preamble(&mut self) {
         self.node(PackagePreamble, |p| {
             p.expect_kw(Kw::Package);
             p.identifier();
@@ -26,7 +26,7 @@ impl Parser {
         });
     }
 
-    pub fn package_epilogue(&mut self) {
+    pub(crate) fn package_epilogue(&mut self) {
         self.node(PackageEpilogue, |p| {
             p.expect_kw(Kw::End);
             p.opt_token(Keyword(Kw::Package));
@@ -35,7 +35,7 @@ impl Parser {
         });
     }
 
-    pub fn package_header(&mut self) {
+    pub(crate) fn package_header(&mut self) {
         if !self.next_is(Keyword(Kw::Generic)) {
             return;
         }
@@ -50,7 +50,7 @@ impl Parser {
         });
     }
 
-    pub fn package_body(&mut self) {
+    pub(crate) fn package_body(&mut self) {
         self.node(PackageBody, |p| {
             p.package_body_preamble();
             p.package_body_declarative_part();
@@ -58,14 +58,14 @@ impl Parser {
         });
     }
 
-    pub fn package_body_declarative_part(&mut self) {
+    pub(crate) fn package_body_declarative_part(&mut self) {
         self.declarations(
             PackageBodyDeclarativePart,
             PackageBodyDeclarativeItemSyntax::META,
         );
     }
 
-    pub fn package_body_preamble(&mut self) {
+    pub(crate) fn package_body_preamble(&mut self) {
         self.node(PackageBodyPreamble, |p| {
             p.expect_kw(Kw::Package);
             p.expect_kw(Kw::Body);
@@ -74,7 +74,7 @@ impl Parser {
         });
     }
 
-    pub fn package_body_epilogue(&mut self) {
+    pub(crate) fn package_body_epilogue(&mut self) {
         self.node(PackageBodyEpilogue, |p| {
             p.expect_kw(Kw::End);
             if p.next_is(Keyword(Kw::Package)) {

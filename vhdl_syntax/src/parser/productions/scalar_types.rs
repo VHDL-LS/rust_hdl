@@ -10,7 +10,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::*;
 
 impl Parser {
-    pub fn numeric_type_definition(&mut self) {
+    pub(crate) fn numeric_type_definition(&mut self) {
         let unknown = self.start_unknown();
         self.range_constraint();
         if self.next_is(Keyword(Kw::Units)) {
@@ -29,14 +29,14 @@ impl Parser {
         }
     }
 
-    pub fn physical_type_definition_epilogue(&mut self) {
+    pub(crate) fn physical_type_definition_epilogue(&mut self) {
         self.node(PhysicalTypeDefinitionEpilogue, |p| {
             p.expect_tokens([Keyword(Kw::End), Keyword(Kw::Units)]);
             p.opt_identifier();
         });
     }
 
-    pub fn enumeration_type_definition(&mut self) {
+    pub(crate) fn enumeration_type_definition(&mut self) {
         self.node(EnumerationTypeDefinition, |p| {
             p.expect_token(LeftPar);
             p.separated_list(EnumerationList, Parser::enumeration_literal, Comma);
@@ -44,18 +44,18 @@ impl Parser {
         });
     }
 
-    pub fn enumeration_literal(&mut self) {
+    pub(crate) fn enumeration_literal(&mut self) {
         self.expect_one_of_tokens([Identifier, CharacterLiteral]);
     }
 
-    pub fn primary_unit_declaration(&mut self) {
+    pub(crate) fn primary_unit_declaration(&mut self) {
         self.node(PrimaryUnitDeclaration, |p| {
             p.identifier();
             p.expect_token(SemiColon);
         });
     }
 
-    pub fn secondary_unit_declaration(&mut self) {
+    pub(crate) fn secondary_unit_declaration(&mut self) {
         self.node(SecondaryUnitDeclaration, |p| {
             p.identifier();
             p.expect_token(EQ);
@@ -64,7 +64,7 @@ impl Parser {
         });
     }
 
-    pub fn physical_literal(&mut self) {
+    pub(crate) fn physical_literal(&mut self) {
         self.node(PhysicalLiteral, |p| {
             p.opt_token(AbstractLiteral);
             p.name();

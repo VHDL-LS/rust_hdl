@@ -14,14 +14,15 @@ use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
 
 impl Parser {
-    pub fn subprogram_declaration(&mut self) {
+    #[cfg(test)]
+    pub(crate) fn subprogram_declaration(&mut self) {
         self.node(SubprogramDeclaration, |p| {
             p.subprogram_specification();
             p.expect_token(SemiColon);
         });
     }
 
-    pub fn subprogram_instantiation_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn subprogram_instantiation_declaration(&mut self) -> CompletedMarker {
         self.node(SubprogramInstantiationDeclaration, |p| {
             p.subprogram_instantiation_declaration_preamble();
             p.opt_generic_map_aspect();
@@ -29,7 +30,7 @@ impl Parser {
         })
     }
 
-    pub fn subprogram_instantiation_declaration_preamble(&mut self) {
+    pub(crate) fn subprogram_instantiation_declaration_preamble(&mut self) {
         self.node(SubprogramInstantiationDeclarationPreamble, |p| {
             p.expect_one_of_tokens([Keyword(Kw::Function), Keyword(Kw::Procedure)]);
             p.identifier();
@@ -41,7 +42,7 @@ impl Parser {
         });
     }
 
-    pub fn subprogram_specification(&mut self) -> Option<CompletedMarker> {
+    pub(crate) fn subprogram_specification(&mut self) -> Option<CompletedMarker> {
         let (marker, is_function) = if matches!(
             self.peek_token(),
             Keyword(Kw::Pure | Kw::Impure | Kw::Function)
@@ -79,7 +80,7 @@ impl Parser {
         }
     }
 
-    pub fn parameter_list(&mut self) {
+    pub(crate) fn parameter_list(&mut self) {
         self.node(NodeKind::ParameterList, |p| {
             p.opt_token(Keyword(Kw::Parameter));
             p.node(ParenthesizedInterfaceList, |p| {
@@ -90,7 +91,7 @@ impl Parser {
         });
     }
 
-    pub fn subprogram_header(&mut self) {
+    pub(crate) fn subprogram_header(&mut self) {
         if !self.next_is(Keyword(Kw::Generic)) {
             return;
         }
@@ -100,7 +101,7 @@ impl Parser {
         });
     }
 
-    pub fn subprogram_header_generic_clause(&mut self) {
+    pub(crate) fn subprogram_header_generic_clause(&mut self) {
         self.node(SubprogramHeaderGenericClause, |p| {
             p.expect_kw(Kw::Generic);
             p.expect_token(LeftPar);
@@ -109,7 +110,8 @@ impl Parser {
         });
     }
 
-    pub fn subprogram_body(&mut self) {
+    #[cfg(test)]
+    pub(crate) fn subprogram_body(&mut self) {
         self.subprogram_declaration_or_body();
     }
 
@@ -133,18 +135,18 @@ impl Parser {
         marker.complete(self)
     }
 
-    pub fn subprogram_declarative_part(&mut self) {
+    pub(crate) fn subprogram_declarative_part(&mut self) {
         self.declarations(
             SubprogramDeclarativePart,
             SubprogramDeclarativeItemSyntax::META,
         );
     }
 
-    pub fn subprogram_statement_part(&mut self) {
+    pub(crate) fn subprogram_statement_part(&mut self) {
         self.sequential_statements(SubprogramStatementPart, SequentialStatementSyntax::META);
     }
 
-    pub fn subprogram_body_epilogue(&mut self) {
+    pub(crate) fn subprogram_body_epilogue(&mut self) {
         self.node(SubprogramBodyEpilogue, |p| {
             p.expect_kw(Kw::End);
             p.subprogram_kind();
@@ -153,7 +155,7 @@ impl Parser {
         });
     }
 
-    pub fn subprogram_kind(&mut self) {
+    pub(crate) fn subprogram_kind(&mut self) {
         self.opt_tokens([Keyword(Kw::Function), Keyword(Kw::Procedure)]);
     }
 }
@@ -163,7 +165,7 @@ mod tests {
     use crate::parser::{test_utils::to_test_text, Parser};
 
     #[test]
-    pub fn parses_procedure_declaration() {
+    pub(crate) fn parses_procedure_declaration() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "procedure foo;"
@@ -171,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    pub fn parses_function_specification() {
+    pub(crate) fn parses_function_specification() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "function foo return lib.foo.natural;"
@@ -179,7 +181,7 @@ mod tests {
     }
 
     #[test]
-    pub fn parses_function_specification_operator() {
+    pub(crate) fn parses_function_specification_operator() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "function \"+\" return lib.foo.natural;"
@@ -187,7 +189,7 @@ mod tests {
     }
 
     #[test]
-    pub fn parses_impure_function_specification() {
+    pub(crate) fn parses_impure_function_specification() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "impure function foo return lib.foo.natural;"
@@ -195,7 +197,7 @@ mod tests {
     }
 
     #[test]
-    pub fn parses_pure_function_specification() {
+    pub(crate) fn parses_pure_function_specification() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "pure function foo return lib.foo.natural;"
@@ -203,7 +205,7 @@ mod tests {
     }
 
     #[test]
-    pub fn parses_procedure_specification_with_parameters() {
+    pub(crate) fn parses_procedure_specification_with_parameters() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "procedure foo(foo : natural);"
@@ -211,7 +213,7 @@ mod tests {
     }
 
     #[test]
-    pub fn parses_function_specification_with_parameters() {
+    pub(crate) fn parses_function_specification_with_parameters() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "function foo(foo : natural) return lib.foo.natural;"
@@ -219,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    pub fn parses_function_specification_with_parameters_and_keyword() {
+    pub(crate) fn parses_function_specification_with_parameters_and_keyword() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "function foo parameter (foo : natural) return lib.foo.natural;"
@@ -227,7 +229,7 @@ mod tests {
     }
 
     #[test]
-    pub fn parses_function_specification_with_parameters_keyword_and_header() {
+    pub(crate) fn parses_function_specification_with_parameters_keyword_and_header() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo.natural;"
@@ -235,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    pub fn parses_subprogram_body() {
+    pub(crate) fn parses_subprogram_body() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_body,
             "\
@@ -248,7 +250,7 @@ end function;"
     }
 
     #[test]
-    pub fn parses_subprogram_declaration() {
+    pub(crate) fn parses_subprogram_declaration() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_body,
             "\
@@ -259,7 +261,7 @@ end function foo;"
     }
 
     #[test]
-    pub fn parses_subprogram_body_end_operator_symbol() {
+    pub(crate) fn parses_subprogram_body_end_operator_symbol() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_body,
             "\
@@ -270,7 +272,7 @@ end function \"+\";"
     }
 
     #[test]
-    pub fn parse_subprogram_header_no_aspect() {
+    pub(crate) fn parse_subprogram_header_no_aspect() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_header,
             "generic (x: natural := 1; y: real)"
@@ -278,7 +280,7 @@ end function \"+\";"
     }
 
     #[test]
-    pub fn parse_subprogram_header_with_aspect() {
+    pub(crate) fn parse_subprogram_header_with_aspect() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_header,
             "generic (x: natural := 1; y: real) generic map (x => 2, y => 0.4)"
@@ -286,7 +288,7 @@ end function \"+\";"
     }
 
     #[test]
-    pub fn parse_procedure_spec_with_header_no_aspect() {
+    pub(crate) fn parse_procedure_spec_with_header_no_aspect() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "\
@@ -296,7 +298,7 @@ procedure my_proc
     }
 
     #[test]
-    pub fn parse_procedure_spec_with_header_aspect() {
+    pub(crate) fn parse_procedure_spec_with_header_aspect() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_declaration,
             "\
@@ -307,7 +309,7 @@ procedure my_proc
     }
 
     #[test]
-    pub fn parse_function_with_header() {
+    pub(crate) fn parse_function_with_header() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_body,
             "\
@@ -320,7 +322,7 @@ end function;"
     }
 
     #[test]
-    pub fn swap_function() {
+    pub(crate) fn swap_function() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_body,
             "\
@@ -335,7 +337,7 @@ end procedure swap;"
     }
 
     #[test]
-    pub fn subprogram_instantiation() {
+    pub(crate) fn subprogram_instantiation() {
         insta::assert_snapshot!(to_test_text(
             Parser::subprogram_instantiation_declaration,
             "procedure my_proc is new proc;"

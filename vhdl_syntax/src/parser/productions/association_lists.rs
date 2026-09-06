@@ -32,7 +32,7 @@ impl Parser {
         }
     }
 
-    pub fn port_map_aspect(&mut self) {
+    pub(crate) fn port_map_aspect(&mut self) {
         self.map_aspect(Kw::Port)
     }
 
@@ -40,7 +40,7 @@ impl Parser {
         self.opt_map_aspect(Kw::Port)
     }
 
-    pub fn generic_map_aspect(&mut self) {
+    pub(crate) fn generic_map_aspect(&mut self) {
         self.map_aspect(Kw::Generic)
     }
 

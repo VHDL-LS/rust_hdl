@@ -14,7 +14,7 @@ use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind::*;
 
 impl Parser {
-    pub fn type_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn type_declaration(&mut self) -> CompletedMarker {
         let unknown = self.start_unknown();
         self.expect_kw(Kw::Type);
         self.identifier();
@@ -28,7 +28,7 @@ impl Parser {
         marker.complete(self)
     }
 
-    pub fn type_definition(&mut self) {
+    pub(crate) fn type_definition(&mut self) {
         match_next_token!(self,
             Keyword(Kw::Range) => self.numeric_type_definition(),
             Keyword(Kw::Access) => {
@@ -45,7 +45,7 @@ impl Parser {
         )
     }
 
-    pub fn protected_type_definition(&mut self) {
+    pub(crate) fn protected_type_definition(&mut self) {
         let is_body =
             self.next_is(Keyword(Kw::Protected)) && self.next_nth_is(Keyword(Kw::Body), 1);
         let (definition, preamble, epilogue) = if is_body {
@@ -84,28 +84,28 @@ impl Parser {
         });
     }
 
-    pub fn protected_type_declarative_part(&mut self) {
+    pub(crate) fn protected_type_declarative_part(&mut self) {
         self.declarations(
             ProtectedTypeDeclarativePart,
             ProtectedTypeDeclarativeItemSyntax::META,
         );
     }
 
-    pub fn protected_type_body_declarative_part(&mut self) {
+    pub(crate) fn protected_type_body_declarative_part(&mut self) {
         self.declarations(
             ProtectedTypeBodyDeclarativePart,
             ProtectedTypeBodyDeclarativeItemSyntax::META,
         );
     }
 
-    pub fn file_type_definition(&mut self) {
+    pub(crate) fn file_type_definition(&mut self) {
         self.node(FileTypeDefinition, |p| {
             p.expect_tokens([Keyword(Kw::File), Keyword(Kw::Of)]);
             p.type_mark();
         });
     }
 
-    pub fn subtype_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn subtype_declaration(&mut self) -> CompletedMarker {
         self.node(SubtypeDeclaration, |p| {
             p.expect_kw(Kw::Subtype);
             p.identifier();

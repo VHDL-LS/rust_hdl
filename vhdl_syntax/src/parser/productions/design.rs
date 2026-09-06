@@ -17,7 +17,7 @@ use crate::tokens::token_kind::TokenKind::*;
 use crate::tokens::TokenKind;
 
 impl Parser {
-    pub fn design_file(&mut self) {
+    pub(crate) fn design_file(&mut self) {
         let marker = self.start_node(NodeKind::DesignFile);
         if self.next_is(Eof) {
             self.push_err(SyntaxErrKind::Expected(Child::<_, Box<[TokenKind]>>::Node(
@@ -36,7 +36,7 @@ impl Parser {
         marker.complete(self);
     }
 
-    pub fn design_unit(&mut self) {
+    pub(crate) fn design_unit(&mut self) {
         self.node(NodeKind::DesignUnit, |p| {
             p.context_clause();
             match_next_token!(p,
@@ -63,7 +63,7 @@ impl Parser {
         });
     }
 
-    pub fn context_declaration(&mut self) {
+    pub(crate) fn context_declaration(&mut self) {
         self.node(NodeKind::ContextDeclaration, |p| {
             p.context_declaration_preamble();
             p.context_clause();
@@ -71,7 +71,7 @@ impl Parser {
         });
     }
 
-    pub fn context_declaration_preamble(&mut self) {
+    pub(crate) fn context_declaration_preamble(&mut self) {
         self.node(NodeKind::ContextDeclarationPreamble, |p| {
             p.expect_kw(Kw::Context);
             p.identifier();
@@ -79,7 +79,7 @@ impl Parser {
         });
     }
 
-    pub fn context_declaration_epilogue(&mut self) {
+    pub(crate) fn context_declaration_epilogue(&mut self) {
         self.node(NodeKind::ContextDeclarationEpilogue, |p| {
             p.expect_kw(Kw::End);
             p.opt_token(Keyword(Kw::Context));
@@ -88,7 +88,7 @@ impl Parser {
         });
     }
 
-    pub fn binding_indication(&mut self) {
+    pub(crate) fn binding_indication(&mut self) {
         self.node(NodeKind::BindingIndication, |p| {
             if p.next_is(Keyword(Kw::Use)) {
                 p.node(BindingUseClause, |p| {
@@ -105,7 +105,7 @@ impl Parser {
         });
     }
 
-    pub fn entity_aspect(&mut self) {
+    pub(crate) fn entity_aspect(&mut self) {
         if self.next_is(Keyword(Kw::Open)) {
             self.skip_into_node(NodeKind::EntityOpenAspect);
         } else if self.next_is(Keyword(Kw::Entity)) {

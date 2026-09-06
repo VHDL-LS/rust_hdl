@@ -5,7 +5,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::token_kind::TokenKind::*;
 
 impl Parser {
-    pub fn library_clause(&mut self) {
+    pub(crate) fn library_clause(&mut self) {
         self.node(NodeKind::LibraryClause, |p| {
             p.expect_kw(Kw::Library);
             p.separated_list(LogicalNameList, Parser::identifier, Comma);
@@ -13,7 +13,7 @@ impl Parser {
         });
     }
 
-    pub fn use_clause(&mut self) {
+    pub(crate) fn use_clause(&mut self) {
         self.node(NodeKind::UseClause, |p| {
             p.expect_kw(Kw::Use);
             p.name_list();
@@ -21,7 +21,7 @@ impl Parser {
         });
     }
 
-    pub fn context_reference(&mut self) {
+    pub(crate) fn context_reference(&mut self) {
         self.node(NodeKind::ContextReference, |p| {
             p.expect_kw(Kw::Context);
             p.name_list();
@@ -29,7 +29,7 @@ impl Parser {
         });
     }
 
-    pub fn context_clause(&mut self) {
+    pub(crate) fn context_clause(&mut self) {
         self.node(NodeKind::ContextClause, |p| loop {
             match p.peek_token() {
                 Keyword(Kw::Use) => {

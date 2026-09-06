@@ -12,7 +12,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::*;
 
 impl Parser {
-    pub fn component_declaration(&mut self) -> CompletedMarker {
+    pub(crate) fn component_declaration(&mut self) -> CompletedMarker {
         self.node(ComponentDeclaration, |p| {
             p.component_declaration_preamble();
             p.opt_generic_clause();
@@ -21,7 +21,7 @@ impl Parser {
         })
     }
 
-    pub fn component_declaration_preamble(&mut self) {
+    pub(crate) fn component_declaration_preamble(&mut self) {
         self.node(ComponentDeclarationPreamble, |p| {
             p.expect_token(Keyword(Kw::Component));
             p.identifier();
@@ -29,7 +29,7 @@ impl Parser {
         });
     }
 
-    pub fn component_declaration_epilogue(&mut self) {
+    pub(crate) fn component_declaration_epilogue(&mut self) {
         self.node(ComponentDeclarationEpilogue, |p| {
             p.expect_token(Keyword(Kw::End));
             if p.standard().is_at_least(VHDLStandard::VHDL2019) {

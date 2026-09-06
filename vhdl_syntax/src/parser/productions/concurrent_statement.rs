@@ -18,7 +18,7 @@ use crate::tokens::token_kind::Keyword as Kw;
 use crate::tokens::TokenKind::{self, *};
 
 impl Parser {
-    pub fn block_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn block_statement(&mut self) -> CompletedMarker {
         self.node(BlockStatement, |p| {
             p.label();
             p.block_preamble();
@@ -32,7 +32,7 @@ impl Parser {
         })
     }
 
-    pub fn block_preamble(&mut self) {
+    pub(crate) fn block_preamble(&mut self) {
         self.node(BlockPreamble, |p| {
             p.expect_kw(Kw::Block);
             if p.next_is(LeftPar) {
@@ -46,7 +46,7 @@ impl Parser {
         });
     }
 
-    pub fn block_epilogue(&mut self) {
+    pub(crate) fn block_epilogue(&mut self) {
         self.node(BlockEpilogue, |p| {
             p.expect_tokens([Keyword(Kw::End), Keyword(Kw::Block)]);
             p.opt_identifier();
@@ -54,15 +54,15 @@ impl Parser {
         });
     }
 
-    pub fn block_declarative_part(&mut self) {
+    pub(crate) fn block_declarative_part(&mut self) {
         self.declarations(BlockDeclarativePart, BlockDeclarativeItemSyntax::META);
     }
 
-    pub fn block_statement_part(&mut self) {
+    pub(crate) fn block_statement_part(&mut self) {
         self.concurrent_statements(BlockStatementPart, ConcurrentStatementSyntax::META);
     }
 
-    pub fn block_header(&mut self) {
+    pub(crate) fn block_header(&mut self) {
         self.node(BlockHeader, |p| {
             if p.next_is(Keyword(Kw::Generic)) {
                 p.node(GenericPart, |p| {
@@ -112,21 +112,21 @@ impl Parser {
         }
     }
 
-    pub fn component_instantiated_unit(&mut self) {
+    pub(crate) fn component_instantiated_unit(&mut self) {
         self.node(InstantiatedComponent, |p| {
             p.opt_token(Keyword(Kw::Component));
             p.name();
         });
     }
 
-    pub fn entity_instantiated_unit(&mut self) {
+    pub(crate) fn entity_instantiated_unit(&mut self) {
         self.node(InstantiatedEntity, |p| {
             p.expect_kw(Kw::Entity);
             p.name();
         });
     }
 
-    pub fn configuration_instantiated_unit(&mut self) {
+    pub(crate) fn configuration_instantiated_unit(&mut self) {
         self.node(InstantiatedConfiguration, |p| {
             p.expect_kw(Kw::Configuration);
             p.name();
@@ -146,7 +146,7 @@ impl Parser {
         self.peek_nth_token(peek_idx)
     }
 
-    pub fn instantiated_unit(&mut self) {
+    pub(crate) fn instantiated_unit(&mut self) {
         match self.peek_token() {
             Keyword(Kw::Entity) => self.entity_instantiated_unit(),
             Keyword(Kw::Configuration) => self.configuration_instantiated_unit(),
@@ -154,7 +154,7 @@ impl Parser {
         }
     }
 
-    pub fn component_instantiation_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn component_instantiation_statement(&mut self) -> CompletedMarker {
         self.node(ComponentInstantiationStatement, |p| {
             p.label();
             p.instantiated_unit();
@@ -163,7 +163,7 @@ impl Parser {
         })
     }
 
-    pub fn concurrent_assertion_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn concurrent_assertion_statement(&mut self) -> CompletedMarker {
         self.node(ConcurrentAssertionStatement, |p| {
             p.opt_label();
             p.opt_token(Keyword(Kw::Postponed));
@@ -252,7 +252,7 @@ impl Parser {
         }
     }
 
-    pub fn concurrent_selected_signal_assignment(&mut self) -> CompletedMarker {
+    pub(crate) fn concurrent_selected_signal_assignment(&mut self) -> CompletedMarker {
         self.node(ConcurrentSelectedSignalAssignment, |p| {
             p.opt_label();
             p.opt_token(Keyword(Kw::Postponed));
@@ -266,7 +266,7 @@ impl Parser {
         })
     }
 
-    pub fn selected_assignment_preamble(&mut self) {
+    pub(crate) fn selected_assignment_preamble(&mut self) {
         self.node(SelectedAssignmentPreamble, |p| {
             p.expect_kw(Kw::With);
             p.expression();
@@ -275,7 +275,7 @@ impl Parser {
         });
     }
 
-    pub fn target(&mut self) {
+    pub(crate) fn target(&mut self) {
         if self.next_is(LeftPar) {
             self.node(AggregateTarget, |p| {
                 p.aggregate();
@@ -287,7 +287,7 @@ impl Parser {
         }
     }
 
-    pub fn assertion(&mut self) {
+    pub(crate) fn assertion(&mut self) {
         self.node(Assertion, |p| {
             p.expect_kw(Kw::Assert);
             p.condition();
@@ -306,7 +306,7 @@ impl Parser {
         });
     }
 
-    pub fn case_generate_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn case_generate_statement(&mut self) -> CompletedMarker {
         self.node(CaseGenerateStatement, |p| {
             p.label();
             p.case_generate_preamble();
@@ -318,7 +318,7 @@ impl Parser {
         })
     }
 
-    pub fn case_generate_preamble(&mut self) {
+    pub(crate) fn case_generate_preamble(&mut self) {
         self.node(CaseGeneratePreamble, |p| {
             p.expect_kw(Kw::Case);
             p.expression();
@@ -326,7 +326,7 @@ impl Parser {
         });
     }
 
-    pub fn case_generate_alternative(&mut self) {
+    pub(crate) fn case_generate_alternative(&mut self) {
         self.node(CaseGenerateAlternative, |p| {
             p.expect_kw(Kw::When);
             p.opt_label();
@@ -336,7 +336,7 @@ impl Parser {
         });
     }
 
-    pub fn for_generate_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn for_generate_statement(&mut self) -> CompletedMarker {
         self.node(ForGenerateStatement, |p| {
             p.label();
             p.for_generate_preamble();
@@ -345,7 +345,7 @@ impl Parser {
         })
     }
 
-    pub fn for_generate_preamble(&mut self) {
+    pub(crate) fn for_generate_preamble(&mut self) {
         self.node(ForGeneratePreamble, |p| {
             p.expect_kw(Kw::For);
             p.parameter_specification();
@@ -353,7 +353,7 @@ impl Parser {
         });
     }
 
-    pub fn generate_epilogue(&mut self) {
+    pub(crate) fn generate_epilogue(&mut self) {
         self.node(GenerateEpilogue, |p| {
             p.expect_tokens([Keyword(Kw::End), Keyword(Kw::Generate)]);
             p.opt_identifier();
@@ -361,7 +361,7 @@ impl Parser {
         });
     }
 
-    pub fn if_generate_if(&mut self) {
+    pub(crate) fn if_generate_if(&mut self) {
         self.node(IfGenerateIf, |p| {
             p.expect_kw(Kw::If);
             p.opt_label();
@@ -371,7 +371,7 @@ impl Parser {
         });
     }
 
-    pub fn if_generate_elsif(&mut self) {
+    pub(crate) fn if_generate_elsif(&mut self) {
         self.node(IfGenerateElsif, |p| {
             p.skip();
             p.opt_label();
@@ -381,7 +381,7 @@ impl Parser {
         });
     }
 
-    pub fn if_generate_else(&mut self) {
+    pub(crate) fn if_generate_else(&mut self) {
         self.node(IfGenerateElse, |p| {
             p.skip();
             p.opt_label();
@@ -390,7 +390,7 @@ impl Parser {
         });
     }
 
-    pub fn if_generate_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn if_generate_statement(&mut self) -> CompletedMarker {
         self.node(IfGenerateStatement, |p| {
             p.label();
             p.if_generate_if();
@@ -404,7 +404,7 @@ impl Parser {
         })
     }
 
-    pub fn generate_statement_body(&mut self) {
+    pub(crate) fn generate_statement_body(&mut self) {
         self.node(GenerateStatementBody, |p| {
             if is_start_of_declarative_part(p.peek_token()) || p.next_is(Keyword(Kw::Begin)) {
                 p.node(GenerateBodyDeclarations, |p| {
@@ -421,7 +421,7 @@ impl Parser {
         });
     }
 
-    pub fn generate_statement_body_epilogue(&mut self) {
+    pub(crate) fn generate_statement_body_epilogue(&mut self) {
         self.node(GenerateBodyEpilogue, |p| {
             p.expect_kw(Kw::End);
             p.opt_identifier();
@@ -429,7 +429,7 @@ impl Parser {
         });
     }
 
-    pub fn parameter_specification(&mut self) {
+    pub(crate) fn parameter_specification(&mut self) {
         self.node(ParameterSpecification, |p| {
             p.identifier();
             p.expect_kw(Kw::In);
@@ -442,7 +442,7 @@ impl Parser {
         self.opt_port_map_aspect();
     }
 
-    pub fn process_statement(&mut self) -> CompletedMarker {
+    pub(crate) fn process_statement(&mut self) -> CompletedMarker {
         self.node(ProcessStatement, |p| {
             p.opt_label();
             p.process_preamble();
@@ -455,15 +455,15 @@ impl Parser {
         })
     }
 
-    pub fn process_declarative_part(&mut self) {
+    pub(crate) fn process_declarative_part(&mut self) {
         self.declarations(ProcessDeclarativePart, ProcessDeclarativeItemSyntax::META);
     }
 
-    pub fn process_statement_part(&mut self) {
+    pub(crate) fn process_statement_part(&mut self) {
         self.sequential_statements(ProcessStatementPart, SequentialStatementSyntax::META);
     }
 
-    pub fn process_preamble(&mut self) {
+    pub(crate) fn process_preamble(&mut self) {
         self.node(ProcessPreamble, |p| {
             p.opt_token(Keyword(Kw::Postponed));
             p.expect_token(Keyword(Kw::Process));
@@ -474,7 +474,7 @@ impl Parser {
         });
     }
 
-    pub fn process_epilogue(&mut self) {
+    pub(crate) fn process_epilogue(&mut self) {
         self.node(ProcessEpilogue, |p| {
             p.expect_kw(Kw::End);
             p.opt_token(Keyword(Kw::Postponed));
@@ -484,7 +484,7 @@ impl Parser {
         });
     }
 
-    pub fn process_sensitivity_list(&mut self) {
+    pub(crate) fn process_sensitivity_list(&mut self) {
         self.node(ParenthesizedProcessSensitivityList, |p| {
             p.expect_token(LeftPar);
             if p.next_is(Keyword(Kw::All)) {
@@ -496,7 +496,7 @@ impl Parser {
         });
     }
 
-    pub fn sensitivity_list(&mut self) {
+    pub(crate) fn sensitivity_list(&mut self) {
         self.separated_list(SensitivityList, Parser::name, Comma);
     }
 }

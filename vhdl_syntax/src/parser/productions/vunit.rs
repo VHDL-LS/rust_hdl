@@ -9,14 +9,14 @@ use crate::tokens::TokenKind::*;
 use crate::{parser::Parser, syntax::NodeKind};
 
 impl Parser {
-    pub fn verification_unit_binding_indication(&mut self) {
+    pub(crate) fn verification_unit_binding_indication(&mut self) {
         self.node(NodeKind::VerificationUnitBindingIndication, |p| {
             p.expect_tokens([Keyword(Kw::Use), Keyword(Kw::Vunit)]);
             p.verification_unit_list();
         });
     }
 
-    pub fn verification_unit_list(&mut self) {
+    pub(crate) fn verification_unit_list(&mut self) {
         self.separated_list(NodeKind::VerificationUnitList, Parser::name, Comma);
     }
 }

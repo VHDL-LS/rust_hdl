@@ -42,7 +42,7 @@ fn is_start_of_attribute_name(parser: &mut Parser) -> bool {
 }
 
 impl Parser {
-    pub fn name(&mut self) -> CompletedMarker {
+    pub(crate) fn name(&mut self) -> CompletedMarker {
         // (Based on) LRM §8.1
         // The LRM grammar rules for names were transformed to avoid left recursion.
 
@@ -69,7 +69,7 @@ impl Parser {
         })
     }
 
-    pub fn type_mark(&mut self) -> CompletedMarker {
+    pub(crate) fn type_mark(&mut self) -> CompletedMarker {
         self.name()
     }
 
@@ -147,7 +147,7 @@ impl Parser {
         }
     }
 
-    pub fn external_name(&mut self) {
+    pub(crate) fn external_name(&mut self) {
         // LRM §8.7
         let unknown = self.start_unknown();
         self.expect_token(LtLt);
@@ -224,11 +224,11 @@ impl Parser {
         });
     }
 
-    pub fn choices(&mut self) {
+    pub(crate) fn choices(&mut self) {
         self.separated_list(Choices, Parser::choice, Bar);
     }
 
-    pub fn choice(&mut self) {
+    pub(crate) fn choice(&mut self) {
         if self.next_is(Keyword(Kw::Others)) {
             self.node(OthersChoice, |p| {
                 p.skip();

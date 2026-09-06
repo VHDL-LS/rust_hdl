@@ -43,7 +43,7 @@ fn unary_precedence(token: TokenKind) -> Option<NonZeroU8> {
 }
 
 impl Parser {
-    pub fn primary(&mut self) -> Option<CompletedMarker> {
+    pub(crate) fn primary(&mut self) -> Option<CompletedMarker> {
         match_next_token!(self,
             Identifier, LtLt => {
               let name = self.name();
@@ -91,7 +91,7 @@ impl Parser {
         }
     }
 
-    pub fn allocator(&mut self) -> CompletedMarker {
+    pub(crate) fn allocator(&mut self) -> CompletedMarker {
         self.node(Allocator, |p| {
             p.expect_kw(Kw::New);
             p.expression();
@@ -127,7 +127,7 @@ impl Parser {
         expression
     }
 
-    pub fn expression(&mut self) -> Option<CompletedMarker> {
+    pub(crate) fn expression(&mut self) -> Option<CompletedMarker> {
         self.expression_inner(0)
     }
 
@@ -144,7 +144,7 @@ impl Parser {
         expression
     }
 
-    pub fn condition(&mut self) -> Option<CompletedMarker> {
+    pub(crate) fn condition(&mut self) -> Option<CompletedMarker> {
         self.expression()
     }
 }
