@@ -7,17 +7,28 @@
 use crate::interning::{Interned, Interner};
 use crate::latin_1::Latin1Str;
 use crate::tokens::{TokenKind, Trivia};
+use std::fmt::Debug;
 use std::io::{self, Write};
 use std::sync::RwLock;
 
 static STR_INTERNER: RwLock<Interner<Latin1Str>> = RwLock::new(Interner::new());
 
 /// A source-code token.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Token {
     pub(crate) leading_trivia: Trivia,
     kind: TokenKind,
     text: Interned<Latin1Str>,
+}
+
+impl Debug for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Token")
+            .field("leading_trivia", &self.leading_trivia)
+            .field("kind", &self.kind)
+            .field("text", &self.text())
+            .finish()
+    }
 }
 
 impl Token {

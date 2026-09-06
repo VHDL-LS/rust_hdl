@@ -74,7 +74,7 @@ where
 
     pub fn value(&self, interner: &RwLock<Interner<T>>) -> &'static T {
         // Note: this could avoid the lock since strings are pushed to an append-only collection
-        // might re-evaluate when thinking about optimization
+        // Re-evaluate this when considering optimization
         interner
             .read()
             .unwrap_or_else(|e| e.into_inner())
@@ -122,5 +122,99 @@ where
 
     fn get_value(&self, value: &Interned<T>) -> &'static T {
         self.entries[value.0 as usize]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::latin_1::Latin1Str;
+    use std::collections::HashSet;
+    use std::thread;
+
+    fn interner<T>() -> RwLock<Interner<T>>
+    where
+        T: ?Sized + Hash + Eq + 'static,
+        for<'a> Box<T>: From<&'a T>,
+    {
+        RwLock::new(Interner::new())
+    }
+
+    fn entry_count<T: ?Sized>(interner: &RwLock<Interner<T>>) -> usize {
+        interner.read().unwrap().entries.len()
+    }
+
+    #[test]
+    fn equal_values_share_a_symbol() {
+        let interner = interner::<[u8]>();
+        let first = Interned::get(&interner, b"entity".as_slice());
+        let second = Interned::get(&interner, b"entity".as_slice());
+
+        assert_eq!(first, second);
+        // the second `get` must not allocate a new entry
+        assert_eq!(entry_count(&interner), 1);
+    }
+
+    #[test]
+    fn distinct_values_get_distinct_symbols() {
+        let interner = interner::<[u8]>();
+        let values: [&[u8]; 4] = [b"entity", b"architecture", b"", b"Entity"];
+        let symbols: Vec<_> = values
+            .iter()
+            .map(|value| Interned::get(&interner, *value))
+            .collect();
+
+        assert_eq!(symbols.iter().collect::<HashSet<_>>().len(), values.len());
+        assert_eq!(entry_count(&interner), values.len());
+    }
+
+    #[test]
+    fn symbols_round_trip_to_their_value() {
+        let interner = interner::<[u8]>();
+        for value in [b"entity".as_slice(), b"architecture".as_slice(), b""] {
+            let symbol = Interned::get(&interner, value);
+            assert_eq!(symbol.value(&interner), value);
+        }
+    }
+
+    #[test]
+    fn interning_is_case_sensitive() {
+        let interner = interner::<Latin1Str>();
+        let lower = Interned::get(&interner, Latin1Str::new(b"entity"));
+        let upper = Interned::get(&interner, Latin1Str::new(b"ENTITY"));
+
+        assert_ne!(lower, upper);
+        assert_eq!(lower.value(&interner), Latin1Str::new(b"entity"));
+        assert_eq!(upper.value(&interner), Latin1Str::new(b"ENTITY"));
+    }
+
+    #[test]
+    fn two_interners_of_the_same_type_are_independent() {
+        let first = interner::<[u8]>();
+        let second = interner::<[u8]>();
+
+        Interned::get(&first, b"entity".as_slice());
+        let a = Interned::get(&first, b"architecture".as_slice());
+        let b = Interned::get(&second, b"architecture".as_slice());
+
+        assert_eq!(a.value(&first), b"architecture".as_slice());
+        assert_eq!(b.value(&second), b"architecture".as_slice());
+        assert_eq!(entry_count(&first), 2);
+        assert_eq!(entry_count(&second), 1);
+    }
+
+    #[test]
+    fn concurrent_interning_of_one_value_yields_one_symbol() {
+        let interner = interner::<[u8]>();
+
+        let symbols: Vec<_> = thread::scope(|scope| {
+            let handles: Vec<_> = (0..8)
+                .map(|_| scope.spawn(|| Interned::get(&interner, b"entity".as_slice())))
+                .collect();
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+
+        assert!(symbols.iter().all(|symbol| *symbol == symbols[0]));
+        assert_eq!(entry_count(&interner), 1);
     }
 }

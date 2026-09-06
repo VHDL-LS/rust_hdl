@@ -4,11 +4,7 @@
 //
 // Copyright (c) 2026, Lukas Scheller lukasscheller@icloud.com
 
-use std::{fmt::Debug, sync::RwLock};
-
-use crate::interning::{Interned, Interner};
-
-static COMMENT_INTERNER: RwLock<Interner<[u8]>> = RwLock::new(Interner::new());
+use std::fmt::Debug;
 
 /// A comment
 ///
@@ -16,17 +12,12 @@ static COMMENT_INTERNER: RwLock<Interner<[u8]>> = RwLock::new(Interner::new());
 /// this implementation makes no assumption as to that and is simply
 /// backed by bytes. Utility methods exist to get the value with different
 /// encodings.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Comment {
-    inner: Interned<[u8]>,
-}
-
-impl Debug for Comment {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Comment")
-            .field("inner", &self.as_bytes())
-            .finish()
-    }
+    // TODO: We should check if interning (globally or locally per file / library)
+    // can provide an advantage. Comments are fairly unique, but stuff like
+    // license headers or linter directives may profit from interning.
+    inner: Box<[u8]>,
 }
 
 impl Comment {
@@ -86,21 +77,18 @@ impl Comment {
     /// assert_eq!(unterminated.as_bytes(), b"/* Hello");
     /// ```
     pub fn from_raw(bytes: impl AsRef<[u8]>) -> Comment {
-        let bytes = bytes.as_ref();
         Comment {
-            inner: Interned::get(&COMMENT_INTERNER, bytes),
+            inner: bytes.as_ref().into(),
         }
     }
 
     /// Return the comment as byte-slice
     pub fn as_bytes(&self) -> &[u8] {
-        self.inner.value(&COMMENT_INTERNER)
+        &self.inner
     }
 
     /// Return the length of the comment
     pub fn byte_len(&self) -> usize {
-        // TODO: measure the impact (size vs speed) on caching the length
-        // instead of lookup
         self.as_bytes().len()
     }
 }
