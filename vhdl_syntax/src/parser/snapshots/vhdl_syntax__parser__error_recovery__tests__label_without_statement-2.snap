@@ -38,4 +38,4 @@ DesignFile
   Eof
 
 == diagnostics ==
-3:12 Expected(Token([SemiColon]))
+3:12 expected ';'

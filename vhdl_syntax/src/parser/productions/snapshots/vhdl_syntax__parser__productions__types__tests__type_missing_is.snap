@@ -21,4 +21,4 @@ FullTypeDeclaration
   SemiColon
 
 == diagnostics ==
-1:13 Expected(Token([Keyword(Is)]))
+1:13 expected 'is'

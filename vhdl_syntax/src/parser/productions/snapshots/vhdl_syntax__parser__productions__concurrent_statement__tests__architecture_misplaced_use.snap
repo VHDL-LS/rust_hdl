@@ -22,5 +22,5 @@ ArchitectureBody
     Keyword(Begin)
 
 == diagnostics ==
-2:8 Expected(Token([Keyword(Block), Keyword(Process), Keyword(Component), Keyword(Configuration), Keyword(Entity), Keyword(For), Keyword(If), Keyword(Case), Keyword(Assert), Keyword(With), Identifier, LtLt, StringLiteral, CharacterLiteral]))
-2:8 Expected(Node([ArchitectureEpilogue]))
+2:8 expected 'block', 'process', 'component', 'configuration', 'entity', 'for', 'if', 'case', 'assert', 'with', Identifier, '<<', StringLiteral or CharacterLiteral
+2:8 expected ArchitectureEpilogue

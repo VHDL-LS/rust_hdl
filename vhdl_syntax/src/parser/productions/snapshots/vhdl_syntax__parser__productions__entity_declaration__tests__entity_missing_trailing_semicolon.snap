@@ -17,4 +17,4 @@ EntityDeclaration
     Keyword(Entity)
 
 == diagnostics ==
-2:11 Expected(Token([SemiColon]))
+2:11 expected ';'

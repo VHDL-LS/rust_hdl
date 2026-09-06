@@ -61,8 +61,8 @@ DesignFile
   Eof
 
 == diagnostics ==
-3:26 Expected(Token([Keyword(Type), Keyword(Subtype), Keyword(Component), Keyword(Impure), Keyword(Pure), Keyword(Function), Keyword(Procedure), Keyword(Package), Keyword(For), Keyword(File), Keyword(Shared), Keyword(Variable), Keyword(Constant), Keyword(Signal), Keyword(Attribute), Keyword(Use), Keyword(Alias), Keyword(Group), Keyword(Disconnect)]))
-3:26 Expected(Node([DeclarationStatementSeparator]))
-6:9..6:18 Unexpected(Token(Keyword(Postponed)))
-7:4 Expected(Token([Keyword(Process)]))
-7:10 Expected(Node([ArchitectureEpilogue]))
+3:26 expected 'type', 'subtype', 'component', 'impure', 'pure', 'function', 'procedure', 'package', 'for', 'file', 'shared', 'variable', 'constant', 'signal', 'attribute', 'use', 'alias', 'group' or 'disconnect'
+3:26 expected DeclarationStatementSeparator
+6:9..6:18 unexpected 'postponed'
+7:4 expected 'process'
+7:10 expected ArchitectureEpilogue

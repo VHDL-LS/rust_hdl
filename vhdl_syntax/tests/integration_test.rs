@@ -3,6 +3,7 @@ use std::{fs::File, io::Read, path::PathBuf};
 use similar::{ChangeTag, TextDiff};
 use vhdl_syntax::{
     self, parser,
+    parser::error::display_errors,
     syntax::{node::SyntaxElement, validate::error::Validation, AstNode},
 };
 
@@ -25,9 +26,9 @@ fn check_file(path: impl Into<std::path::PathBuf>) {
     let (file, diagnostics) = parser::parse(buf.as_slice());
     assert!(
         diagnostics.is_empty(),
-        "Found diagnostics for file {}: {:?}",
+        "Found diagnostics for file {}:\n{}",
         path.display(),
-        diagnostics
+        display_errors(&diagnostics)
     );
     let mut expected_buf = Vec::new();
     file.raw()

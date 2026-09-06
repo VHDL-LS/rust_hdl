@@ -22,6 +22,18 @@ pub enum UnterminatedKind {
     BlockComment,
 }
 
+impl std::fmt::Display for UnterminatedKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            UnterminatedKind::StringLiteral => "string literal",
+            UnterminatedKind::BasedLiteral => "based literal",
+            UnterminatedKind::ExtendedIdentifier => "extended identifier",
+            UnterminatedKind::BlockComment => "block comment",
+        };
+        f.write_str(name)
+    }
+}
+
 /// Error kind that occurs when lexing
 #[derive(Clone, Copy, Debug)]
 pub enum LexErrKind {
@@ -352,10 +364,6 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     }
 
     /// Consume a trivia piece (i.e., whitespace, newline, comments, ...)
-    // TODO: Currently, comment encoding is UTF-8 (and will panic if this is not the case)
-    // Instead, the comment encoding should be user-configurable to avoid
-    // panicking and support different use-cases.
-    // VHDL allows comments to have a different encoding (NOTE 2 in 15.9) and we should respect that.
     fn consume_trivia_piece(&mut self) -> Option<(TriviaPiece, Option<LexErrKind>)> {
         macro_rules! count_chars {
             ($ch:literal) => {{

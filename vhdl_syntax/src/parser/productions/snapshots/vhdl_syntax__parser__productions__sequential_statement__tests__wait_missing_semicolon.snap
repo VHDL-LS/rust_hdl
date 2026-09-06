@@ -10,4 +10,4 @@ WaitStatement
   Keyword(Wait)
 
 == diagnostics ==
-1:5 Expected(Token([SemiColon]))
+1:5 expected ';'

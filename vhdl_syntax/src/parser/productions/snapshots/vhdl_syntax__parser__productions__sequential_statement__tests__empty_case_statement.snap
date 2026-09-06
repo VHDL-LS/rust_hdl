@@ -21,4 +21,4 @@ CaseStatement
     SemiColon
 
 == diagnostics ==
-1:12 Expected(Node([CaseStatementAlternative]))
+1:12 expected CaseStatementAlternative

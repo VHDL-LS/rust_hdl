@@ -57,5 +57,5 @@ ComponentDeclaration
     SemiColon
 
 == diagnostics ==
-4:44 Expected(Token([RightPar]))
-4:44 Expected(Token([SemiColon]))
+4:44 expected ')'
+4:44 expected ';'

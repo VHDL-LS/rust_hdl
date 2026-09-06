@@ -10,4 +10,4 @@ DesignFile
   Eof
 
 == diagnostics ==
-1:1 Expected(Node([DesignUnit]))
+1:1 expected DesignUnit

@@ -14,4 +14,4 @@ Name
     RightPar
 
 == diagnostics ==
-1:5 Expected(Node([AssociationList]))
+1:5 expected AssociationList

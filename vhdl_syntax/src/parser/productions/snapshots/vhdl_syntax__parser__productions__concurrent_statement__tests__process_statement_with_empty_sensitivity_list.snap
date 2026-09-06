@@ -22,4 +22,4 @@ ProcessStatement
     SemiColon
 
 == diagnostics ==
-1:9 Expected(Node([SensitivityList]))
+1:9 expected SensitivityList

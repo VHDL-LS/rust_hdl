@@ -13,6 +13,7 @@
 //! and works on syntactically valid input.
 
 use vhdl_syntax::parser;
+use vhdl_syntax::parser::error::display_errors;
 use vhdl_syntax::syntax::node::SyntaxNode;
 use vhdl_syntax::syntax::visitor::WalkEvent;
 use vhdl_syntax::syntax::{
@@ -43,7 +44,8 @@ end entity blinky;
     let (design, diagnostics) = parser::parse(vhdl);
     assert!(
         diagnostics.is_empty(),
-        "Did not expect diagnostics for correct VHDL: {diagnostics:?}"
+        "Did not expect diagnostics for correct VHDL:\n{}",
+        display_errors(&diagnostics)
     );
 
     for entity in design.walk().filter_map(extract_entity_declaration) {

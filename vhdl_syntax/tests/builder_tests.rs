@@ -14,6 +14,7 @@ use vhdl_syntax::{
     builder::Identifier,
     fmt::write::FormatToExt,
     parser,
+    parser::error::display_errors,
     syntax::{
         ArchitectureEpilogueBuilder, AstNode, BinaryOperatorToken, EntityDeclarationBuilder,
         EntityDeclarationEpilogueBuilder, EntityDeclarationPreambleBuilder, LibraryUnitSyntax,
@@ -105,7 +106,11 @@ fn entity_epilogue_with_identifier() {
 #[test]
 fn roundtrip_entity_preamble_name_from_parsed_ast() {
     let (file, diags) = parser::parse("entity work is end entity work;");
-    assert!(diags.is_empty(), "unexpected parse diagnostics: {diags:?}");
+    assert!(
+        diags.is_empty(),
+        "unexpected parse diagnostics:\n{}",
+        display_errors(&diags)
+    );
 
     let design_unit = file
         .design_units()

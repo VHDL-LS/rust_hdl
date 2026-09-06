@@ -21,4 +21,4 @@ ArchitectureBody
     SemiColon
 
 == diagnostics ==
-1:29 Expected(Node([DeclarationStatementSeparator]))
+1:29 expected DeclarationStatementSeparator

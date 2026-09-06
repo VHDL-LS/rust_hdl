@@ -29,4 +29,4 @@ FullTypeDeclaration
   SemiColon
 
 == diagnostics ==
-1:31 Expected(Token([Keyword(Of)]))
+1:31 expected 'of'

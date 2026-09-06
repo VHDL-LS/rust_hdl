@@ -11,4 +11,4 @@ LibraryClause
   SemiColon
 
 == diagnostics ==
-1:8 Expected(Node([LogicalNameList]))
+1:8 expected LogicalNameList

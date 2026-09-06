@@ -37,4 +37,4 @@ CaseGenerateStatement
     SemiColon
 
 == diagnostics ==
-1:31 Expected(Node([CaseGenerateAlternative]))
+1:31 expected CaseGenerateAlternative

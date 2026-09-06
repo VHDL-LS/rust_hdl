@@ -45,5 +45,5 @@ EntityDeclaration
     SemiColon
 
 == diagnostics ==
-4:23 Expected(Token([RightPar]))
-4:23 Expected(Token([SemiColon]))
+4:23 expected ')'
+4:23 expected ';'

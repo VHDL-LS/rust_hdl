@@ -36,4 +36,4 @@ ProcessStatement
       SemiColon
 
 == diagnostics ==
-3:10 Expected(Node([ProcessEpilogue]))
+3:10 expected ProcessEpilogue

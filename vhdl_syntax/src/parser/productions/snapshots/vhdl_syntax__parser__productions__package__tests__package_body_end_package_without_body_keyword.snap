@@ -20,4 +20,4 @@ PackageBody
     SemiColon
 
 == diagnostics ==
-2:12 Expected(Token([Keyword(Body)]))
+2:12 expected 'body'

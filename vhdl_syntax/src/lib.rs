@@ -4,6 +4,8 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
+//! A lossless library for tokenizing, parsing, inspecting and modifying VHDL code.
+
 pub mod builder;
 pub mod fmt;
 pub(crate) mod interning;

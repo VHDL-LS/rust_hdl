@@ -139,7 +139,11 @@ configuration cfg of ent is
 end configuration cfg;
             "#,
         );
-        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        assert!(
+            diagnostics.is_empty(),
+            "{}",
+            crate::parser::error::display_errors(&diagnostics)
+        );
         assert!(node.raw().validate().is_ok());
     }
 

@@ -4,6 +4,17 @@
 //
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 
+//! Syntax errors
+//!
+//! Note on display / formatting: The error format is `<span> <error message>`
+//! This is mostly targeted towards debug outputs.
+//! Useful, human-oriented error messages require true source-location information,
+//! and their rendering is opinionated.
+//! For the span <-> source code mapping, consult the [text](crate::text) module.
+// TODO: Once a linter crate exists, link that here.
+
+use std::error::Error;
+use std::fmt::Display;
 use std::ops::Range;
 
 use crate::syntax::child::{Child, ChildKind};
@@ -24,12 +35,71 @@ pub enum SyntaxErrKind {
     Unterminated(UnterminatedKind),
 }
 
+struct DisplayTokenKind(TokenKind);
+
+impl Display for DisplayTokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0.canonical_text() {
+            // `Eof` has a canonical text, but it is empty
+            Some(text) if !text.is_empty() => write!(f, "'{text}'"),
+            _ => write!(f, "{:?}", self.0),
+        }
+    }
+}
+
+/// Writes the alternatives of an `expected` message as `a, b or c`.
+fn write_alternatives<T>(
+    f: &mut std::fmt::Formatter<'_>,
+    items: &[T],
+    mut write_item: impl FnMut(&mut std::fmt::Formatter<'_>, &T) -> std::fmt::Result,
+) -> std::fmt::Result {
+    for (index, item) in items.iter().enumerate() {
+        if index > 0 {
+            f.write_str(if index == items.len() - 1 {
+                " or "
+            } else {
+                ", "
+            })?;
+        }
+        write_item(f, item)?;
+    }
+    Ok(())
+}
+
+impl Display for SyntaxErrKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SyntaxErrKind::Expected(child) => {
+                write!(f, "expected ")?;
+                match child {
+                    Child::Node(nodes) => {
+                        write_alternatives(f, nodes, |f, node| write!(f, "{node:?}"))
+                    }
+                    Child::Token(tokens) => write_alternatives(f, tokens, |f, token| {
+                        write!(f, "{}", DisplayTokenKind(*token))
+                    }),
+                }
+            }
+            SyntaxErrKind::Unexpected(child) => {
+                write!(f, "unexpected ")?;
+                match child {
+                    Child::Node(node) => write!(f, "{node:?}"),
+                    Child::Token(token) => write!(f, "{}", DisplayTokenKind(*token)),
+                }
+            }
+            SyntaxErrKind::Unterminated(unterminated_kind) => {
+                write!(f, "unterminated {unterminated_kind}")
+            }
+        }
+    }
+}
+
 /// Syntax error that may occur when parsing a VHDL source file
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SyntaxErr {
     /// The main span of the error.
     span: Span,
-    /// the error that occured
+    /// the error that occurred
     error: SyntaxErrKind,
 }
 
@@ -38,9 +108,9 @@ impl SyntaxErr {
         SyntaxErr { span, error: err }
     }
 
-    /// The span where the error occured
+    /// The span where the error occurred
     /// The meaning of this is dependent on the error kind.
-    /// For example, when expecing some tokens, this defines the
+    /// For example, when expecting some tokens, this defines the
     /// zero-width insertion point where the token was expected.
     /// For [SyntaxErrKind::Unexpected], this refers to location
     /// of the unexpected token.
@@ -48,7 +118,7 @@ impl SyntaxErr {
         &self.span
     }
 
-    /// The error kind that occured
+    /// The error kind that occurred
     pub fn err(&self) -> &SyntaxErrKind {
         &self.error
     }
@@ -80,6 +150,29 @@ impl SyntaxErr {
 
         SyntaxErr::new(span, kind)
     }
+}
+
+impl Display for SyntaxErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}..{} {}",
+            self.span().start,
+            self.span().end,
+            self.err()
+        )
+    }
+}
+
+impl Error for SyntaxErr {}
+
+/// Renders a sequence of syntax errors, one per line
+pub fn display_errors<'a>(errors: impl IntoIterator<Item = &'a SyntaxErr>) -> String {
+    errors
+        .into_iter()
+        .map(|err| err.to_string())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[cfg(test)]
@@ -139,5 +232,141 @@ mod tests {
         let (tok, err) = first_lex_err(" \"abc");
         let syntax_err = SyntaxErr::from_lex_err(err, &tok, 10);
         assert_eq!(*syntax_err.span(), 11..15);
+    }
+
+    #[test]
+    fn display_errors_renders_one_error_per_line() {
+        assert_eq!(display_errors(&[]), "");
+        let errors = [
+            SyntaxErr::new(
+                4..12,
+                SyntaxErrKind::Unterminated(UnterminatedKind::StringLiteral),
+            ),
+            SyntaxErr::new(
+                1..1,
+                SyntaxErrKind::Expected(Child::Token(Box::new([TokenKind::Colon]))),
+            ),
+        ];
+        assert_eq!(
+            display_errors(&errors),
+            "4..12 unterminated string literal\n1..1 expected ':'"
+        );
+    }
+
+    #[test]
+    fn format_error_messages() {
+        assert_eq!(
+            SyntaxErr::new(
+                4..12,
+                SyntaxErrKind::Unterminated(UnterminatedKind::StringLiteral)
+            )
+            .to_string(),
+            "4..12 unterminated string literal"
+        );
+        assert_eq!(
+            SyntaxErr::new(
+                4..12,
+                SyntaxErrKind::Unterminated(UnterminatedKind::BlockComment)
+            )
+            .to_string(),
+            "4..12 unterminated block comment"
+        );
+        assert_eq!(
+            SyntaxErr::new(
+                4..12,
+                SyntaxErrKind::Unterminated(UnterminatedKind::BasedLiteral)
+            )
+            .to_string(),
+            "4..12 unterminated based literal"
+        );
+        assert_eq!(
+            SyntaxErr::new(
+                4..12,
+                SyntaxErrKind::Unterminated(UnterminatedKind::ExtendedIdentifier)
+            )
+            .to_string(),
+            "4..12 unterminated extended identifier"
+        );
+
+        assert_eq!(
+            SyntaxErr::new(
+                1..3,
+                SyntaxErrKind::Unexpected(Child::Token(TokenKind::Colon))
+            )
+            .to_string(),
+            "1..3 unexpected ':'"
+        );
+        assert_eq!(
+            SyntaxErr::new(
+                1..3,
+                SyntaxErrKind::Unexpected(Child::Node(NodeKind::Assertion))
+            )
+            .to_string(),
+            "1..3 unexpected Assertion"
+        );
+
+        assert_eq!(
+            SyntaxErr::new(
+                1..1,
+                SyntaxErrKind::Expected(Child::Node(Box::new([NodeKind::DesignFile])))
+            )
+            .to_string(),
+            "1..1 expected DesignFile"
+        );
+        assert_eq!(
+            SyntaxErr::new(
+                1..1,
+                SyntaxErrKind::Expected(Child::Node(Box::new([
+                    NodeKind::IfStatement,
+                    NodeKind::LoopStatement
+                ])))
+            )
+            .to_string(),
+            "1..1 expected IfStatement or LoopStatement"
+        );
+        assert_eq!(
+            SyntaxErr::new(
+                1..1,
+                SyntaxErrKind::Expected(Child::Node(Box::new([
+                    NodeKind::IfStatement,
+                    NodeKind::LoopStatement,
+                    NodeKind::ReturnStatement
+                ])))
+            )
+            .to_string(),
+            "1..1 expected IfStatement, LoopStatement or ReturnStatement"
+        );
+
+        assert_eq!(
+            SyntaxErr::new(
+                1..1,
+                SyntaxErrKind::Expected(Child::Token(Box::new([TokenKind::Colon])))
+            )
+            .to_string(),
+            "1..1 expected ':'"
+        );
+        assert_eq!(
+            SyntaxErr::new(
+                1..1,
+                SyntaxErrKind::Expected(Child::Token(Box::new([
+                    TokenKind::Colon,
+                    TokenKind::Identifier
+                ])))
+            )
+            .to_string(),
+            "1..1 expected ':' or Identifier"
+        );
+        assert_eq!(
+            SyntaxErr::new(
+                1..1,
+                SyntaxErrKind::Expected(Child::Token(Box::new([
+                    TokenKind::Colon,
+                    TokenKind::Identifier,
+                    TokenKind::Plus
+                ])))
+            )
+            .to_string(),
+            "1..1 expected ':', Identifier or '+'"
+        );
     }
 }

@@ -41,4 +41,4 @@ ComponentInstantiationStatement
     RightPar
 
 == diagnostics ==
-4:4 Expected(Token([SemiColon]))
+4:4 expected ';'

@@ -31,4 +31,4 @@ IfStatement
     SemiColon
 
 == diagnostics ==
-1:8 Expected(Token([Keyword(Then)]))
+1:8 expected 'then'

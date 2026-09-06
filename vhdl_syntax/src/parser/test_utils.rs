@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::error::SyntaxErr;
+use crate::parser::error::{display_errors, SyntaxErr};
 use crate::parser::{parse_syntax, parse_syntax_with_standard, Parser};
 use crate::standard::VHDLStandard;
 use crate::syntax::node::{SyntaxElement, SyntaxNode};
@@ -13,7 +13,11 @@ use crate::syntax::validate::error::Validation;
 /// Returns the AST text for snapshot assertions.
 pub fn to_test_text<T>(func: impl FnOnce(&mut Parser) -> T, input: &str) -> String {
     let (entity, diagnostics) = parse_syntax(input, func);
-    assert!(diagnostics.is_empty(), "got diagnostics: {:?}", diagnostics);
+    assert!(
+        diagnostics.is_empty(),
+        "got diagnostics:\n{}",
+        display_errors(&diagnostics)
+    );
     if let Err(err) = entity.validate() {
         println!("Parser <-> AST validation failed: {err}");
         for item in err.items() {
@@ -50,11 +54,11 @@ pub fn diagnostics_test_text(
         let s = conv.source_loc(d.span().start);
         let e = conv.source_loc(d.span().end);
         if s == e {
-            writeln!(out, "{}:{} {:?}", s.line + 1, s.col + 1, d.err())
+            writeln!(out, "{}:{} {}", s.line + 1, s.col + 1, d.err())
         } else {
             writeln!(
                 out,
-                "{}:{}..{}:{} {:?}",
+                "{}:{}..{}:{} {}",
                 s.line + 1,
                 s.col + 1,
                 e.line + 1,
@@ -92,6 +96,10 @@ pub fn to_test_text_with_standard<T>(
     input: &str,
 ) -> String {
     let (entity, diagnostics) = parse_syntax_with_standard(standard, input.bytes(), func);
-    assert!(diagnostics.is_empty(), "got diagnostics: {:?}", diagnostics);
+    assert!(
+        diagnostics.is_empty(),
+        "got diagnostics:\n{}",
+        display_errors(&diagnostics)
+    );
     entity.test_text()
 }

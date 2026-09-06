@@ -20,5 +20,5 @@ GenericClause
             Identifier 'integer'
 
 == diagnostics ==
-1:25 Expected(Token([RightPar]))
-1:25 Expected(Token([SemiColon]))
+1:25 expected ')'
+1:25 expected ';'

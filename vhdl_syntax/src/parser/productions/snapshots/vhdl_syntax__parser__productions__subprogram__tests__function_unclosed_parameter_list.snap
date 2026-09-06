@@ -29,4 +29,4 @@ SubprogramDeclaration
   SemiColon
 
 == diagnostics ==
-1:23 Expected(Token([RightPar]))
+1:23 expected ')'

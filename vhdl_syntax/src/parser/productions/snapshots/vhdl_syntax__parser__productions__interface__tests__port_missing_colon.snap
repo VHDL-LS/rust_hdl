@@ -22,4 +22,4 @@ PortClause
   SemiColon
 
 == diagnostics ==
-1:10 Expected(Token([Colon]))
+1:10 expected ':'

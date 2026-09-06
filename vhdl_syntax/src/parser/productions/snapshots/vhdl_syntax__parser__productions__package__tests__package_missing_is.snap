@@ -33,4 +33,4 @@ PackageDeclaration
     SemiColon
 
 == diagnostics ==
-1:17 Expected(Token([Keyword(Is)]))
+1:17 expected 'is'

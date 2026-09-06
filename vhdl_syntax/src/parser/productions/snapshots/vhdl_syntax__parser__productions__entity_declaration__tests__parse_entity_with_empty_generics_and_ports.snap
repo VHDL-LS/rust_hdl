@@ -36,5 +36,5 @@ EntityDeclaration
     SemiColon
 
 == diagnostics ==
-2:13 Expected(Node([InterfaceList]))
-3:10 Expected(Node([InterfaceList]))
+2:13 expected InterfaceList
+3:10 expected InterfaceList

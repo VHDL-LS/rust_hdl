@@ -61,4 +61,4 @@ ForGenerateStatement
       SemiColon
 
 == diagnostics ==
-2:21 Expected(Node([GenerateEpilogue]))
+2:21 expected GenerateEpilogue

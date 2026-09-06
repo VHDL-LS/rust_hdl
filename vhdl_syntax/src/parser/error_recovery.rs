@@ -1283,7 +1283,7 @@ pub(crate) fn sync_tokens_for_node_kind(nk: NodeKind) -> &'static [TokenKind] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::error::SyntaxErr;
+    use crate::parser::error::{display_errors, SyntaxErr};
     use crate::parser::parse_syntax;
     use crate::parser::{parse, Parser};
 
@@ -1292,7 +1292,7 @@ mod tests {
             SyntaxErrKind::Expected(Child::Token(kinds)) => {
                 assert_eq!(kinds.as_ref(), expected_kinds, "expected kinds mismatch");
             }
-            other => panic!("expected ExpectedToken, got {:?}", other),
+            other => panic!("expected ExpectedToken, got {other}"),
         }
     }
 
@@ -1348,12 +1348,12 @@ mod tests {
                 p.skip();
             });
         });
-        assert_eq!(diags.len(), 2, "got: {:?}", diags);
+        assert_eq!(diags.len(), 2, "got:\n{}", display_errors(&diags));
         match &diags[0].err() {
             SyntaxErrKind::Unexpected(_) => {
                 assert!(!diags[0].span().is_empty());
             }
-            other => panic!("expected UnexpectedInput, got {:?}", other),
+            other => panic!("expected UnexpectedInput, got {other}"),
         }
         // The skipped tokens must be attached to the green tree (not dropped).
         let mut buf = Vec::new();
@@ -1381,10 +1381,10 @@ mod tests {
                 )
             })
             .collect();
-        assert_eq!(unknown.len(), 1, "got: {:?}", diags);
+        assert_eq!(unknown.len(), 1, "got:\n{}", display_errors(&diags));
         assert_eq!(*unknown[0].span(), 4..5, "the `$` itself");
         // The other two identifiers still report themselves, one each.
-        assert_eq!(diags.len(), 3, "got: {:?}", diags);
+        assert_eq!(diags.len(), 3, "got:\n{}", display_errors(&diags));
     }
 
     /// Expected token shows up after garbage (not a recovery token):
@@ -1408,7 +1408,7 @@ mod tests {
                 // garbage-before-recovery-token case above.
                 assert!(!diags[0].span().is_empty());
             }
-            other => panic!("expected UnexpectedInput, got {:?}", other),
+            other => panic!("expected UnexpectedInput, got {other}"),
         }
     }
 

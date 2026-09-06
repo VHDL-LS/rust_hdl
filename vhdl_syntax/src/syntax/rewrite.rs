@@ -119,7 +119,11 @@ mod tests {
 
     fn parse_root(src: &str) -> SyntaxNode {
         let (file, diagnostics) = parser::parse(src);
-        assert!(diagnostics.is_empty(), "got diagnostics: {:?}", diagnostics);
+        assert!(
+            diagnostics.is_empty(),
+            "got diagnostics:\n{}",
+            crate::parser::error::display_errors(&diagnostics)
+        );
         file.raw()
     }
 

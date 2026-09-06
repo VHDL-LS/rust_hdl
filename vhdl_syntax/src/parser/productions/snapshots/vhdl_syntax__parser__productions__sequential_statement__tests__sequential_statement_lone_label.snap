@@ -31,4 +31,4 @@ SubprogramBody
     SemiColon
 
 == diagnostics ==
-3:7 Expected(Token([Keyword(Wait), Keyword(Assert), Keyword(Report), Keyword(If), Keyword(Case), Keyword(For), Keyword(Loop), Keyword(While), Keyword(Next), Keyword(Exit), Keyword(Return), Keyword(Null), Keyword(With), Identifier, LeftPar, LtLt]))
+3:7 expected 'wait', 'assert', 'report', 'if', 'case', 'for', 'loop', 'while', 'next', 'exit', 'return', 'null', 'with', Identifier, '(' or '<<'

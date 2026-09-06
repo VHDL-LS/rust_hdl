@@ -13,4 +13,4 @@ PortClause
   SemiColon
 
 == diagnostics ==
-1:6 Expected(Node([InterfaceList]))
+1:6 expected InterfaceList

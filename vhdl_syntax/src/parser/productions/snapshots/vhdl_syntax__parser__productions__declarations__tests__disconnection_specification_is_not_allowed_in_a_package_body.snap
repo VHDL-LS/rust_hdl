@@ -42,4 +42,4 @@ PackageBody
     SemiColon
 
 == diagnostics ==
-2:3..2:34 Unexpected(Node(DisconnectionSpecification))
+2:3..2:34 unexpected DisconnectionSpecification

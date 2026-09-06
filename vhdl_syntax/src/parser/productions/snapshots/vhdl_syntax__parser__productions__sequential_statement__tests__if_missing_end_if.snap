@@ -27,4 +27,4 @@ IfStatement
       SemiColon
 
 == diagnostics ==
-2:10 Expected(Node([IfStatementEpilogue]))
+2:10 expected IfStatementEpilogue

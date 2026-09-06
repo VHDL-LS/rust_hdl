@@ -27,4 +27,4 @@ SubprogramDeclaration
   SemiColon
 
 == diagnostics ==
-1:31 Expected(Node([Name]))
+1:31 expected Name

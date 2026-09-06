@@ -26,5 +26,5 @@ SubprogramDeclaration
   SemiColon
 
 == diagnostics ==
-1:24 Expected(Token([Keyword(Return)]))
-1:24 Expected(Node([Name]))
+1:24 expected 'return'
+1:24 expected Name

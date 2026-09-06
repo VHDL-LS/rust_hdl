@@ -16,4 +16,4 @@ VariableDeclaration
   SemiColon
 
 == diagnostics ==
-1:9 Expected(Node([IdentifierList]))
+1:9 expected IdentifierList

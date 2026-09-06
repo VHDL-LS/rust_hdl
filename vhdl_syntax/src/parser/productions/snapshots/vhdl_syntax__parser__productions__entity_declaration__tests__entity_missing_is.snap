@@ -17,4 +17,4 @@ EntityDeclaration
     SemiColon
 
 == diagnostics ==
-1:12 Expected(Token([Keyword(Is)]))
+1:12 expected 'is'

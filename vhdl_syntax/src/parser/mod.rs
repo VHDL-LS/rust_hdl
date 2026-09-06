@@ -21,7 +21,7 @@ mod test_utils;
 mod util;
 mod error_recovery;
 mod list;
-pub mod productions;
+pub(crate) mod productions;
 
 /// The parser turns a token stream, produced by a [TokenStream] into
 /// [Syntax Nodes](crate::syntax::node::SyntaxNode) that form a Concrete Syntax Tree.

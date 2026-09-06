@@ -17,4 +17,4 @@ SignalDeclaration
   SemiColon
 
 == diagnostics ==
-1:11 Expected(Token([Colon]))
+1:11 expected ':'

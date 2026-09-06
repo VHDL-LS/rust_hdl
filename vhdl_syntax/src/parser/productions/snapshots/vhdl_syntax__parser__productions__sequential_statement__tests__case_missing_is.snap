@@ -33,4 +33,4 @@ CaseStatement
     SemiColon
 
 == diagnostics ==
-1:9 Expected(Token([Keyword(Is)]))
+1:9 expected 'is'

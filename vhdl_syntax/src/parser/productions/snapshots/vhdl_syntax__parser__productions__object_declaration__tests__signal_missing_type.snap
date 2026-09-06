@@ -14,4 +14,4 @@ SignalDeclaration
   SemiColon
 
 == diagnostics ==
-1:13 Expected(Node([SubtypeIndication]))
+1:13 expected SubtypeIndication

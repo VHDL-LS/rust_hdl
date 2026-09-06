@@ -13,4 +13,4 @@ SubtypeDeclaration
   SemiColon
 
 == diagnostics ==
-1:21 Expected(Node([SubtypeIndication]))
+1:21 expected SubtypeIndication

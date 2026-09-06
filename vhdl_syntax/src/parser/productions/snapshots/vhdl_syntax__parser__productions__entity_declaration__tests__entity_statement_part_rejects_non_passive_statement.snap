@@ -35,4 +35,4 @@ EntityDeclaration
     SemiColon
 
 == diagnostics ==
-3:3..3:14 Unexpected(Node(ConcurrentSimpleSignalAssignment))
+3:3..3:14 unexpected ConcurrentSimpleSignalAssignment

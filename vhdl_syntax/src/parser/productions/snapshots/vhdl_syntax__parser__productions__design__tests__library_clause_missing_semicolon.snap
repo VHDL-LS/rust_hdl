@@ -16,5 +16,5 @@ DesignFile
   Eof
 
 == diagnostics ==
-1:13 Expected(Token([SemiColon]))
-1:13 Expected(Token([Keyword(Architecture), Keyword(Package), Keyword(Entity), Keyword(Configuration), Keyword(Context)]))
+1:13 expected ';'
+1:13 expected 'architecture', 'package', 'entity', 'configuration' or 'context'

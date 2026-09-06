@@ -17,4 +17,4 @@ ContextReference
         Identifier 'foo'
 
 == diagnostics ==
-1:16 Expected(Token([SemiColon]))
+1:16 expected ';'

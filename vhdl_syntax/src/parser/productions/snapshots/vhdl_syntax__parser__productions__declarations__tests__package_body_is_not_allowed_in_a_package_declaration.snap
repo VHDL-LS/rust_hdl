@@ -34,4 +34,4 @@ PackageDeclaration
     SemiColon
 
 == diagnostics ==
-2:3..3:20 Unexpected(Node(PackageBodyDeclaration))
+2:3..3:20 unexpected PackageBodyDeclaration

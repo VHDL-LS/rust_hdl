@@ -17,4 +17,4 @@ SignalDeclaration
         Identifier 'std_logic'
 
 == diagnostics ==
-1:23 Expected(Token([SemiColon]))
+1:23 expected ';'

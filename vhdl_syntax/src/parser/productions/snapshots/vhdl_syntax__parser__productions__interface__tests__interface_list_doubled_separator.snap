@@ -34,4 +34,4 @@ PortClause
   SemiColon
 
 == diagnostics ==
-1:26 Expected(Token([Keyword(Signal), Keyword(Constant), Keyword(Variable), Identifier, Keyword(File), Keyword(Type), Keyword(Function), Keyword(Procedure), Keyword(Impure), Keyword(Pure), Keyword(Package)]))
+1:26 expected 'signal', 'constant', 'variable', Identifier, 'file', 'type', 'function', 'procedure', 'impure', 'pure' or 'package'

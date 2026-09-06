@@ -23,4 +23,4 @@ DesignFile
   Eof
 
 == diagnostics ==
-2:16 Expected(Node([ContextDeclarationEpilogue]))
+2:16 expected ContextDeclarationEpilogue

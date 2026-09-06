@@ -55,4 +55,4 @@ ComponentDeclaration
     SemiColon
 
 == diagnostics ==
-5:5 Expected(Node([ComponentDeclarationEpilogue]))
+5:5 expected ComponentDeclarationEpilogue

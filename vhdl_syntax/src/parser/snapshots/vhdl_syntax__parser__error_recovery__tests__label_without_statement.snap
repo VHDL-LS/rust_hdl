@@ -34,4 +34,4 @@ DesignFile
   Eof
 
 == diagnostics ==
-3:8 Expected(Token([Keyword(Block), Keyword(Process), Keyword(Component), Keyword(Configuration), Keyword(Entity), Keyword(For), Keyword(If), Keyword(Case), Keyword(Assert), Keyword(With), Identifier, LtLt, StringLiteral, CharacterLiteral]))
+3:8 expected 'block', 'process', 'component', 'configuration', 'entity', 'for', 'if', 'case', 'assert', 'with', Identifier, '<<', StringLiteral or CharacterLiteral

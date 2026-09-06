@@ -12,4 +12,4 @@ DesignFile
   Eof
 
 == diagnostics ==
-1:1..1:5 Unexpected(Token(Keyword(Body)))
+1:1..1:5 unexpected 'body'

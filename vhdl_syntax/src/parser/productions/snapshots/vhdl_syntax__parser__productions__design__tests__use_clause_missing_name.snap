@@ -16,5 +16,5 @@ DesignFile
   Eof
 
 == diagnostics ==
-1:4 Expected(Node([NameList]))
-1:6 Expected(Token([Keyword(Architecture), Keyword(Package), Keyword(Entity), Keyword(Configuration), Keyword(Context)]))
+1:4 expected NameList
+1:6 expected 'architecture', 'package', 'entity', 'configuration' or 'context'
