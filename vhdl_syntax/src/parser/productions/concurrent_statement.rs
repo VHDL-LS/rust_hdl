@@ -178,8 +178,7 @@ impl Parser {
         self.opt_delay_mechanism();
         let waveform = self.waveform();
         if self.next_is(Keyword(Kw::When)) {
-            let marker =
-                unknown.resolve(self, ConcurrentConditionalSignalAssignment);
+            let marker = unknown.resolve(self, ConcurrentConditionalSignalAssignment);
             let when = waveform.precede(self, WhenWaveform);
             self.skip();
             self.expression();

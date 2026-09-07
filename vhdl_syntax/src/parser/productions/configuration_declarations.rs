@@ -182,8 +182,12 @@ impl Parser {
 
     fn component_configuration_known_spec(&mut self) {
         // surprisingly, a `;` is a legal `binding`
-        if self.next_is_one_of([Keyword(Kw::Use), Keyword(Kw::Generic), Keyword(Kw::Port), SemiColon])
-            && !self.next_nth_is(Keyword(Kw::Vunit), 1)
+        if self.next_is_one_of([
+            Keyword(Kw::Use),
+            Keyword(Kw::Generic),
+            Keyword(Kw::Port),
+            SemiColon,
+        ]) && !self.next_nth_is(Keyword(Kw::Vunit), 1)
         {
             self.node(NodeKind::Binding, |p| {
                 p.binding_indication();
@@ -424,7 +428,8 @@ end configuration cfg ;",
             "\
 for i, i : name;
 end for;
-"        ));
+"
+        ));
     }
 
     #[test]
@@ -436,8 +441,8 @@ for others: name
     use vunit name;
     use vunit name;
 end for;
-"        ));
-
+"
+        ));
     }
 
     #[test]
