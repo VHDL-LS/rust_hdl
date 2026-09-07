@@ -1,0 +1,46 @@
+---
+source: vhdl_syntax/src/parser/productions/configuration_declarations.rs
+expression: "to_test_text(Parser::configuration_declaration,\n\"\\\nconfiguration cfg of ent is\n    use vunit foo;\n    use vunit bar;\n    for baz\n    end for;\nend configuration cfg ;\",)"
+---
+ConfigurationDeclaration
+  ConfigurationDeclarationPreamble
+    Keyword(Configuration)
+    Identifier 'cfg'
+    Keyword(Of)
+    Name
+      NameDesignatorPrefix
+        Identifier 'ent'
+    Keyword(Is)
+  VerificationUnitBinding
+    VerificationUnitBindingIndication
+      Keyword(Use)
+      Keyword(Vunit)
+      VerificationUnitList
+        Name
+          NameDesignatorPrefix
+            Identifier 'foo'
+    SemiColon
+  VerificationUnitBinding
+    VerificationUnitBindingIndication
+      Keyword(Use)
+      Keyword(Vunit)
+      VerificationUnitList
+        Name
+          NameDesignatorPrefix
+            Identifier 'bar'
+    SemiColon
+  BlockConfiguration
+    BlockConfigurationPreamble
+      Keyword(For)
+      Name
+        NameDesignatorPrefix
+          Identifier 'baz'
+    BlockConfigurationEpilogue
+      Keyword(End)
+      Keyword(For)
+      SemiColon
+  ConfigurationDeclarationEpilogue
+    Keyword(End)
+    Keyword(Configuration)
+    Identifier 'cfg'
+    SemiColon

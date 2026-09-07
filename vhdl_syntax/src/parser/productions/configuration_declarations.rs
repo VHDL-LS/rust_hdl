@@ -15,7 +15,7 @@ impl Parser {
         self.node(NodeKind::ConfigurationDeclaration, |p| {
             p.configuration_declaration_preamble();
             p.configuration_declarative_part();
-            if p.next_is(Keyword(Kw::Use)) && p.next_nth_is(Keyword(Kw::Vunit), 1) {
+            while p.next_is(Keyword(Kw::Use)) && p.next_nth_is(Keyword(Kw::Vunit), 1) {
                 p.node(NodeKind::VerificationUnitBinding, |p| {
                     p.verification_unit_binding_indication();
                     p.expect_token(SemiColon);
@@ -399,6 +399,20 @@ end configuration cfg;",
         insta::assert_snapshot!(to_test_text(
             Parser::configuration_specification,
             "for all : lib.pkg.comp use entity work.foo(rtl); use vunit bar, baz; end for;",
+        ));
+    }
+
+    #[test]
+    fn configuration_declaration_multiple_vunit_binding_indications() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::configuration_declaration,
+            "\
+configuration cfg of ent is
+    use vunit foo;
+    use vunit bar;
+    for baz
+    end for;
+end configuration cfg ;",
         ));
     }
 
