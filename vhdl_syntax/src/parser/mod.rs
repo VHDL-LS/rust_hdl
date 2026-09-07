@@ -89,20 +89,15 @@ impl Parser {
 ///
 /// Use [`parse_with_standard`] to use a non-default VHDL standard.
 pub fn parse(token_stream: impl Into<TokenStream>) -> (DesignFileSyntax, Vec<error::SyntaxErr>) {
-    let mut parser = Parser::new(token_stream.into(), VHDLStandard::default());
-    parser.design_file();
-    let (syntax_node, diagnostics) = parser.into_root();
-    debug_assert!(syntax_node.kind() == NodeKind::DesignFile);
-    (DesignFileSyntax(syntax_node), diagnostics)
+    parse_with_standard(VHDLStandard::default(), token_stream)
 }
 
 /// Parse and return a VHDL file, tokenizing and parsing under the given `standard`.
 pub fn parse_with_standard(
     standard: VHDLStandard,
-    input: impl IntoIterator<Item = u8>,
+    input: impl Into<TokenStream>,
 ) -> (DesignFileSyntax, Vec<error::SyntaxErr>) {
-    let token_stream: TokenStream = Tokenizer::with_standard(standard, input.into_iter()).collect();
-    let mut parser = Parser::new(token_stream, standard);
+    let mut parser = Parser::new(input.into(), standard);
     parser.design_file();
     let (syntax_node, diagnostics) = parser.into_root();
     debug_assert!(syntax_node.kind() == NodeKind::DesignFile);
