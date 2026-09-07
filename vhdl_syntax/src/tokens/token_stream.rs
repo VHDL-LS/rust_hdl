@@ -102,6 +102,12 @@ impl TokenStream {
         }
     }
 
+    pub fn from_tokens(tokens: impl IntoIterator<Item = Token>) -> TokenStream {
+        TokenStream {
+            inner: VecDeque::from_iter(tokens.into_iter().map(|tok| (tok, None)))
+        }
+    }
+
     /// Peek `n` tokens in advance where `n == 0` means the next token
     /// (i.e., the token that would be returned by `next`)
     pub fn peek(&self, n: usize) -> Option<&Token> {

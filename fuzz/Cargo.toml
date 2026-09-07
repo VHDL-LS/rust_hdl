@@ -8,12 +8,21 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
+arbitrary = "1.4.2"
 libfuzzer-sys = "0.4"
+ungrammar = "1.16.1"
 vhdl_syntax = { path = "../vhdl_syntax" }
 
 [[bin]]
 name = "parser"
 path = "fuzz_targets/parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lrm"
+path = "fuzz_targets/lrm.rs"
 test = false
 doc = false
 bench = false
