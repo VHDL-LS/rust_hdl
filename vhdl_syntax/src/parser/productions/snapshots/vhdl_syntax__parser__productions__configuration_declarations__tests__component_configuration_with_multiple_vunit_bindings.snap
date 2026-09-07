@@ -1,0 +1,36 @@
+---
+source: vhdl_syntax/src/parser/productions/configuration_declarations.rs
+expression: "to_test_text(Parser::component_configuration,\n\"\\\nfor others: name\n    use vunit name;\n    use vunit name;\nend for;\n\")"
+---
+ComponentConfiguration
+  ComponentConfigurationPreamble
+    Keyword(For)
+    ComponentSpecification
+      InstantiationListOthers
+        Keyword(Others)
+      Colon
+      Name
+        NameDesignatorPrefix
+          Identifier 'name'
+  VerificationUnitBinding
+    VerificationUnitBindingIndication
+      Keyword(Use)
+      Keyword(Vunit)
+      VerificationUnitList
+        Name
+          NameDesignatorPrefix
+            Identifier 'name'
+    SemiColon
+  VerificationUnitBinding
+    VerificationUnitBindingIndication
+      Keyword(Use)
+      Keyword(Vunit)
+      VerificationUnitList
+        Name
+          NameDesignatorPrefix
+            Identifier 'name'
+    SemiColon
+  ComponentConfigurationEpilogue
+    Keyword(End)
+    Keyword(For)
+    SemiColon

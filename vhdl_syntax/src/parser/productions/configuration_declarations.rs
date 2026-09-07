@@ -190,7 +190,7 @@ impl Parser {
                 p.expect_token(TokenKind::SemiColon);
             });
         }
-        if self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
+        while self.next_is(Keyword(Kw::Use)) && self.next_nth_is(Keyword(Kw::Vunit), 1) {
             self.node(NodeKind::VerificationUnitBinding, |p| {
                 p.verification_unit_binding_indication();
                 p.expect_token(SemiColon);
@@ -425,6 +425,19 @@ end configuration cfg ;",
 for i, i : name;
 end for;
 "        ));
+    }
+
+    #[test]
+    fn component_configuration_with_multiple_vunit_bindings() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::component_configuration,
+            "\
+for others: name
+    use vunit name;
+    use vunit name;
+end for;
+"        ));
+
     }
 
     #[test]
