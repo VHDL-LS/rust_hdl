@@ -1,0 +1,33 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"(foo[bit, bit]'image => 1)\")"
+---
+ParenthesizedExpressionOrAggregate
+  LeftPar
+  ElementAssociationList
+    ElementAssociation
+      ElementChoices
+        Choices
+          ExpressionChoice
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'foo'
+                AttributeName
+                  Signature
+                    LeftSquare
+                    TypeMarkList
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'bit'
+                      Comma
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'bit'
+                    RightSquare
+                  Tick
+                  Identifier 'image'
+        RightArrow
+      LiteralExpression
+        AbstractLiteral '1'
+  RightPar

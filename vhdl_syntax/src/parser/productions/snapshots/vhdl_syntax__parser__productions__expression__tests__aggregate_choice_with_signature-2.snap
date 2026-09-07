@@ -1,0 +1,76 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"(name(name(name), name(name))[name, name]'i => actual)\")"
+---
+ParenthesizedExpressionOrAggregate
+  LeftPar
+  ElementAssociationList
+    ElementAssociation
+      ElementChoices
+        Choices
+          ExpressionChoice
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  Identifier 'name'
+                ParenthesizedName
+                  LeftPar
+                  AssociationList
+                    AssociationElement
+                      ActualPart
+                        ActualPartExpression
+                          NameExpression
+                            Name
+                              NameDesignatorPrefix
+                                Identifier 'name'
+                              ParenthesizedName
+                                LeftPar
+                                AssociationList
+                                  AssociationElement
+                                    ActualPart
+                                      ActualPartExpression
+                                        NameExpression
+                                          Name
+                                            NameDesignatorPrefix
+                                              Identifier 'name'
+                                RightPar
+                    Comma
+                    AssociationElement
+                      ActualPart
+                        ActualPartExpression
+                          NameExpression
+                            Name
+                              NameDesignatorPrefix
+                                Identifier 'name'
+                              ParenthesizedName
+                                LeftPar
+                                AssociationList
+                                  AssociationElement
+                                    ActualPart
+                                      ActualPartExpression
+                                        NameExpression
+                                          Name
+                                            NameDesignatorPrefix
+                                              Identifier 'name'
+                                RightPar
+                  RightPar
+                AttributeName
+                  Signature
+                    LeftSquare
+                    TypeMarkList
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'name'
+                      Comma
+                      Name
+                        NameDesignatorPrefix
+                          Identifier 'name'
+                    RightSquare
+                  Tick
+                  Identifier 'i'
+        RightArrow
+      NameExpression
+        Name
+          NameDesignatorPrefix
+            Identifier 'actual'
+  RightPar

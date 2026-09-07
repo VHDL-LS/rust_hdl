@@ -258,25 +258,25 @@ impl Parser {
         skip_n: usize,
         kinds: [TokenKind; N],
     ) -> Result<(TokenKind, usize), (LookaheadError, usize)> {
-        let mut paren_count = 0;
+        let mut depth = 0;
         let mut curr_token_index = self.token_index() + skip_n;
 
-        while curr_token_index <= maximum_index && paren_count >= 0 {
+        while curr_token_index <= maximum_index && depth >= 0 {
             match self.peek_nth_token(curr_token_index - self.token_index()) {
-                TokenKind::LeftPar => paren_count += 1,
-                TokenKind::RightPar => {
-                    // Allow the closing parenthesis to match as well
-                    if paren_count == 0 && kinds.contains(&TokenKind::RightPar) {
-                        return Ok((TokenKind::RightPar, curr_token_index));
+                TokenKind::LeftPar | TokenKind::LeftSquare => depth += 1,
+                tok @ (TokenKind::RightPar | TokenKind::RightSquare) => {
+                    // Allow the closing parenthesis (or bracket) to match as well
+                    if depth == 0 && kinds.contains(&tok) {
+                        return Ok((tok, curr_token_index));
                     }
 
-                    paren_count -= 1;
+                    depth -= 1;
                 }
                 TokenKind::Eof => return Err((LookaheadError::Eof, curr_token_index)),
                 tok => {
                     // To avoid matching tokens in some (potentially recursive) sub expression of some sort,
-                    // only check the current token if we at the outer most grouping layer (`paren_count == 0`).
-                    if paren_count == 0 && kinds.contains(&tok) {
+                    // only check the current token if we at the outer most grouping layer (`depth == 0`).
+                    if depth == 0 && kinds.contains(&tok) {
                         return Ok((tok, curr_token_index));
                     }
                 }

@@ -338,4 +338,12 @@ mod tests {
         insta::assert_snapshot!(expr_to_test_text("1 + 2 and 3 + 4"));
         insta::assert_snapshot!(expr_to_test_text("and 1 + 2"));
     }
+
+    #[test]
+    fn aggregate_choice_with_signature() {
+        insta::assert_snapshot!(expr_to_test_text("(foo[bit, bit]'image => 1)"));
+        insta::assert_snapshot!(expr_to_test_text(
+            "(name(name(name), name(name))[name, name]'i => actual)"
+        ));
+    }
 }
