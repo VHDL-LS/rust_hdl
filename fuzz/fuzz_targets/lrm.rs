@@ -26,13 +26,13 @@ fn get_ungrammar() -> ungrammar::Grammar {
     ungrammar::Grammar::from_str(grammar_str).unwrap_or_else(|err| panic!("{UNGRAMMAR_PATH}:{err}"))
 }
 
-static DESIGN_FILE: LazyLock<ungrammar::Grammar> = LazyLock::new(get_ungrammar);
+static GRAMMAR: LazyLock<ungrammar::Grammar> = LazyLock::new(get_ungrammar);
 
-struct Design {
+struct Tokens {
     values: Vec<vhdl_syntax::tokens::Token>,
 }
 
-impl Debug for Design {
+impl Debug for Tokens {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, val) in self.values.iter().enumerate() {
             if i != 0 {
@@ -45,14 +45,14 @@ impl Debug for Design {
 }
 
 fn get_node(name: &str) -> ungrammar::Node {
-    DESIGN_FILE
+    GRAMMAR
         .iter()
-        .find(|node| DESIGN_FILE[*node].name == name)
+        .find(|node| GRAMMAR[*node].name == name)
         .unwrap()
 }
 
 fn map_token(token: &ungrammar::Token) -> vhdl_syntax::tokens::Token {
-    let tok = DESIGN_FILE[*token].name.clone();
+    let tok = GRAMMAR[*token].name.clone();
     if tok.starts_with('#') {
         return match &tok[1..] {
             "identifier" => {
@@ -87,11 +87,6 @@ fn map_token(token: &ungrammar::Token) -> vhdl_syntax::tokens::Token {
 /// Beyond this nesting depth, `Opt` and `Rep` stop expanding so that recursive
 /// productions get a chance to bottom out.
 const SOFT_DEPTH_LIMIT: usize = 20;
-/// Hard cap on nesting depth. The grammar is left-recursive in places, and a
-/// production can recurse without consuming any data from `Unstructured`
-/// (e.g. a `Seq` containing only a `Node`), so the recursion has to be cut off
-/// explicitly. Exceeding it rejects the input instead of overflowing the stack.
-const HARD_DEPTH_LIMIT: usize = 40;
 /// Upper bound on the number of repetitions generated for a `Rep` rule.
 const MAX_REPETITIONS: usize = 8;
 
@@ -99,11 +94,11 @@ fn choose_rule(
     rule: &ungrammar::Rule,
     u: &mut Unstructured<'_>,
     depth: usize,
-) -> arbitrary::Result<Design> {
+) -> arbitrary::Result<Tokens> {
     match rule {
         ungrammar::Rule::Labeled { label: _, rule } => choose_rule(rule.as_ref(), u, depth),
         ungrammar::Rule::Node(node) => choose_node(*node, u, depth),
-        ungrammar::Rule::Token(token) => Ok(Design {
+        ungrammar::Rule::Token(token) => Ok(Tokens {
             values: vec![map_token(token)],
         }),
         ungrammar::Rule::Seq(rules) => {
@@ -112,31 +107,27 @@ fn choose_rule(
                 let mut res = choose_rule(rule, u, depth)?;
                 design.append(&mut res.values);
             }
-            Ok(Design { values: design })
+            Ok(Tokens { values: design })
         }
         ungrammar::Rule::Alt(rules) => {
             let chosen = u.choose(rules)?;
             choose_rule(chosen, u, depth)
         }
         ungrammar::Rule::Opt(rule) => {
-            if depth < SOFT_DEPTH_LIMIT && *u.choose(&[true, false])? {
+            if depth < SOFT_DEPTH_LIMIT && *u.choose(&[false, true])? {
                 choose_rule(rule, u, depth)
             } else {
-                Ok(Design { values: vec![] })
+                Ok(Tokens { values: vec![] })
             }
         }
         ungrammar::Rule::Rep(rule) => {
-            let len = if depth < SOFT_DEPTH_LIMIT {
-                u.arbitrary_len::<Design>()?.min(MAX_REPETITIONS)
-            } else {
-                0
-            };
+            let len = u.int_in_range(0..=MAX_REPETITIONS)?;
             let mut design = Vec::new();
             for _ in 0..len {
                 let mut res = choose_rule(rule, u, depth)?;
                 design.append(&mut res.values);
             }
-            Ok(Design { values: design })
+            Ok(Tokens { values: design })
         }
     }
 }
@@ -145,17 +136,20 @@ fn choose_node(
     node: ungrammar::Node,
     u: &mut Unstructured<'_>,
     depth: usize,
-) -> arbitrary::Result<Design> {
-    if DESIGN_FILE[node].name == "Name" {
-        return Ok(Design {
+) -> arbitrary::Result<Tokens> {
+    // Names and subtype indications are skipped:
+    // they incorporate behaviour in vhdl_ls from the LRM that is not reflected
+    // in the grammar
+    if GRAMMAR[node].name == "Name" {
+        return Ok(Tokens {
             values: vec![vhdl_syntax::tokens::Token::new(
                 TokenKind::Identifier,
                 b"name",
                 Trivia::default(),
             )],
         });
-    } else if DESIGN_FILE[node].name == "SubtypeIndication" {
-        return Ok(Design {
+    } else if GRAMMAR[node].name == "SubtypeIndication" {
+        return Ok(Tokens {
             values: vec![vhdl_syntax::tokens::Token::new(
                 TokenKind::Identifier,
                 b"subtype_indication",
@@ -163,20 +157,23 @@ fn choose_node(
             )],
         });
     }
-    if depth >= HARD_DEPTH_LIMIT {
-        return Err(arbitrary::Error::IncorrectFormat);
-    }
-    choose_rule(&DESIGN_FILE[node].rule, u, depth + 1)
+    choose_rule(&GRAMMAR[node].rule, u, depth + 1)
 }
 
-impl Arbitrary<'_> for Design {
+impl Arbitrary<'_> for Tokens {
     fn arbitrary(u: &mut Unstructured<'_>) -> arbitrary::Result<Self> {
         let root = get_node("DesignFile");
-        choose_node(root, u, 0)
+        let mut result = choose_node(root, u, 0)?;
+        result.values.push(vhdl_syntax::tokens::Token::new(
+            TokenKind::Eof,
+            b"",
+            Trivia::default(),
+        ));
+        Ok(result)
     }
 }
 
-fuzz_target!(|data: Design| {
+fuzz_target!(|data: Tokens| {
     let (_file, diagnostics) = parse(TokenStream::from_tokens(data.values));
     assert!(
         diagnostics.is_empty(),
