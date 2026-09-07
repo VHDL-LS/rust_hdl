@@ -1,0 +1,29 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "stmt_to_test_text(\"(foo, bar) <= baz;\",)"
+---
+ConcurrentSimpleSignalAssignment
+  AggregateTarget
+    Aggregate
+      LeftPar
+      ElementAssociationList
+        ElementAssociation
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'foo'
+        Comma
+        ElementAssociation
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'bar'
+      RightPar
+  LTE
+  WaveformElements
+    WaveformElement
+      NameExpression
+        Name
+          NameDesignatorPrefix
+            Identifier 'baz'
+  SemiColon

@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
-use crate::parser::marker::{CompletedMarker, Precede};
+use crate::parser::marker::{CompletedMarker, Marker, Precede, UnknownMarker};
 use crate::parser::productions::declarations::is_start_of_declarative_part;
 use crate::parser::util::{choice_options, StallGuard};
 use crate::parser::Parser;
@@ -172,6 +172,27 @@ impl Parser {
         })
     }
 
+    // Assumes `<=` (LTE) has already been parsed
+    fn signal_assignment_after_lte(&mut self, unknown: UnknownMarker) -> Marker {
+        self.opt_token(Keyword(Kw::Guarded));
+        self.opt_delay_mechanism();
+        let waveform = self.waveform();
+        if self.next_is(Keyword(Kw::When)) {
+            let marker =
+                unknown.resolve(self, ConcurrentConditionalSignalAssignment);
+            let when = waveform.precede(self, WhenWaveform);
+            self.skip();
+            self.expression();
+            let when_waveform = when.complete(self);
+            let waveforms = when_waveform.precede(self, ConditionalWaveforms);
+            self.conditional_else(Parser::waveform, ElseWhenWaveform, ElseWaveform);
+            waveforms.complete(self);
+            marker
+        } else {
+            unknown.resolve(self, ConcurrentSimpleSignalAssignment)
+        }
+    }
+
     pub(crate) fn concurrent_statement(&mut self) -> Option<CompletedMarker> {
         match self.peek_concurrent_statement_kind() {
             Keyword(Kw::Block) => Some(self.block_statement()),
@@ -184,6 +205,16 @@ impl Parser {
             Keyword(Kw::Case) => Some(self.case_generate_statement()),
             Keyword(Kw::Assert) => Some(self.concurrent_assertion_statement()),
             Keyword(Kw::With) => Some(self.concurrent_selected_signal_assignment()),
+            LeftPar => {
+                let unknown = self.start_unknown();
+                self.opt_label();
+                self.opt_token(Keyword(Kw::Postponed));
+                self.node(AggregateTarget, Parser::aggregate);
+                self.expect_token(LTE);
+                let marker = self.signal_assignment_after_lte(unknown);
+                self.expect_token(SemiColon);
+                Some(marker.complete(self))
+            }
             Identifier | LtLt | StringLiteral | CharacterLiteral => {
                 let unknown = self.start_unknown();
                 self.opt_label();
@@ -193,23 +224,7 @@ impl Parser {
                     LTE => {
                         name.precede(self, NameTarget).complete(self);
                         self.skip();
-                        self.opt_token(Keyword(Kw::Guarded));
-                        self.opt_delay_mechanism();
-                        let waveform = self.waveform();
-                        if self.next_is(Keyword(Kw::When)) {
-                            let marker =
-                                unknown.resolve(self, ConcurrentConditionalSignalAssignment);
-                            let when = waveform.precede(self, WhenWaveform);
-                            self.skip();
-                            self.expression();
-                            let when_waveform = when.complete(self);
-                            let waveforms = when_waveform.precede(self, ConditionalWaveforms);
-                            self.conditional_else(Parser::waveform, ElseWhenWaveform, ElseWaveform);
-                            waveforms.complete(self);
-                            marker
-                        } else {
-                            unknown.resolve(self, ConcurrentSimpleSignalAssignment)
-                        }
+                        self.signal_assignment_after_lte(unknown)
                     }
                     Keyword(Kw::Port | Kw::Generic) => {
                         name.precede(self, InstantiatedComponent).complete(self);
@@ -694,6 +709,12 @@ end process main;",
     #[test]
     fn concurrent_signal_assignment() {
         insta::assert_snapshot!(stmt_to_test_text("foo <= bar(2 to 3);",));
+    }
+
+    #[test]
+    fn aggregate_signal_asignment() {
+        insta::assert_snapshot!(stmt_to_test_text("(foo) <= bar;"));
+        insta::assert_snapshot!(stmt_to_test_text("(foo, bar) <= baz;",));
     }
 
     #[test]
