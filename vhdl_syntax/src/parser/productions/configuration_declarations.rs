@@ -181,7 +181,8 @@ impl Parser {
     }
 
     fn component_configuration_known_spec(&mut self) {
-        if self.next_is_one_of([Keyword(Kw::Use), Keyword(Kw::Generic), Keyword(Kw::Port)])
+        // surprisingly, a `;` is a legal `binding`
+        if self.next_is_one_of([Keyword(Kw::Use), Keyword(Kw::Generic), Keyword(Kw::Port), SemiColon])
             && !self.next_nth_is(Keyword(Kw::Vunit), 1)
         {
             self.node(NodeKind::Binding, |p| {
@@ -414,6 +415,16 @@ configuration cfg of ent is
     end for;
 end configuration cfg ;",
         ));
+    }
+
+    #[test]
+    fn configuration_with_empty_binding() {
+        insta::assert_snapshot!(to_test_text(
+            Parser::component_configuration,
+            "\
+for i, i : name;
+end for;
+"        ));
     }
 
     #[test]

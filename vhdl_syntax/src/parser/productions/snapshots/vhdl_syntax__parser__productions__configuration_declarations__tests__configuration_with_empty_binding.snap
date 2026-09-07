@@ -1,0 +1,22 @@
+---
+source: vhdl_syntax/src/parser/productions/configuration_declarations.rs
+expression: "to_test_text(Parser::component_configuration, \"\\\nfor i, i : name;\nend for;\n\")"
+---
+ComponentConfiguration
+  ComponentConfigurationPreamble
+    Keyword(For)
+    ComponentSpecification
+      InstantiationListList
+        Identifier 'i'
+        Comma
+        Identifier 'i'
+      Colon
+      Name
+        NameDesignatorPrefix
+          Identifier 'name'
+  Binding
+    SemiColon
+  ComponentConfigurationEpilogue
+    Keyword(End)
+    Keyword(For)
+    SemiColon
