@@ -1,0 +1,11 @@
+[workspace]
+# Only `vhdl_syntax` and `vhdl-dump-ast` are managed by release-plz.
+release = false
+
+[[package]]
+name = "vhdl_syntax"
+release = true
+
+[[package]]
+name = "vhdl-dump-ast"
+release = true

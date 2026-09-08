@@ -3,7 +3,9 @@ name: Crates.io
 on:
   push:
     tags:
-      - '**'
+      # Only the workspace release tags. release-plz tags its own crates as
+      # `<crate>-v<version>`, which must not trigger this workflow.
+      - 'v*'
 
 jobs:
   publish:

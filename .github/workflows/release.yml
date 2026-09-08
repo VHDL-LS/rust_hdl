@@ -1,0 +1,44 @@
+name: Release from Cargo.toml
+
+# Releases the crates managed by release-plz (see release-plz.toml); the
+# remaining crates are released by crates-io.yml on a `v*` tag.
+#
+# To create a release perform the following steps:
+#
+# 1. cargo install release-plz
+# 2. release-plz update
+# 3. commit the result, and open a PR
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+
+  # Release unpublished packages.
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      releases: ${{ steps.release-plz.outputs.releases }}
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run release-plz
+        id: release-plz
+        uses: release-plz/action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
