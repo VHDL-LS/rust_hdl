@@ -71,27 +71,36 @@ fn check_file(path: impl Into<std::path::PathBuf>) {
     }
 }
 
-#[test]
-fn parse_and_re_emit_example_project_files() {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path = path.parent().unwrap().to_path_buf();
-    path.push("example_project");
-
-    // TODO: This is likely IO-bound, so should be parallelized to speed up tests.
-    fn visit_dirs(dir: &std::path::Path) {
-        for entry in std::fs::read_dir(dir).expect("Failed to read directory") {
-            let entry = entry.expect("Failed to read directory entry");
-            let path = entry.path();
-            if path.is_dir() {
-                visit_dirs(&path);
-            } else if matches!(
-                path.extension().and_then(|s| s.to_str()),
-                Some("vhd" | "vhdl")
-            ) {
-                check_file(path);
-            }
+// TODO: This is likely IO-bound, so should be parallelized to speed up tests.
+fn visit_dirs(dir: &std::path::Path) {
+    for entry in std::fs::read_dir(dir).expect("Failed to read directory") {
+        let entry = entry.expect("Failed to read directory entry");
+        let path = entry.path();
+        if path.is_dir() {
+            visit_dirs(&path);
+        } else if matches!(
+            path.extension().and_then(|s| s.to_str()),
+            Some("vhd" | "vhdl")
+        ) {
+            check_file(path);
         }
     }
+}
 
-    visit_dirs(&path);
+/// Path to `dir` relative to the workspace root.
+fn workspace_dir(dir: &str) -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path = path.parent().unwrap().to_path_buf();
+    path.push(dir);
+    path
+}
+
+#[test]
+fn parse_and_re_emit_example_project_files() {
+    visit_dirs(&workspace_dir("example_project"));
+}
+
+#[test]
+fn parse_and_re_emit_vhdl_libraries() {
+    visit_dirs(&workspace_dir("vhdl_libraries"));
 }
