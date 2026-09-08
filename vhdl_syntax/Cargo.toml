@@ -11,6 +11,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 publish = false
+exclude = ["**/snapshots", "**/.DS_Store"]
 
 [dependencies]
 nonzero_ext = "0.3.0"
