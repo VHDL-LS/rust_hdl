@@ -95,7 +95,7 @@ impl Parser {
             if p.next_is(Keyword(Kw::Use)) && !p.next_nth_is(Keyword(Kw::Vunit), 1) {
                 p.use_clause_declaration();
             } else if p.next_is(Keyword(Kw::Group)) {
-                p.group_declaration_or_template_declaration();
+                p.group_declaration();
             } else if p.next_is(Keyword(Kw::Attribute)) {
                 p.attribute_specification();
             } else {
