@@ -1,4 +1,4 @@
-//! Support for serializing and de-serializing syntax elements.
+//! Support for serializing syntax elements.
 
 pub mod flags;
 pub mod serialize_impl;
