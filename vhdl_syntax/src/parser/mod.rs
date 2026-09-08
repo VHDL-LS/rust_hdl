@@ -92,7 +92,7 @@ pub fn parse(token_stream: impl Into<TokenStream>) -> (DesignFileSyntax, Vec<err
 }
 
 /// Parse and return a VHDL file, tokenizing and parsing under the given `standard`.
-/// 
+///
 /// **Note**: This is mostly a placeholder right now. Currently, not much changes
 /// for anything other than VHDL-2008.
 pub fn parse_with_standard(
