@@ -28,3 +28,6 @@ similar = { version = "3.1.2", features = ["bytes"] }
 [features]
 serde = ["dep:serde"]
 default = []
+
+[package.metadata.docs.rs]
+all-features = true
