@@ -49,6 +49,14 @@ All examples can be found in the [examples](./examples/) folder.
 
 Contains a minimalistic documentation extraction tool.
 
+### [empty_entity_builder](./examples/empty_entity_builder.rs)
+
+Uses the builder API to programmatically construct an entity declaration from scratch.
+
+### [import_sorting](./examples/import_sorting.rs)
+
+Alphabetically sorts and deduplicates the `use` clauses of a context clause using the rewriter API.
+
 ### [linting](./examples/linting.rs)
 
 Shows how to use this crate to build a simple VHDL linter
@@ -60,3 +68,7 @@ Showcases the AST rewriting capabilities to change the name of a VHDL entity.
 ### [source_refactoring](./examples/source_refactoring.rs)
 
 Shows how the library can be used to exchange source code elements that are more than just a token.
+
+### [testbench_generation](./examples/testbench_generation.rs)
+
+Walks a design and emits a minimal testbench skeleton for every entity it finds.
