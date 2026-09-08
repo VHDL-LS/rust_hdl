@@ -27,5 +27,12 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "grammar"
+path = "fuzz_targets/grammar.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]
 members = ["."]

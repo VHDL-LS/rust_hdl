@@ -4,7 +4,7 @@
 //
 // Copyright (c)  2026, Lukas Scheller lukasscheller@icloud.com
 
-//! Fuzzes the parser against the LRM
+//! Fuzzes the parser against the modelled grammar
 
 #![no_main]
 
@@ -12,15 +12,15 @@ use libfuzzer_sys::fuzz_target;
 use rust_hdl_fuzz::{assert_parses, Design, Grammar, GrammarSource};
 use std::sync::LazyLock;
 
-/// The unmodified LRM grammar, `xtask/doc/vhdl-08.ungram`.
-pub struct Lrm;
+/// The grammar `vhdl_syntax` models, `xtask/doc/vhdl-08-modified.ungram`.
+pub struct Modelled;
 
-impl GrammarSource for Lrm {
+impl GrammarSource for Modelled {
     fn grammar() -> &'static Grammar {
         static PREPARED: LazyLock<Grammar> = LazyLock::new(|| {
             Grammar::new(
-                "xtask/doc/vhdl-08.ungram",
-                include_str!("../../xtask/doc/vhdl-08.ungram"),
+                "xtask/doc/vhdl-08-modified.ungram",
+                include_str!("../../xtask/doc/vhdl-08-modified.ungram"),
                 &[
                     ("Name", b"name"),
                     ("SubtypeIndication", b"subtype_indication"),
@@ -31,4 +31,4 @@ impl GrammarSource for Lrm {
     }
 }
 
-fuzz_target!(|design: Design<Lrm>| assert_parses(design));
+fuzz_target!(|design: Design<Modelled>| assert_parses(design));
