@@ -12,6 +12,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "annotate-snippets"
+version = "0.12.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f211a51805bc641f3ad5b7664c77d2547af685cc33b4cd8d31964027a46f13f1"
+dependencies = [
+ "anstyle",
+ "memchr",
+ "unicode-width 0.2.2",
+]
+
+[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -471,6 +482,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
+name = "globset"
+version = "0.4.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07c34a9410465b45bd9787443bc7370f37735bad04b0f0cd57ff1a3186c98988"
+dependencies = [
+ "aho-corasick",
+ "bstr",
+ "log",
+ "regex-automata",
+ "regex-syntax",
+]
+
+[[package]]
 name = "granit-parser"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -594,6 +618,22 @@ checksum = "cb68373c0d6620ef8105e855e7745e18b0d00d3bdb07fb532e434244cdb9a714"
 dependencies = [
  "icu_normalizer",
  "icu_properties",
+]
+
+[[package]]
+name = "ignore"
+version = "0.4.33"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00b69833ed729dc5aa7d19541d96d6cf8e9137194207a04916d658e43168402f"
+dependencies = [
+ "crossbeam-deque",
+ "globset",
+ "log",
+ "memchr",
+ "regex-automata",
+ "same-file",
+ "walkdir",
+ "winapi-util",
 ]
 
 [[package]]
@@ -1045,6 +1085,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "same-file"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
+dependencies = [
+ "winapi-util",
+]
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1404,6 +1453,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "vhdl-lint"
+version = "0.1.0"
+dependencies = [
+ "annotate-snippets",
+ "anstream",
+ "clap",
+ "ignore",
+ "insta",
+ "itertools",
+ "rayon",
+ "strum",
+ "tempfile",
+ "vhdl_syntax",
+]
+
+[[package]]
 name = "vhdl_lang"
 version = "0.88.0"
 dependencies = [
@@ -1479,10 +1544,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "walkdir"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
+dependencies = [
+ "same-file",
+ "winapi-util",
+]
+
+[[package]]
 name = "wasi"
 version = "0.11.1+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
+
+[[package]]
+name = "winapi-util"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+dependencies = [
+ "windows-sys",
+]
 
 [[package]]
 name = "windows-link"
