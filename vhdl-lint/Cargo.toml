@@ -1,0 +1,32 @@
+[package]
+name = "vhdl-lint"
+version = "0.1.0"
+authors = ["Lukas Scheller"]
+readme = "README.md"
+description = "A modern, configurable linter for VHDL"
+categories = ["development-tools", "command-line-utilities"]
+keywords = ["vhdl", "linter", "lint", "hdl", "fpga"]
+documentation = "https://docs.rs/vhdl-lint"
+homepage = "https://github.com/VHDL-LS/rust_hdl/tree/master/vhdl-lint"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+annotate-snippets.workspace = true
+anstream.workspace = true
+clap.workspace = true
+ignore.workspace = true
+itertools.workspace = true
+rayon.workspace = true
+serde = { workspace = true, features = ["derive"] }
+strum.workspace = true
+tempfile.workspace = true
+vhdl_syntax = { workspace = true, features = ["serde"] }
+toml.workspace = true
+globset.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
