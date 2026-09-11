@@ -11,8 +11,8 @@
 use vhdl_syntax::{
     fmt::write::FormatToExt,
     syntax::{
-        builders::*, AstNode, LibraryUnitSyntax, NameDesignatorToken, PrefixSyntax,
-        PrimaryUnitSyntax, SecondaryUnitSyntax,
+        builders::*, LibraryUnitSyntax, NameDesignatorToken, PrefixSyntax, PrimaryUnitSyntax,
+        SecondaryUnitSyntax,
     },
 };
 
@@ -61,7 +61,7 @@ fn main() {
     // The canonical output consists of tokens separated by a single space.
     // Formatters can be used to nicely display this to the user.
     assert_eq!(
-        file.raw().display().to_string(),
+        file.display().to_string(),
         " entity foo is end foo ; architecture arch of foo is begin end ; "
     )
 }

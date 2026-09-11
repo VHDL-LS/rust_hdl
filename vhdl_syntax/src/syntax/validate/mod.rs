@@ -118,7 +118,7 @@ end entity foo;
             "#,
         );
         assert!(diagnostics.is_empty());
-        assert!(&node.raw().validate().is_ok());
+        assert!(node.validate().is_ok());
     }
 
     #[test]
@@ -144,7 +144,7 @@ end configuration cfg;
             "{}",
             crate::parser::error::display_errors(&diagnostics)
         );
-        assert!(node.raw().validate().is_ok());
+        assert!(node.validate().is_ok());
     }
 
     // --- separated-list tests ---
@@ -174,7 +174,7 @@ end configuration cfg;
 
     fn list_findings(spec: &str) -> Vec<Validation> {
         let mut err = crate::syntax::validate::error::ValidationError::new();
-        check_node(&interface_list(spec).raw(), &mut err);
+        check_node(&interface_list(spec), &mut err);
         err.items().to_vec()
     }
 
@@ -252,11 +252,8 @@ end configuration cfg;
             .push(element)
             .build();
 
-        assert_eq!(
-            list.raw().display().to_string(),
-            "clk : in bit;clk : in bit"
-        );
-        assert!(list.raw().validate().is_ok());
+        assert_eq!(list.display().to_string(), "clk : in bit;clk : in bit");
+        assert!(list.validate().is_ok());
     }
 
     // --- missing-element tests ---
@@ -347,8 +344,7 @@ end configuration cfg;
         let entity = EntityDeclarationBuilder::new(
             EntityDeclarationPreambleSyntax::cast(bad_preamble).unwrap(),
         )
-        .build()
-        .raw();
+        .build();
 
         let err = entity.validate().unwrap_err();
 

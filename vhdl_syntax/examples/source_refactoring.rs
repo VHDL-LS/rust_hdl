@@ -64,7 +64,7 @@ end foobar;
     )
     .build();
 
-    let new_file = file.raw().rewrite(|node| match node {
+    let new_file = file.rewrite(|node| match node {
         SyntaxElement::Node(node) => match EntityDeclarationSyntax::cast(node.clone()) {
             // If the syntax node is an entity and is named 'foo', replace it with the replacement entity.
             Some(ent)

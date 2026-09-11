@@ -4,7 +4,7 @@ use clap::{Parser, ValueEnum};
 use vhdl_syntax::{
     parser::{self, error::display_errors},
     serde::{SerdeFlags, ToSerializable},
-    syntax::{AstNode, node::SyntaxNode},
+    syntax::node::SyntaxNode,
 };
 
 #[derive(Parser, Debug)]
@@ -74,7 +74,7 @@ fn main() {
         exit(EXIT_SYNTAX_ERROR);
     }
     let text = match serialize(
-        &node.raw(),
+        &node,
         args.format,
         !args.no_pretty,
         args.trivia,

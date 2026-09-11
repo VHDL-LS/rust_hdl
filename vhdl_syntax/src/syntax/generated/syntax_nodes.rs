@@ -10,6 +10,7 @@ use crate::syntax::node_kind::NodeKind;
 use crate::syntax::AstNode;
 use crate::tokens::Keyword as Kw;
 use crate::tokens::TokenKind;
+use std::ops::Deref;
 #[derive(Debug, Clone)]
 pub struct AbsolutePathnameSyntax(pub(crate) SyntaxNode);
 impl AstNode for AbsolutePathnameSyntax {
@@ -33,8 +34,11 @@ impl AstNode for AbsolutePathnameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AbsolutePathnameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AbsolutePathnameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AbsolutePathnameSyntax {
@@ -74,8 +78,11 @@ impl AstNode for AccessTypeDefinitionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AccessTypeDefinitionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AccessTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AccessTypeDefinitionSyntax {
@@ -119,8 +126,11 @@ impl AstNode for ActualPartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ActualPartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ActualPartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ActualPartSyntax {
@@ -172,11 +182,14 @@ impl AstNode for ActualPartBodySyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ActualPartBodySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ActualPartBodySyntax::ActualPartExpression(inner) => inner.raw(),
-            ActualPartBodySyntax::ActualPartSubtypeIndication(inner) => inner.raw(),
-            ActualPartBodySyntax::ActualPartOpen(inner) => inner.raw(),
+            ActualPartBodySyntax::ActualPartExpression(inner) => inner.deref(),
+            ActualPartBodySyntax::ActualPartSubtypeIndication(inner) => inner.deref(),
+            ActualPartBodySyntax::ActualPartOpen(inner) => inner.deref(),
         }
     }
 }
@@ -204,8 +217,11 @@ impl AstNode for ActualPartExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ActualPartExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ActualPartExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ActualPartExpressionSyntax {
@@ -228,8 +244,11 @@ impl AstNode for ActualPartOpenSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ActualPartOpenSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ActualPartOpenSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ActualPartOpenSyntax {
@@ -255,8 +274,11 @@ impl AstNode for ActualPartSubtypeIndicationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ActualPartSubtypeIndicationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ActualPartSubtypeIndicationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ActualPartSubtypeIndicationSyntax {
@@ -299,8 +321,11 @@ impl AstNode for AfterClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AfterClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AfterClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AfterClauseSyntax {
@@ -343,8 +368,11 @@ impl AstNode for AggregateSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AggregateSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AggregateSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AggregateSyntax {
@@ -382,8 +410,11 @@ impl AstNode for AggregateTargetSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AggregateTargetSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AggregateTargetSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AggregateTargetSyntax {
@@ -448,8 +479,11 @@ impl AstNode for AliasDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AliasDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AliasDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AliasDeclarationSyntax {
@@ -536,8 +570,11 @@ impl AstNode for AliasSubtypeSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AliasSubtypeSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AliasSubtypeSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AliasSubtypeSyntax {
@@ -569,8 +606,11 @@ impl AstNode for AllSensitivityListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AllSensitivityListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AllSensitivityListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AllSensitivityListSyntax {
@@ -613,8 +653,11 @@ impl AstNode for AllocatorSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AllocatorSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AllocatorSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AllocatorSyntax {
@@ -669,8 +712,11 @@ impl AstNode for ArchitectureBodySyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ArchitectureBodySyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ArchitectureBodySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ArchitectureBodySyntax {
@@ -744,8 +790,11 @@ impl AstNode for ArchitectureDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ArchitectureDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ArchitectureDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ArchitectureDeclarativePartSyntax {
@@ -792,8 +841,11 @@ impl AstNode for ArchitectureEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ArchitectureEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ArchitectureEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ArchitectureEpilogueSyntax {
@@ -863,8 +915,11 @@ impl AstNode for ArchitecturePreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ArchitecturePreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ArchitecturePreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ArchitecturePreambleSyntax {
@@ -923,8 +978,11 @@ impl AstNode for ArchitectureStatementPartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ArchitectureStatementPartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ArchitectureStatementPartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ArchitectureStatementPartSyntax {
@@ -964,10 +1022,13 @@ impl AstNode for ArrayTypeDefinitionSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ArrayTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ArrayTypeDefinitionSyntax::UnboundedArrayDefinition(inner) => inner.raw(),
-            ArrayTypeDefinitionSyntax::ConstrainedArrayDefinition(inner) => inner.raw(),
+            ArrayTypeDefinitionSyntax::UnboundedArrayDefinition(inner) => inner.deref(),
+            ArrayTypeDefinitionSyntax::ConstrainedArrayDefinition(inner) => inner.deref(),
         }
     }
 }
@@ -1015,8 +1076,11 @@ impl AstNode for AssertionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AssertionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AssertionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AssertionSyntax {
@@ -1071,8 +1135,11 @@ impl AstNode for AssertionStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AssertionStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AssertionStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AssertionStatementSyntax {
@@ -1112,8 +1179,11 @@ impl AstNode for AssociationElementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AssociationElementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AssociationElementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AssociationElementSyntax {
@@ -1145,8 +1215,11 @@ impl AstNode for AssociationListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AssociationListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AssociationListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AssociationListSyntax {
@@ -1200,8 +1273,11 @@ impl AstNode for AttributeDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AttributeDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AttributeDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AttributeDeclarationSyntax {
@@ -1289,8 +1365,11 @@ impl AstNode for AttributeNameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AttributeNameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AttributeNameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AttributeNameSyntax {
@@ -1372,8 +1451,11 @@ impl AstNode for AttributeSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         AttributeSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for AttributeSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl AttributeSpecificationSyntax {
@@ -1499,8 +1581,11 @@ impl AstNode for BinaryExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BinaryExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BinaryExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BinaryExpressionSyntax {
@@ -1656,8 +1741,11 @@ impl AstNode for BindingSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BindingSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BindingSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BindingSyntax {
@@ -1703,8 +1791,11 @@ impl AstNode for BindingIndicationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BindingIndicationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BindingIndicationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BindingIndicationSyntax {
@@ -1754,8 +1845,11 @@ impl AstNode for BindingUseClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BindingUseClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BindingUseClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BindingUseClauseSyntax {
@@ -1810,8 +1904,11 @@ impl AstNode for BlockConfigurationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockConfigurationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockConfigurationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockConfigurationSyntax {
@@ -1863,8 +1960,11 @@ impl AstNode for BlockConfigurationEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockConfigurationEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockConfigurationEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockConfigurationEpilogueSyntax {
@@ -1902,8 +2002,11 @@ impl AstNode for BlockConfigurationItemSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockConfigurationItemSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockConfigurationItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockConfigurationItemSyntax {
@@ -1937,8 +2040,11 @@ impl AstNode for BlockConfigurationPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockConfigurationPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockConfigurationPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockConfigurationPreambleSyntax {
@@ -2115,29 +2221,32 @@ impl AstNode for BlockDeclarativeItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for BlockDeclarativeItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            BlockDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::SubprogramBody(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::TypeDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::SignalDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::VariableDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::FileDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::AliasDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::ComponentDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::AttributeSpecification(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::ConfigurationSpecification(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::DisconnectionSpecification(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.raw(),
-            BlockDeclarativeItemSyntax::GroupDeclaration(inner) => inner.raw(),
+            BlockDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::SubprogramBody(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::TypeDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::SignalDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::VariableDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::FileDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::AliasDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::ComponentDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::AttributeSpecification(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::ConfigurationSpecification(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::DisconnectionSpecification(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.deref(),
+            BlockDeclarativeItemSyntax::GroupDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -2180,8 +2289,11 @@ impl AstNode for BlockDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockDeclarativePartSyntax {
@@ -2228,8 +2340,11 @@ impl AstNode for BlockEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockEpilogueSyntax {
@@ -2281,8 +2396,11 @@ impl AstNode for BlockHeaderSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockHeaderSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockHeaderSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockHeaderSyntax {
@@ -2322,8 +2440,11 @@ impl AstNode for BlockPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockPreambleSyntax {
@@ -2399,8 +2520,11 @@ impl AstNode for BlockStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockStatementSyntax {
@@ -2468,8 +2592,11 @@ impl AstNode for BlockStatementPartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         BlockStatementPartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for BlockStatementPartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl BlockStatementPartSyntax {
@@ -2522,8 +2649,11 @@ impl AstNode for CaseGenerateAlternativeSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         CaseGenerateAlternativeSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for CaseGenerateAlternativeSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl CaseGenerateAlternativeSyntax {
@@ -2590,8 +2720,11 @@ impl AstNode for CaseGeneratePreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         CaseGeneratePreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for CaseGeneratePreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl CaseGeneratePreambleSyntax {
@@ -2646,8 +2779,11 @@ impl AstNode for CaseGenerateStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         CaseGenerateStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for CaseGenerateStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl CaseGenerateStatementSyntax {
@@ -2703,8 +2839,11 @@ impl AstNode for CaseStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         CaseStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for CaseStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl CaseStatementSyntax {
@@ -2751,8 +2890,11 @@ impl AstNode for CaseStatementAlternativeSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         CaseStatementAlternativeSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for CaseStatementAlternativeSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl CaseStatementAlternativeSyntax {
@@ -2800,8 +2942,11 @@ impl AstNode for CaseStatementAlternativePreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         CaseStatementAlternativePreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for CaseStatementAlternativePreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl CaseStatementAlternativePreambleSyntax {
@@ -2862,8 +3007,11 @@ impl AstNode for CaseStatementEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         CaseStatementEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for CaseStatementEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl CaseStatementEpilogueSyntax {
@@ -2948,8 +3096,11 @@ impl AstNode for CaseStatementPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         CaseStatementPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for CaseStatementPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl CaseStatementPreambleSyntax {
@@ -2999,10 +3150,13 @@ impl AstNode for ChoiceSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ChoiceSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ChoiceSyntax::ExpressionChoice(inner) => inner.raw(),
-            ChoiceSyntax::OthersChoice(inner) => inner.raw(),
+            ChoiceSyntax::ExpressionChoice(inner) => inner.deref(),
+            ChoiceSyntax::OthersChoice(inner) => inner.deref(),
         }
     }
 }
@@ -3027,8 +3181,11 @@ impl AstNode for ChoicesSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ChoicesSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ChoicesSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ChoicesSyntax {
@@ -3082,8 +3239,11 @@ impl AstNode for ComponentConfigurationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ComponentConfigurationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ComponentConfigurationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ComponentConfigurationSyntax {
@@ -3145,8 +3305,11 @@ impl AstNode for ComponentConfigurationEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ComponentConfigurationEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ComponentConfigurationEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ComponentConfigurationEpilogueSyntax {
@@ -3192,8 +3355,11 @@ impl AstNode for ComponentConfigurationPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ComponentConfigurationPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ComponentConfigurationPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ComponentConfigurationPreambleSyntax {
@@ -3245,8 +3411,11 @@ impl AstNode for ComponentDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ComponentDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ComponentDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ComponentDeclarationSyntax {
@@ -3307,8 +3476,11 @@ impl AstNode for ComponentDeclarationEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ComponentDeclarationEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ComponentDeclarationEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ComponentDeclarationEpilogueSyntax {
@@ -3366,8 +3538,11 @@ impl AstNode for ComponentDeclarationPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ComponentDeclarationPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ComponentDeclarationPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ComponentDeclarationPreambleSyntax {
@@ -3435,8 +3610,11 @@ impl AstNode for ComponentInstantiationStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ComponentInstantiationStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ComponentInstantiationStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ComponentInstantiationStatementSyntax {
@@ -3501,8 +3679,11 @@ impl AstNode for ComponentSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ComponentSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ComponentSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ComponentSpecificationSyntax {
@@ -3551,10 +3732,13 @@ impl AstNode for CompositeTypeDefinitionSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for CompositeTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            CompositeTypeDefinitionSyntax::ArrayTypeDefinition(inner) => inner.raw(),
-            CompositeTypeDefinitionSyntax::RecordTypeDefinition(inner) => inner.raw(),
+            CompositeTypeDefinitionSyntax::ArrayTypeDefinition(inner) => inner.deref(),
+            CompositeTypeDefinitionSyntax::RecordTypeDefinition(inner) => inner.deref(),
         }
     }
 }
@@ -3599,8 +3783,11 @@ impl AstNode for CompoundConfigurationSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         CompoundConfigurationSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for CompoundConfigurationSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl CompoundConfigurationSpecificationSyntax {
@@ -3671,8 +3858,11 @@ impl AstNode for ConcurrentAssertionStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConcurrentAssertionStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConcurrentAssertionStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConcurrentAssertionStatementSyntax {
@@ -3760,8 +3950,11 @@ impl AstNode for ConcurrentConditionalSignalAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConcurrentConditionalSignalAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConcurrentConditionalSignalAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConcurrentConditionalSignalAssignmentSyntax {
@@ -3843,8 +4036,11 @@ impl AstNode for ConcurrentProcedureCallOrComponentInstantiationStatementSyntax 
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConcurrentProcedureCallOrComponentInstantiationStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConcurrentProcedureCallOrComponentInstantiationStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConcurrentProcedureCallOrComponentInstantiationStatementSyntax {
@@ -3938,8 +4134,11 @@ impl AstNode for ConcurrentSelectedSignalAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConcurrentSelectedSignalAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConcurrentSelectedSignalAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConcurrentSelectedSignalAssignmentSyntax {
@@ -4025,17 +4224,20 @@ impl AstNode for ConcurrentSignalAssignmentStatementSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ConcurrentSignalAssignmentStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
             ConcurrentSignalAssignmentStatementSyntax::ConcurrentSimpleSignalAssignment(inner) => {
-                inner.raw()
+                inner.deref()
             }
             ConcurrentSignalAssignmentStatementSyntax::ConcurrentConditionalSignalAssignment(
                 inner,
-            ) => inner.raw(),
+            ) => inner.deref(),
             ConcurrentSignalAssignmentStatementSyntax::ConcurrentSelectedSignalAssignment(
                 inner,
-            ) => inner.raw(),
+            ) => inner.deref(),
         }
     }
 }
@@ -4107,8 +4309,11 @@ impl AstNode for ConcurrentSimpleSignalAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConcurrentSimpleSignalAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConcurrentSimpleSignalAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConcurrentSimpleSignalAssignmentSyntax {
@@ -4219,17 +4424,20 @@ impl AstNode for ConcurrentStatementSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ConcurrentStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ConcurrentStatementSyntax::BlockStatement(inner) => inner.raw(),
-            ConcurrentStatementSyntax::ProcessStatement(inner) => inner.raw(),
+            ConcurrentStatementSyntax::BlockStatement(inner) => inner.deref(),
+            ConcurrentStatementSyntax::ProcessStatement(inner) => inner.deref(),
             ConcurrentStatementSyntax::ConcurrentProcedureCallOrComponentInstantiationStatement(
                 inner,
-            ) => inner.raw(),
-            ConcurrentStatementSyntax::ConcurrentAssertionStatement(inner) => inner.raw(),
-            ConcurrentStatementSyntax::ConcurrentSignalAssignmentStatement(inner) => inner.raw(),
-            ConcurrentStatementSyntax::ComponentInstantiationStatement(inner) => inner.raw(),
-            ConcurrentStatementSyntax::GenerateStatement(inner) => inner.raw(),
+            ) => inner.deref(),
+            ConcurrentStatementSyntax::ConcurrentAssertionStatement(inner) => inner.deref(),
+            ConcurrentStatementSyntax::ConcurrentSignalAssignmentStatement(inner) => inner.deref(),
+            ConcurrentStatementSyntax::ComponentInstantiationStatement(inner) => inner.deref(),
+            ConcurrentStatementSyntax::GenerateStatement(inner) => inner.deref(),
         }
     }
 }
@@ -4265,8 +4473,11 @@ impl AstNode for ConditionClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConditionClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConditionClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConditionClauseSyntax {
@@ -4309,8 +4520,11 @@ impl AstNode for ConditionalExpressionsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConditionalExpressionsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConditionalExpressionsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConditionalExpressionsSyntax {
@@ -4391,8 +4605,11 @@ impl AstNode for ConditionalForceAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConditionalForceAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConditionalForceAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConditionalForceAssignmentSyntax {
@@ -4458,10 +4675,15 @@ impl AstNode for ConditionalSignalAssignmentSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ConditionalSignalAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ConditionalSignalAssignmentSyntax::ConditionalWaveformAssignment(inner) => inner.raw(),
-            ConditionalSignalAssignmentSyntax::ConditionalForceAssignment(inner) => inner.raw(),
+            ConditionalSignalAssignmentSyntax::ConditionalWaveformAssignment(inner) => {
+                inner.deref()
+            }
+            ConditionalSignalAssignmentSyntax::ConditionalForceAssignment(inner) => inner.deref(),
         }
     }
 }
@@ -4509,8 +4731,11 @@ impl AstNode for ConditionalVariableAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConditionalVariableAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConditionalVariableAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConditionalVariableAssignmentSyntax {
@@ -4592,8 +4817,11 @@ impl AstNode for ConditionalWaveformAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConditionalWaveformAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConditionalWaveformAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConditionalWaveformAssignmentSyntax {
@@ -4657,8 +4885,11 @@ impl AstNode for ConditionalWaveformsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConditionalWaveformsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConditionalWaveformsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConditionalWaveformsSyntax {
@@ -4719,8 +4950,11 @@ impl AstNode for ConfigurationDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConfigurationDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConfigurationDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConfigurationDeclarationSyntax {
@@ -4795,8 +5029,11 @@ impl AstNode for ConfigurationDeclarationEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConfigurationDeclarationEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConfigurationDeclarationEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConfigurationDeclarationEpilogueSyntax {
@@ -4866,8 +5103,11 @@ impl AstNode for ConfigurationDeclarationPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConfigurationDeclarationPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConfigurationDeclarationPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConfigurationDeclarationPreambleSyntax {
@@ -4934,11 +5174,14 @@ impl AstNode for ConfigurationDeclarativeItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ConfigurationDeclarativeItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ConfigurationDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.raw(),
-            ConfigurationDeclarativeItemSyntax::AttributeSpecification(inner) => inner.raw(),
-            ConfigurationDeclarativeItemSyntax::GroupDeclaration(inner) => inner.raw(),
+            ConfigurationDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.deref(),
+            ConfigurationDeclarativeItemSyntax::AttributeSpecification(inner) => inner.deref(),
+            ConfigurationDeclarativeItemSyntax::GroupDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -4961,8 +5204,11 @@ impl AstNode for ConfigurationDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConfigurationDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConfigurationDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConfigurationDeclarativePartSyntax {
@@ -5002,10 +5248,13 @@ impl AstNode for ConfigurationItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ConfigurationItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ConfigurationItemSyntax::BlockConfigurationItem(inner) => inner.raw(),
-            ConfigurationItemSyntax::ComponentConfiguration(inner) => inner.raw(),
+            ConfigurationItemSyntax::BlockConfigurationItem(inner) => inner.deref(),
+            ConfigurationItemSyntax::ComponentConfiguration(inner) => inner.deref(),
         }
     }
 }
@@ -5037,13 +5286,16 @@ impl AstNode for ConfigurationSpecificationSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ConfigurationSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
             ConfigurationSpecificationSyntax::SimpleConfigurationSpecification(inner) => {
-                inner.raw()
+                inner.deref()
             }
             ConfigurationSpecificationSyntax::CompoundConfigurationSpecification(inner) => {
-                inner.raw()
+                inner.deref()
             }
         }
     }
@@ -5095,8 +5347,11 @@ impl AstNode for ConstantDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConstantDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConstantDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConstantDeclarationSyntax {
@@ -5172,8 +5427,11 @@ impl AstNode for ConstrainedArrayDefinitionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ConstrainedArrayDefinitionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ConstrainedArrayDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ConstrainedArrayDefinitionSyntax {
@@ -5221,8 +5479,11 @@ impl AstNode for ContextClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ContextClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ContextClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ContextClauseSyntax {
@@ -5259,8 +5520,11 @@ impl AstNode for ContextDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ContextDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ContextDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ContextDeclarationSyntax {
@@ -5318,8 +5582,11 @@ impl AstNode for ContextDeclarationEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ContextDeclarationEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ContextDeclarationEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ContextDeclarationEpilogueSyntax {
@@ -5377,8 +5644,11 @@ impl AstNode for ContextDeclarationPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ContextDeclarationPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ContextDeclarationPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ContextDeclarationPreambleSyntax {
@@ -5434,11 +5704,14 @@ impl AstNode for ContextItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ContextItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ContextItemSyntax::LibraryClause(inner) => inner.raw(),
-            ContextItemSyntax::UseClauseContextItem(inner) => inner.raw(),
-            ContextItemSyntax::ContextReference(inner) => inner.raw(),
+            ContextItemSyntax::LibraryClause(inner) => inner.deref(),
+            ContextItemSyntax::UseClauseContextItem(inner) => inner.deref(),
+            ContextItemSyntax::ContextReference(inner) => inner.deref(),
         }
     }
 }
@@ -5471,8 +5744,11 @@ impl AstNode for ContextReferenceSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ContextReferenceSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ContextReferenceSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ContextReferenceSyntax {
@@ -5507,8 +5783,11 @@ impl AstNode for DeclarationStatementSeparatorSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         DeclarationStatementSeparatorSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for DeclarationStatementSeparatorSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl DeclarationStatementSeparatorSyntax {
@@ -5547,10 +5826,13 @@ impl AstNode for DelayMechanismSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for DelayMechanismSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            DelayMechanismSyntax::TransportDelayMechanism(inner) => inner.raw(),
-            DelayMechanismSyntax::InertialDelayMechanism(inner) => inner.raw(),
+            DelayMechanismSyntax::TransportDelayMechanism(inner) => inner.deref(),
+            DelayMechanismSyntax::InertialDelayMechanism(inner) => inner.deref(),
         }
     }
 }
@@ -5577,8 +5859,11 @@ impl AstNode for DesignFileSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         DesignFileSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for DesignFileSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl DesignFileSyntax {
@@ -5623,8 +5908,11 @@ impl AstNode for DesignUnitSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         DesignUnitSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for DesignUnitSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl DesignUnitSyntax {
@@ -5708,8 +5996,11 @@ impl AstNode for DisconnectionSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         DisconnectionSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for DisconnectionSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl DisconnectionSpecificationSyntax {
@@ -5773,8 +6064,11 @@ impl AstNode for ElementAssociationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElementAssociationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ElementAssociationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ElementAssociationSyntax {
@@ -5809,8 +6103,11 @@ impl AstNode for ElementAssociationListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElementAssociationListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ElementAssociationListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ElementAssociationListSyntax {
@@ -5846,8 +6143,11 @@ impl AstNode for ElementChoicesSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElementChoicesSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ElementChoicesSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ElementChoicesSyntax {
@@ -5896,8 +6196,11 @@ impl AstNode for ElementDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElementDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ElementDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ElementDeclarationSyntax {
@@ -5955,10 +6258,13 @@ impl AstNode for ElementResolutionSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ElementResolutionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ElementResolutionSyntax::ArrayElementResolution(inner) => inner.raw(),
-            ElementResolutionSyntax::RecordResolutionElementResolution(inner) => inner.raw(),
+            ElementResolutionSyntax::ArrayElementResolution(inner) => inner.deref(),
+            ElementResolutionSyntax::RecordResolutionElementResolution(inner) => inner.deref(),
         }
     }
 }
@@ -5981,8 +6287,11 @@ impl AstNode for ElementResolutionResolutionIndicationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElementResolutionResolutionIndicationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ElementResolutionResolutionIndicationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ElementResolutionResolutionIndicationSyntax {
@@ -6025,8 +6334,11 @@ impl AstNode for ElseExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElseExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ElseExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ElseExpressionSyntax {
@@ -6066,8 +6378,11 @@ impl AstNode for ElseWaveformSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElseWaveformSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ElseWaveformSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ElseWaveformSyntax {
@@ -6134,8 +6449,11 @@ impl AstNode for ElseWhenExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElseWhenExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ElseWhenExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ElseWhenExpressionSyntax {
@@ -6205,8 +6523,11 @@ impl AstNode for ElseWhenWaveformSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ElseWhenWaveformSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ElseWhenWaveformSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ElseWhenWaveformSyntax {
@@ -6252,8 +6573,11 @@ impl AstNode for EndPackageBodySyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EndPackageBodySyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EndPackageBodySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EndPackageBodySyntax {
@@ -6305,11 +6629,14 @@ impl AstNode for EntityAspectSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for EntityAspectSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            EntityAspectSyntax::EntityEntityAspect(inner) => inner.raw(),
-            EntityAspectSyntax::EntityConfigurationAspect(inner) => inner.raw(),
-            EntityAspectSyntax::EntityOpenAspect(inner) => inner.raw(),
+            EntityAspectSyntax::EntityEntityAspect(inner) => inner.deref(),
+            EntityAspectSyntax::EntityConfigurationAspect(inner) => inner.deref(),
+            EntityAspectSyntax::EntityOpenAspect(inner) => inner.deref(),
         }
     }
 }
@@ -6427,8 +6754,11 @@ impl AstNode for EntityClassEntrySyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityClassEntrySyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityClassEntrySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityClassEntrySyntax {
@@ -6463,8 +6793,11 @@ impl AstNode for EntityClassEntryListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityClassEntryListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityClassEntryListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityClassEntryListSyntax {
@@ -6500,8 +6833,11 @@ impl AstNode for EntityConfigurationAspectSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityConfigurationAspectSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityConfigurationAspectSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityConfigurationAspectSyntax {
@@ -6556,8 +6892,11 @@ impl AstNode for EntityDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityDeclarationSyntax {
@@ -6627,8 +6966,11 @@ impl AstNode for EntityDeclarationEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityDeclarationEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityDeclarationEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityDeclarationEpilogueSyntax {
@@ -6686,8 +7028,11 @@ impl AstNode for EntityDeclarationPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityDeclarationPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityDeclarationPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityDeclarationPreambleSyntax {
@@ -6858,27 +7203,32 @@ impl AstNode for EntityDeclarativeItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for EntityDeclarativeItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            EntityDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::SubprogramBody(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::TypeDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::SignalDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::VariableDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::FileDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::AliasDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::AttributeSpecification(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::DisconnectionSpecification(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.raw(),
-            EntityDeclarativeItemSyntax::GroupDeclaration(inner) => inner.raw(),
+            EntityDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::SubprogramBody(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => {
+                inner.deref()
+            }
+            EntityDeclarativeItemSyntax::TypeDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::SignalDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::VariableDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::FileDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::AliasDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::AttributeSpecification(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::DisconnectionSpecification(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.deref(),
+            EntityDeclarativeItemSyntax::GroupDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -6918,8 +7268,11 @@ impl AstNode for EntityDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityDeclarativePartSyntax {
@@ -6958,8 +7311,11 @@ impl AstNode for EntityDesignatorSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityDesignatorSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityDesignatorSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityDesignatorSyntax {
@@ -6991,8 +7347,11 @@ impl AstNode for EntityDesignatorListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityDesignatorListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityDesignatorListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityDesignatorListSyntax {
@@ -7028,8 +7387,11 @@ impl AstNode for EntityEntityAspectSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityEntityAspectSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityEntityAspectSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityEntityAspectSyntax {
@@ -7066,8 +7428,11 @@ impl AstNode for EntityHeaderSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityHeaderSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityHeaderSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityHeaderSyntax {
@@ -7116,11 +7481,14 @@ impl AstNode for EntityNameListSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for EntityNameListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            EntityNameListSyntax::EntityDesignatorList(inner) => inner.raw(),
-            EntityNameListSyntax::EntityNameListOthers(inner) => inner.raw(),
-            EntityNameListSyntax::EntityNameListAll(inner) => inner.raw(),
+            EntityNameListSyntax::EntityDesignatorList(inner) => inner.deref(),
+            EntityNameListSyntax::EntityNameListOthers(inner) => inner.deref(),
+            EntityNameListSyntax::EntityNameListAll(inner) => inner.deref(),
         }
     }
 }
@@ -7139,8 +7507,11 @@ impl AstNode for EntityNameListAllSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityNameListAllSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityNameListAllSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityNameListAllSyntax {
@@ -7166,8 +7537,11 @@ impl AstNode for EntityNameListOthersSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityNameListOthersSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityNameListOthersSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityNameListOthersSyntax {
@@ -7193,8 +7567,11 @@ impl AstNode for EntityOpenAspectSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityOpenAspectSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityOpenAspectSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityOpenAspectSyntax {
@@ -7258,8 +7635,11 @@ impl AstNode for EntitySpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntitySpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntitySpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntitySpecificationSyntax {
@@ -7318,13 +7698,16 @@ impl AstNode for EntityStatementSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for EntityStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            EntityStatementSyntax::ConcurrentAssertionStatement(inner) => inner.raw(),
+            EntityStatementSyntax::ConcurrentAssertionStatement(inner) => inner.deref(),
             EntityStatementSyntax::ConcurrentProcedureCallOrComponentInstantiationStatement(
                 inner,
-            ) => inner.raw(),
-            EntityStatementSyntax::ProcessStatement(inner) => inner.raw(),
+            ) => inner.deref(),
+            EntityStatementSyntax::ProcessStatement(inner) => inner.deref(),
         }
     }
 }
@@ -7347,8 +7730,11 @@ impl AstNode for EntityStatementPartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityStatementPartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityStatementPartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityStatementPartSyntax {
@@ -7379,8 +7765,11 @@ impl AstNode for EntityStatementsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EntityStatementsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EntityStatementsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EntityStatementsSyntax {
@@ -7444,8 +7833,11 @@ impl AstNode for EnumerationListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EnumerationListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EnumerationListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EnumerationListSyntax {
@@ -7507,8 +7899,11 @@ impl AstNode for EnumerationTypeDefinitionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         EnumerationTypeDefinitionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for EnumerationTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl EnumerationTypeDefinitionSyntax {
@@ -7572,8 +7967,11 @@ impl AstNode for ExitStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ExitStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ExitStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ExitStatementSyntax {
@@ -7666,16 +8064,19 @@ impl AstNode for ExpressionSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ExpressionSyntax::LiteralExpression(inner) => inner.raw(),
-            ExpressionSyntax::PhysicalLiteralExpression(inner) => inner.raw(),
-            ExpressionSyntax::UnaryExpression(inner) => inner.raw(),
-            ExpressionSyntax::BinaryExpression(inner) => inner.raw(),
-            ExpressionSyntax::ParenthesizedExpressionOrAggregate(inner) => inner.raw(),
-            ExpressionSyntax::Allocator(inner) => inner.raw(),
-            ExpressionSyntax::NameExpression(inner) => inner.raw(),
-            ExpressionSyntax::QualifiedExpression(inner) => inner.raw(),
+            ExpressionSyntax::LiteralExpression(inner) => inner.deref(),
+            ExpressionSyntax::PhysicalLiteralExpression(inner) => inner.deref(),
+            ExpressionSyntax::UnaryExpression(inner) => inner.deref(),
+            ExpressionSyntax::BinaryExpression(inner) => inner.deref(),
+            ExpressionSyntax::ParenthesizedExpressionOrAggregate(inner) => inner.deref(),
+            ExpressionSyntax::Allocator(inner) => inner.deref(),
+            ExpressionSyntax::NameExpression(inner) => inner.deref(),
+            ExpressionSyntax::QualifiedExpression(inner) => inner.deref(),
         }
     }
 }
@@ -7703,8 +8104,11 @@ impl AstNode for ExpressionChoiceSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ExpressionChoiceSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ExpressionChoiceSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ExpressionChoiceSyntax {
@@ -7742,8 +8146,11 @@ impl AstNode for ExpressionListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ExpressionListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ExpressionListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ExpressionListSyntax {
@@ -7807,8 +8214,11 @@ impl AstNode for ExternalConstantNameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ExternalConstantNameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ExternalConstantNameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ExternalConstantNameSyntax {
@@ -7884,11 +8294,14 @@ impl AstNode for ExternalNameSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ExternalNameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ExternalNameSyntax::ExternalConstantName(inner) => inner.raw(),
-            ExternalNameSyntax::ExternalSignalName(inner) => inner.raw(),
-            ExternalNameSyntax::ExternalVariableName(inner) => inner.raw(),
+            ExternalNameSyntax::ExternalConstantName(inner) => inner.deref(),
+            ExternalNameSyntax::ExternalSignalName(inner) => inner.deref(),
+            ExternalNameSyntax::ExternalVariableName(inner) => inner.deref(),
         }
     }
 }
@@ -7927,11 +8340,14 @@ impl AstNode for ExternalPathnameSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ExternalPathnameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ExternalPathnameSyntax::PackagePathname(inner) => inner.raw(),
-            ExternalPathnameSyntax::AbsolutePathname(inner) => inner.raw(),
-            ExternalPathnameSyntax::RelativePathname(inner) => inner.raw(),
+            ExternalPathnameSyntax::PackagePathname(inner) => inner.deref(),
+            ExternalPathnameSyntax::AbsolutePathname(inner) => inner.deref(),
+            ExternalPathnameSyntax::RelativePathname(inner) => inner.deref(),
         }
     }
 }
@@ -7986,8 +8402,11 @@ impl AstNode for ExternalSignalNameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ExternalSignalNameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ExternalSignalNameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ExternalSignalNameSyntax {
@@ -8079,8 +8498,11 @@ impl AstNode for ExternalVariableNameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ExternalVariableNameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ExternalVariableNameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ExternalVariableNameSyntax {
@@ -8168,8 +8590,11 @@ impl AstNode for FileDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         FileDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for FileDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl FileDeclarationSyntax {
@@ -8248,8 +8673,11 @@ impl AstNode for FileOpenInformationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         FileOpenInformationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for FileOpenInformationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl FileOpenInformationSyntax {
@@ -8301,8 +8729,11 @@ impl AstNode for FileOpenKindSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         FileOpenKindSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for FileOpenKindSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl FileOpenKindSyntax {
@@ -8345,8 +8776,11 @@ impl AstNode for FileTypeDefinitionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         FileTypeDefinitionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for FileTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl FileTypeDefinitionSyntax {
@@ -8395,8 +8829,11 @@ impl AstNode for ForGeneratePreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ForGeneratePreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ForGeneratePreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ForGeneratePreambleSyntax {
@@ -8454,8 +8891,11 @@ impl AstNode for ForGenerateStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ForGenerateStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ForGenerateStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ForGenerateStatementSyntax {
@@ -8504,8 +8944,11 @@ impl AstNode for ForSchemeSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ForSchemeSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ForSchemeSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ForSchemeSyntax {
@@ -8565,8 +9008,11 @@ impl AstNode for FormalSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         FormalSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for FormalSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl FormalSyntax {
@@ -8632,8 +9078,11 @@ impl AstNode for FullTypeDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         FullTypeDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for FullTypeDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl FullTypeDeclarationSyntax {
@@ -8727,8 +9176,11 @@ impl AstNode for FunctionSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         FunctionSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for FunctionSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl FunctionSpecificationSyntax {
@@ -8789,8 +9241,11 @@ impl AstNode for GenerateBodyDeclarationsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GenerateBodyDeclarationsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GenerateBodyDeclarationsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GenerateBodyDeclarationsSyntax {
@@ -8836,8 +9291,11 @@ impl AstNode for GenerateBodyEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GenerateBodyEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GenerateBodyEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GenerateBodyEpilogueSyntax {
@@ -8895,8 +9353,11 @@ impl AstNode for GenerateEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GenerateEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GenerateEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GenerateEpilogueSyntax {
@@ -8960,11 +9421,14 @@ impl AstNode for GenerateStatementSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for GenerateStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            GenerateStatementSyntax::ForGenerateStatement(inner) => inner.raw(),
-            GenerateStatementSyntax::IfGenerateStatement(inner) => inner.raw(),
-            GenerateStatementSyntax::CaseGenerateStatement(inner) => inner.raw(),
+            GenerateStatementSyntax::ForGenerateStatement(inner) => inner.deref(),
+            GenerateStatementSyntax::IfGenerateStatement(inner) => inner.deref(),
+            GenerateStatementSyntax::CaseGenerateStatement(inner) => inner.deref(),
         }
     }
 }
@@ -9009,8 +9473,11 @@ impl AstNode for GenerateStatementBodySyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GenerateStatementBodySyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GenerateStatementBodySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GenerateStatementBodySyntax {
@@ -9075,8 +9542,11 @@ impl AstNode for GenericClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GenericClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GenericClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GenericClauseSyntax {
@@ -9134,8 +9604,11 @@ impl AstNode for GenericMapSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GenericMapSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GenericMapSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GenericMapSyntax {
@@ -9193,8 +9666,11 @@ impl AstNode for GenericMapAspectSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GenericMapAspectSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GenericMapAspectSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GenericMapAspectSyntax {
@@ -9252,8 +9728,11 @@ impl AstNode for GenericPartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GenericPartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GenericPartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GenericPartSyntax {
@@ -9308,8 +9787,11 @@ impl AstNode for GroupDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GroupDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GroupDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GroupDeclarationSyntax {
@@ -9394,8 +9876,11 @@ impl AstNode for GroupTemplateDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GroupTemplateDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GroupTemplateDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GroupTemplateDeclarationSyntax {
@@ -9475,8 +9960,11 @@ impl AstNode for GuardedSignalSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         GuardedSignalSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for GuardedSignalSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl GuardedSignalSpecificationSyntax {
@@ -9514,8 +10002,11 @@ impl AstNode for IdentifierListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IdentifierListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IdentifierListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IdentifierListSyntax {
@@ -9565,8 +10056,11 @@ impl AstNode for IfGenerateElseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IfGenerateElseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IfGenerateElseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IfGenerateElseSyntax {
@@ -9642,8 +10136,11 @@ impl AstNode for IfGenerateElsifSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IfGenerateElsifSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IfGenerateElsifSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IfGenerateElsifSyntax {
@@ -9722,8 +10219,11 @@ impl AstNode for IfGenerateIfSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IfGenerateIfSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IfGenerateIfSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IfGenerateIfSyntax {
@@ -9793,8 +10293,11 @@ impl AstNode for IfGenerateStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IfGenerateStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IfGenerateStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IfGenerateStatementSyntax {
@@ -9864,8 +10367,11 @@ impl AstNode for IfStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IfStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IfStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IfStatementSyntax {
@@ -9920,8 +10426,11 @@ impl AstNode for IfStatementElseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IfStatementElseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IfStatementElseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IfStatementElseSyntax {
@@ -9982,8 +10491,11 @@ impl AstNode for IfStatementElsifSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IfStatementElsifSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IfStatementElsifSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IfStatementElsifSyntax {
@@ -10044,8 +10556,11 @@ impl AstNode for IfStatementEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IfStatementEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IfStatementEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IfStatementEpilogueSyntax {
@@ -10118,8 +10633,11 @@ impl AstNode for IfStatementPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IfStatementPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IfStatementPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IfStatementPreambleSyntax {
@@ -10171,8 +10689,11 @@ impl AstNode for IncompleteTypeDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IncompleteTypeDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IncompleteTypeDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IncompleteTypeDeclarationSyntax {
@@ -10224,8 +10745,11 @@ impl AstNode for IndexConstraintSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IndexConstraintSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IndexConstraintSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IndexConstraintSyntax {
@@ -10277,8 +10801,11 @@ impl AstNode for IndexSubtypeDefinitionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IndexSubtypeDefinitionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IndexSubtypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IndexSubtypeDefinitionSyntax {
@@ -10319,8 +10846,11 @@ impl AstNode for IndexSubtypeDefinitionListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         IndexSubtypeDefinitionListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for IndexSubtypeDefinitionListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl IndexSubtypeDefinitionListSyntax {
@@ -10360,8 +10890,11 @@ impl AstNode for InertialDelayMechanismSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InertialDelayMechanismSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InertialDelayMechanismSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InertialDelayMechanismSyntax {
@@ -10410,8 +10943,11 @@ impl AstNode for InitialValueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InitialValueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InitialValueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InitialValueSyntax {
@@ -10448,8 +10984,11 @@ impl AstNode for InstantiatedComponentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InstantiatedComponentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InstantiatedComponentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InstantiatedComponentSyntax {
@@ -10486,8 +11025,11 @@ impl AstNode for InstantiatedConfigurationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InstantiatedConfigurationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InstantiatedConfigurationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InstantiatedConfigurationSyntax {
@@ -10524,8 +11066,11 @@ impl AstNode for InstantiatedEntitySyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InstantiatedEntitySyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InstantiatedEntitySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InstantiatedEntitySyntax {
@@ -10574,11 +11119,14 @@ impl AstNode for InstantiatedUnitSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for InstantiatedUnitSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            InstantiatedUnitSyntax::InstantiatedComponent(inner) => inner.raw(),
-            InstantiatedUnitSyntax::InstantiatedEntity(inner) => inner.raw(),
-            InstantiatedUnitSyntax::InstantiatedConfiguration(inner) => inner.raw(),
+            InstantiatedUnitSyntax::InstantiatedComponent(inner) => inner.deref(),
+            InstantiatedUnitSyntax::InstantiatedEntity(inner) => inner.deref(),
+            InstantiatedUnitSyntax::InstantiatedConfiguration(inner) => inner.deref(),
         }
     }
 }
@@ -10617,11 +11165,14 @@ impl AstNode for InstantiationListSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for InstantiationListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            InstantiationListSyntax::InstantiationListList(inner) => inner.raw(),
-            InstantiationListSyntax::InstantiationListOthers(inner) => inner.raw(),
-            InstantiationListSyntax::InstantiationListAll(inner) => inner.raw(),
+            InstantiationListSyntax::InstantiationListList(inner) => inner.deref(),
+            InstantiationListSyntax::InstantiationListOthers(inner) => inner.deref(),
+            InstantiationListSyntax::InstantiationListAll(inner) => inner.deref(),
         }
     }
 }
@@ -10640,8 +11191,11 @@ impl AstNode for InstantiationListAllSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InstantiationListAllSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InstantiationListAllSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InstantiationListAllSyntax {
@@ -10673,8 +11227,11 @@ impl AstNode for InstantiationListListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InstantiationListListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InstantiationListListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InstantiationListListSyntax {
@@ -10704,8 +11261,11 @@ impl AstNode for InstantiationListOthersSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InstantiationListOthersSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InstantiationListOthersSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InstantiationListOthersSyntax {
@@ -10765,13 +11325,16 @@ impl AstNode for InterfaceDeclarationSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for InterfaceDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            InterfaceDeclarationSyntax::InterfaceObjectDeclaration(inner) => inner.raw(),
-            InterfaceDeclarationSyntax::InterfaceFileDeclaration(inner) => inner.raw(),
-            InterfaceDeclarationSyntax::InterfaceTypeDeclaration(inner) => inner.raw(),
-            InterfaceDeclarationSyntax::InterfaceSubprogramDeclaration(inner) => inner.raw(),
-            InterfaceDeclarationSyntax::InterfacePackageDeclaration(inner) => inner.raw(),
+            InterfaceDeclarationSyntax::InterfaceObjectDeclaration(inner) => inner.deref(),
+            InterfaceDeclarationSyntax::InterfaceFileDeclaration(inner) => inner.deref(),
+            InterfaceDeclarationSyntax::InterfaceTypeDeclaration(inner) => inner.deref(),
+            InterfaceDeclarationSyntax::InterfaceSubprogramDeclaration(inner) => inner.deref(),
+            InterfaceDeclarationSyntax::InterfacePackageDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -10810,8 +11373,11 @@ impl AstNode for InterfaceFileDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceFileDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfaceFileDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfaceFileDeclarationSyntax {
@@ -10893,8 +11459,11 @@ impl AstNode for InterfaceFunctionSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceFunctionSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfaceFunctionSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfaceFunctionSpecificationSyntax {
@@ -10949,8 +11518,11 @@ impl AstNode for InterfaceIncompleteTypeDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceIncompleteTypeDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfaceIncompleteTypeDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfaceIncompleteTypeDeclarationSyntax {
@@ -10994,8 +11566,11 @@ impl AstNode for InterfaceListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfaceListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfaceListSyntax {
@@ -11096,8 +11671,11 @@ impl AstNode for InterfaceObjectDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceObjectDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfaceObjectDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfaceObjectDeclarationSyntax {
@@ -11176,8 +11754,11 @@ impl AstNode for InterfacePackageDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfacePackageDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfacePackageDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfacePackageDeclarationSyntax {
@@ -11236,8 +11817,11 @@ impl AstNode for InterfacePackageDeclarationPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfacePackageDeclarationPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfacePackageDeclarationPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfacePackageDeclarationPreambleSyntax {
@@ -11305,8 +11889,11 @@ impl AstNode for InterfacePackageGenericMapAspectSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfacePackageGenericMapAspectSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfacePackageGenericMapAspectSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfacePackageGenericMapAspectSyntax {
@@ -11358,8 +11945,11 @@ impl AstNode for InterfacePackageGenericMapAspectAssociationsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfacePackageGenericMapAspectAssociationsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfacePackageGenericMapAspectAssociationsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfacePackageGenericMapAspectAssociationsSyntax {
@@ -11385,8 +11975,11 @@ impl AstNode for InterfacePackageGenericMapAspectBoxSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfacePackageGenericMapAspectBoxSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfacePackageGenericMapAspectBoxSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfacePackageGenericMapAspectBoxSyntax {
@@ -11412,8 +12005,11 @@ impl AstNode for InterfacePackageGenericMapAspectDefaultSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfacePackageGenericMapAspectDefaultSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfacePackageGenericMapAspectDefaultSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfacePackageGenericMapAspectDefaultSyntax {
@@ -11455,8 +12051,11 @@ impl AstNode for InterfacePackageGenericMapAspectInnerSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
-        match self { InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectBox (inner) => inner . raw () , InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectDefault (inner) => inner . raw () , InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectAssociations (inner) => inner . raw () , }
+}
+impl Deref for InterfacePackageGenericMapAspectInnerSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        match self { InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectBox (inner) => inner . deref () , InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectDefault (inner) => inner . deref () , InterfacePackageGenericMapAspectInnerSyntax :: InterfacePackageGenericMapAspectAssociations (inner) => inner . deref () , }
     }
 }
 #[derive(Debug, Clone)]
@@ -11491,8 +12090,11 @@ impl AstNode for InterfaceProcedureSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceProcedureSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfaceProcedureSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfaceProcedureSpecificationSyntax {
@@ -11538,8 +12140,11 @@ impl AstNode for InterfaceSubprogramDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceSubprogramDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfaceSubprogramDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfaceSubprogramDeclarationSyntax {
@@ -11586,10 +12191,15 @@ impl AstNode for InterfaceSubprogramDefaultSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for InterfaceSubprogramDefaultSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            InterfaceSubprogramDefaultSyntax::InterfaceSubprogramDefaultName(inner) => inner.raw(),
-            InterfaceSubprogramDefaultSyntax::InterfaceSubprogramDefaultBox(inner) => inner.raw(),
+            InterfaceSubprogramDefaultSyntax::InterfaceSubprogramDefaultName(inner) => {
+                inner.deref()
+            }
+            InterfaceSubprogramDefaultSyntax::InterfaceSubprogramDefaultBox(inner) => inner.deref(),
         }
     }
 }
@@ -11608,8 +12218,11 @@ impl AstNode for InterfaceSubprogramDefaultBoxSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceSubprogramDefaultBoxSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfaceSubprogramDefaultBoxSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfaceSubprogramDefaultBoxSyntax {
@@ -11635,8 +12248,11 @@ impl AstNode for InterfaceSubprogramDefaultNameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         InterfaceSubprogramDefaultNameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for InterfaceSubprogramDefaultNameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl InterfaceSubprogramDefaultNameSyntax {
@@ -11672,13 +12288,16 @@ impl AstNode for InterfaceSubprogramSpecificationSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for InterfaceSubprogramSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
             InterfaceSubprogramSpecificationSyntax::InterfaceProcedureSpecification(inner) => {
-                inner.raw()
+                inner.deref()
             }
             InterfaceSubprogramSpecificationSyntax::InterfaceFunctionSpecification(inner) => {
-                inner.raw()
+                inner.deref()
             }
         }
     }
@@ -11704,10 +12323,13 @@ impl AstNode for IterationSchemeSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for IterationSchemeSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            IterationSchemeSyntax::WhileScheme(inner) => inner.raw(),
-            IterationSchemeSyntax::ForScheme(inner) => inner.raw(),
+            IterationSchemeSyntax::WhileScheme(inner) => inner.deref(),
+            IterationSchemeSyntax::ForScheme(inner) => inner.deref(),
         }
     }
 }
@@ -11740,8 +12362,11 @@ impl AstNode for LibraryClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         LibraryClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for LibraryClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl LibraryClauseSyntax {
@@ -11793,10 +12418,13 @@ impl AstNode for LibraryUnitSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for LibraryUnitSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            LibraryUnitSyntax::PrimaryUnit(inner) => inner.raw(),
-            LibraryUnitSyntax::SecondaryUnit(inner) => inner.raw(),
+            LibraryUnitSyntax::PrimaryUnit(inner) => inner.deref(),
+            LibraryUnitSyntax::SecondaryUnit(inner) => inner.deref(),
         }
     }
 }
@@ -11850,8 +12478,11 @@ impl AstNode for LiteralExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         LiteralExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for LiteralExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl LiteralExpressionSyntax {
@@ -11880,8 +12511,11 @@ impl AstNode for LogicalNameListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         LogicalNameListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for LogicalNameListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl LogicalNameListSyntax {
@@ -11925,8 +12559,11 @@ impl AstNode for LoopStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         LoopStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for LoopStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl LoopStatementSyntax {
@@ -11984,8 +12621,11 @@ impl AstNode for LoopStatementEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         LoopStatementEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for LoopStatementEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl LoopStatementEpilogueSyntax {
@@ -12043,8 +12683,11 @@ impl AstNode for LoopStatementPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         LoopStatementPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for LoopStatementPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl LoopStatementPreambleSyntax {
@@ -12131,8 +12774,11 @@ impl AstNode for NameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for NameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl NameSyntax {
@@ -12191,8 +12837,11 @@ impl AstNode for NameDesignatorPrefixSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NameDesignatorPrefixSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for NameDesignatorPrefixSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl NameDesignatorPrefixSyntax {
@@ -12218,8 +12867,11 @@ impl AstNode for NameExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NameExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for NameExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl NameExpressionSyntax {
@@ -12248,8 +12900,11 @@ impl AstNode for NameListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NameListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for NameListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl NameListSyntax {
@@ -12277,8 +12932,11 @@ impl AstNode for NameResolutionIndicationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NameResolutionIndicationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for NameResolutionIndicationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl NameResolutionIndicationSyntax {
@@ -12317,11 +12975,14 @@ impl AstNode for NameTailSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for NameTailSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            NameTailSyntax::SelectedName(inner) => inner.raw(),
-            NameTailSyntax::ParenthesizedName(inner) => inner.raw(),
-            NameTailSyntax::AttributeName(inner) => inner.raw(),
+            NameTailSyntax::SelectedName(inner) => inner.deref(),
+            NameTailSyntax::ParenthesizedName(inner) => inner.deref(),
+            NameTailSyntax::AttributeName(inner) => inner.deref(),
         }
     }
 }
@@ -12340,8 +13001,11 @@ impl AstNode for NameTargetSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NameTargetSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for NameTargetSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl NameTargetSyntax {
@@ -12390,8 +13054,11 @@ impl AstNode for NextStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NextStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for NextStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl NextStatementSyntax {
@@ -12449,8 +13116,11 @@ impl AstNode for NullStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NullStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for NullStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl NullStatementSyntax {
@@ -12485,8 +13155,11 @@ impl AstNode for NumericTypeDefinitionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         NumericTypeDefinitionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for NumericTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl NumericTypeDefinitionSyntax {
@@ -12512,8 +13185,11 @@ impl AstNode for OthersChoiceSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         OthersChoiceSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for OthersChoiceSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl OthersChoiceSyntax {
@@ -12553,8 +13229,11 @@ impl AstNode for PackageBodySyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageBodySyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageBodySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageBodySyntax {
@@ -12592,8 +13271,11 @@ impl AstNode for PackageBodyDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageBodyDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageBodyDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageBodyDeclarationSyntax {
@@ -12735,29 +13417,32 @@ impl AstNode for PackageBodyDeclarativeItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for PackageBodyDeclarativeItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            PackageBodyDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::SubprogramBody(inner) => inner.raw(),
+            PackageBodyDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::SubprogramBody(inner) => inner.deref(),
             PackageBodyDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => {
-                inner.raw()
+                inner.deref()
             }
-            PackageBodyDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.raw(),
+            PackageBodyDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.deref(),
             PackageBodyDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => {
-                inner.raw()
+                inner.deref()
             }
-            PackageBodyDeclarativeItemSyntax::TypeDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::VariableDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::FileDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::AliasDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::AttributeSpecification(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.raw(),
-            PackageBodyDeclarativeItemSyntax::GroupDeclaration(inner) => inner.raw(),
+            PackageBodyDeclarativeItemSyntax::TypeDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::VariableDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::FileDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::AliasDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::AttributeSpecification(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.deref(),
+            PackageBodyDeclarativeItemSyntax::GroupDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -12795,8 +13480,11 @@ impl AstNode for PackageBodyDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageBodyDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageBodyDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageBodyDeclarativePartSyntax {
@@ -12843,8 +13531,11 @@ impl AstNode for PackageBodyEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageBodyEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageBodyEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageBodyEpilogueSyntax {
@@ -12908,8 +13599,11 @@ impl AstNode for PackageBodyPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageBodyPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageBodyPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageBodyPreambleSyntax {
@@ -12973,8 +13667,11 @@ impl AstNode for PackageDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageDeclarationSyntax {
@@ -13018,8 +13715,11 @@ impl AstNode for PackageDeclarationItemSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageDeclarationItemSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageDeclarationItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageDeclarationItemSyntax {
@@ -13171,26 +13871,33 @@ impl AstNode for PackageDeclarativeItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for PackageDeclarativeItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            PackageDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::TypeDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::SignalDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::VariableDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::FileDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::AliasDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::ComponentDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::AttributeSpecification(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::DisconnectionSpecification(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.raw(),
-            PackageDeclarativeItemSyntax::GroupDeclaration(inner) => inner.raw(),
+            PackageDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => {
+                inner.deref()
+            }
+            PackageDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => {
+                inner.deref()
+            }
+            PackageDeclarativeItemSyntax::TypeDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::SignalDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::VariableDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::FileDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::AliasDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::ComponentDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::AttributeSpecification(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::DisconnectionSpecification(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.deref(),
+            PackageDeclarativeItemSyntax::GroupDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -13229,8 +13936,11 @@ impl AstNode for PackageDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageDeclarativePartSyntax {
@@ -13277,8 +13987,11 @@ impl AstNode for PackageEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageEpilogueSyntax {
@@ -13330,8 +14043,11 @@ impl AstNode for PackageHeaderSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageHeaderSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageHeaderSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageHeaderSyntax {
@@ -13374,8 +14090,11 @@ impl AstNode for PackageInstantiationDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageInstantiationDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageInstantiationDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageInstantiationDeclarationSyntax {
@@ -13413,8 +14132,11 @@ impl AstNode for PackageInstantiationDeclarationItemSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageInstantiationDeclarationItemSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageInstantiationDeclarationItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageInstantiationDeclarationItemSyntax {
@@ -13442,8 +14164,11 @@ impl AstNode for PackageInstantiationDeclarationPrimaryUnitSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageInstantiationDeclarationPrimaryUnitSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageInstantiationDeclarationPrimaryUnitSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageInstantiationDeclarationPrimaryUnitSyntax {
@@ -13497,8 +14222,11 @@ impl AstNode for PackageInstantiationPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackageInstantiationPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackageInstantiationPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackageInstantiationPreambleSyntax {
@@ -13551,8 +14279,11 @@ impl AstNode for PackagePathSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackagePathSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackagePathSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackagePathSyntax {
@@ -13590,8 +14321,11 @@ impl AstNode for PackagePathnameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackagePathnameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackagePathnameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackagePathnameSyntax {
@@ -13634,8 +14368,11 @@ impl AstNode for PackagePreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PackagePreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PackagePreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PackagePreambleSyntax {
@@ -13681,8 +14418,11 @@ impl AstNode for ParameterListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ParameterListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ParameterListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ParameterListSyntax {
@@ -13737,8 +14477,11 @@ impl AstNode for ParameterSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ParameterSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ParameterSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ParameterSpecificationSyntax {
@@ -13796,8 +14539,11 @@ impl AstNode for ParenthesizedConditionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ParenthesizedConditionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ParenthesizedConditionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ParenthesizedConditionSyntax {
@@ -13846,8 +14592,11 @@ impl AstNode for ParenthesizedElementResolutionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ParenthesizedElementResolutionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ParenthesizedElementResolutionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ParenthesizedElementResolutionSyntax {
@@ -13910,8 +14659,11 @@ impl AstNode for ParenthesizedExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ParenthesizedExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ParenthesizedExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ParenthesizedExpressionSyntax {
@@ -13960,8 +14712,11 @@ impl AstNode for ParenthesizedExpressionOrAggregateSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ParenthesizedExpressionOrAggregateSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ParenthesizedExpressionOrAggregateSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ParenthesizedExpressionOrAggregateSyntax {
@@ -14013,8 +14768,11 @@ impl AstNode for ParenthesizedInterfaceListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ParenthesizedInterfaceListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ParenthesizedInterfaceListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ParenthesizedInterfaceListSyntax {
@@ -14066,8 +14824,11 @@ impl AstNode for ParenthesizedNameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ParenthesizedNameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ParenthesizedNameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ParenthesizedNameSyntax {
@@ -14122,8 +14883,11 @@ impl AstNode for ParenthesizedProcessSensitivityListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ParenthesizedProcessSensitivityListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ParenthesizedProcessSensitivityListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ParenthesizedProcessSensitivityListSyntax {
@@ -14167,8 +14931,11 @@ impl AstNode for PartialPathnameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PartialPathnameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PartialPathnameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PartialPathnameSyntax {
@@ -14204,8 +14971,11 @@ impl AstNode for PathnameElementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PathnameElementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PathnameElementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PathnameElementSyntax {
@@ -14245,8 +15015,11 @@ impl AstNode for PhysicalLiteralSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PhysicalLiteralSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PhysicalLiteralSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PhysicalLiteralSyntax {
@@ -14275,8 +15048,11 @@ impl AstNode for PhysicalLiteralExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PhysicalLiteralExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PhysicalLiteralExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PhysicalLiteralExpressionSyntax {
@@ -14316,8 +15092,11 @@ impl AstNode for PhysicalTypeDefinitionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PhysicalTypeDefinitionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PhysicalTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PhysicalTypeDefinitionSyntax {
@@ -14371,8 +15150,11 @@ impl AstNode for PhysicalTypeDefinitionEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PhysicalTypeDefinitionEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PhysicalTypeDefinitionEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PhysicalTypeDefinitionEpilogueSyntax {
@@ -14436,8 +15218,11 @@ impl AstNode for PortClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PortClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PortClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PortClauseSyntax {
@@ -14495,8 +15280,11 @@ impl AstNode for PortMapSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PortMapSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PortMapSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PortMapSyntax {
@@ -14554,8 +15342,11 @@ impl AstNode for PortMapAspectSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PortMapAspectSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PortMapAspectSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PortMapAspectSyntax {
@@ -14613,8 +15404,11 @@ impl AstNode for PortPartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PortPartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PortPartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PortPartSyntax {
@@ -14653,10 +15447,13 @@ impl AstNode for PrefixSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for PrefixSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            PrefixSyntax::ExternalName(inner) => inner.raw(),
-            PrefixSyntax::NameDesignatorPrefix(inner) => inner.raw(),
+            PrefixSyntax::ExternalName(inner) => inner.deref(),
+            PrefixSyntax::NameDesignatorPrefix(inner) => inner.deref(),
         }
     }
 }
@@ -14709,13 +15506,16 @@ impl AstNode for PrimaryUnitSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for PrimaryUnitSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            PrimaryUnitSyntax::EntityDeclaration(inner) => inner.raw(),
-            PrimaryUnitSyntax::ConfigurationDeclaration(inner) => inner.raw(),
-            PrimaryUnitSyntax::PrimaryUnitPackageDeclaration(inner) => inner.raw(),
-            PrimaryUnitSyntax::PackageInstantiationDeclarationPrimaryUnit(inner) => inner.raw(),
-            PrimaryUnitSyntax::ContextDeclaration(inner) => inner.raw(),
+            PrimaryUnitSyntax::EntityDeclaration(inner) => inner.deref(),
+            PrimaryUnitSyntax::ConfigurationDeclaration(inner) => inner.deref(),
+            PrimaryUnitSyntax::PrimaryUnitPackageDeclaration(inner) => inner.deref(),
+            PrimaryUnitSyntax::PackageInstantiationDeclarationPrimaryUnit(inner) => inner.deref(),
+            PrimaryUnitSyntax::ContextDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -14742,8 +15542,11 @@ impl AstNode for PrimaryUnitDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PrimaryUnitDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PrimaryUnitDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PrimaryUnitDeclarationSyntax {
@@ -14775,8 +15578,11 @@ impl AstNode for PrimaryUnitPackageDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         PrimaryUnitPackageDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for PrimaryUnitPackageDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl PrimaryUnitPackageDeclarationSyntax {
@@ -14816,8 +15622,11 @@ impl AstNode for ProcedureCallStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProcedureCallStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProcedureCallStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProcedureCallStatementSyntax {
@@ -14872,8 +15681,11 @@ impl AstNode for ProcedureSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProcedureSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProcedureSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProcedureSpecificationSyntax {
@@ -15033,25 +15845,32 @@ impl AstNode for ProcessDeclarativeItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ProcessDeclarativeItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ProcessDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::SubprogramBody(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::TypeDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::VariableDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::FileDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::AliasDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::AttributeSpecification(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.raw(),
-            ProcessDeclarativeItemSyntax::GroupDeclaration(inner) => inner.raw(),
+            ProcessDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::SubprogramBody(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => {
+                inner.deref()
+            }
+            ProcessDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => {
+                inner.deref()
+            }
+            ProcessDeclarativeItemSyntax::TypeDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::VariableDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::FileDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::AliasDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::AttributeSpecification(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.deref(),
+            ProcessDeclarativeItemSyntax::GroupDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -15089,8 +15908,11 @@ impl AstNode for ProcessDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProcessDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProcessDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProcessDeclarativePartSyntax {
@@ -15143,8 +15965,11 @@ impl AstNode for ProcessEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProcessEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProcessEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProcessEpilogueSyntax {
@@ -15214,8 +16039,11 @@ impl AstNode for ProcessPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProcessPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProcessPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProcessPreambleSyntax {
@@ -15271,10 +16099,13 @@ impl AstNode for ProcessSensitivityListSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ProcessSensitivityListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ProcessSensitivityListSyntax::AllSensitivityList(inner) => inner.raw(),
-            ProcessSensitivityListSyntax::SensitivityList(inner) => inner.raw(),
+            ProcessSensitivityListSyntax::AllSensitivityList(inner) => inner.deref(),
+            ProcessSensitivityListSyntax::SensitivityList(inner) => inner.deref(),
         }
     }
 }
@@ -15325,8 +16156,11 @@ impl AstNode for ProcessStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProcessStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProcessStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProcessStatementSyntax {
@@ -15401,8 +16235,11 @@ impl AstNode for ProcessStatementPartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProcessStatementPartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProcessStatementPartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProcessStatementPartSyntax {
@@ -15429,8 +16266,11 @@ impl AstNode for ProtectedPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProtectedPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProtectedPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProtectedPreambleSyntax {
@@ -15470,8 +16310,11 @@ impl AstNode for ProtectedTypeBodySyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProtectedTypeBodySyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProtectedTypeBodySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProtectedTypeBodySyntax {
@@ -15630,29 +16473,34 @@ impl AstNode for ProtectedTypeBodyDeclarativeItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ProtectedTypeBodyDeclarativeItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ProtectedTypeBodyDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::SubprogramBody(inner) => inner.raw(),
+            ProtectedTypeBodyDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::SubprogramBody(inner) => inner.deref(),
             ProtectedTypeBodyDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => {
-                inner.raw()
+                inner.deref()
             }
-            ProtectedTypeBodyDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.raw(),
+            ProtectedTypeBodyDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.deref(),
             ProtectedTypeBodyDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => {
-                inner.raw()
+                inner.deref()
             }
-            ProtectedTypeBodyDeclarativeItemSyntax::TypeDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::VariableDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::FileDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::AliasDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::AttributeSpecification(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.raw(),
-            ProtectedTypeBodyDeclarativeItemSyntax::GroupDeclaration(inner) => inner.raw(),
+            ProtectedTypeBodyDeclarativeItemSyntax::TypeDeclaration(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::VariableDeclaration(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::FileDeclaration(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::AliasDeclaration(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::AttributeSpecification(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.deref(),
+            ProtectedTypeBodyDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => {
+                inner.deref()
+            }
+            ProtectedTypeBodyDeclarativeItemSyntax::GroupDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -15690,8 +16538,11 @@ impl AstNode for ProtectedTypeBodyDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProtectedTypeBodyDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProtectedTypeBodyDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProtectedTypeBodyDeclarativePartSyntax {
@@ -15738,8 +16589,11 @@ impl AstNode for ProtectedTypeBodyEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProtectedTypeBodyEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProtectedTypeBodyEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProtectedTypeBodyEpilogueSyntax {
@@ -15791,8 +16645,11 @@ impl AstNode for ProtectedTypeBodyPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProtectedTypeBodyPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProtectedTypeBodyPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProtectedTypeBodyPreambleSyntax {
@@ -15838,8 +16695,11 @@ impl AstNode for ProtectedTypeDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProtectedTypeDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProtectedTypeDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProtectedTypeDeclarationSyntax {
@@ -15893,8 +16753,11 @@ impl AstNode for ProtectedTypeDeclarationEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProtectedTypeDeclarationEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProtectedTypeDeclarationEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProtectedTypeDeclarationEpilogueSyntax {
@@ -15959,14 +16822,17 @@ impl AstNode for ProtectedTypeDeclarativeItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ProtectedTypeDeclarativeItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ProtectedTypeDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.raw(),
+            ProtectedTypeDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.deref(),
             ProtectedTypeDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => {
-                inner.raw()
+                inner.deref()
             }
-            ProtectedTypeDeclarativeItemSyntax::AttributeSpecification(inner) => inner.raw(),
-            ProtectedTypeDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.raw(),
+            ProtectedTypeDeclarativeItemSyntax::AttributeSpecification(inner) => inner.deref(),
+            ProtectedTypeDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -15990,8 +16856,11 @@ impl AstNode for ProtectedTypeDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ProtectedTypeDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ProtectedTypeDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ProtectedTypeDeclarativePartSyntax {
@@ -16031,10 +16900,13 @@ impl AstNode for ProtectedTypeDefinitionSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ProtectedTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ProtectedTypeDefinitionSyntax::ProtectedTypeDeclaration(inner) => inner.raw(),
-            ProtectedTypeDefinitionSyntax::ProtectedTypeBody(inner) => inner.raw(),
+            ProtectedTypeDefinitionSyntax::ProtectedTypeDeclaration(inner) => inner.deref(),
+            ProtectedTypeDefinitionSyntax::ProtectedTypeBody(inner) => inner.deref(),
         }
     }
 }
@@ -16087,8 +16959,11 @@ impl AstNode for QualifiedExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         QualifiedExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for QualifiedExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl QualifiedExpressionSyntax {
@@ -16142,8 +17017,11 @@ impl AstNode for RangeConstraintSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RangeConstraintSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RangeConstraintSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RangeConstraintSyntax {
@@ -16172,8 +17050,11 @@ impl AstNode for RecordElementDeclarationsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RecordElementDeclarationsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RecordElementDeclarationsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RecordElementDeclarationsSyntax {
@@ -16207,8 +17088,11 @@ impl AstNode for RecordElementResolutionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RecordElementResolutionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RecordElementResolutionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RecordElementResolutionSyntax {
@@ -16246,8 +17130,11 @@ impl AstNode for RecordResolutionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RecordResolutionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RecordResolutionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RecordResolutionSyntax {
@@ -16279,8 +17166,11 @@ impl AstNode for RecordResolutionElementResolutionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RecordResolutionElementResolutionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RecordResolutionElementResolutionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RecordResolutionElementResolutionSyntax {
@@ -16320,8 +17210,11 @@ impl AstNode for RecordTypeDefinitionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RecordTypeDefinitionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RecordTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RecordTypeDefinitionSyntax {
@@ -16373,8 +17266,11 @@ impl AstNode for RecordTypeDefinitionEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RecordTypeDefinitionEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RecordTypeDefinitionEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RecordTypeDefinitionEpilogueSyntax {
@@ -16412,8 +17308,11 @@ impl AstNode for RecordTypeDefinitionPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RecordTypeDefinitionPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RecordTypeDefinitionPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RecordTypeDefinitionPreambleSyntax {
@@ -16456,8 +17355,11 @@ impl AstNode for RejectClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RejectClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RejectClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RejectClauseSyntax {
@@ -16494,8 +17396,11 @@ impl AstNode for RelativePathnameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         RelativePathnameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for RelativePathnameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl RelativePathnameSyntax {
@@ -16541,8 +17446,11 @@ impl AstNode for ReportClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ReportClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ReportClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ReportClauseSyntax {
@@ -16606,8 +17514,11 @@ impl AstNode for ReportStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ReportStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ReportStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ReportStatementSyntax {
@@ -16664,10 +17575,13 @@ impl AstNode for ResolutionIndicationSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ResolutionIndicationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ResolutionIndicationSyntax::NameResolutionIndication(inner) => inner.raw(),
-            ResolutionIndicationSyntax::ParenthesizedElementResolution(inner) => inner.raw(),
+            ResolutionIndicationSyntax::NameResolutionIndication(inner) => inner.deref(),
+            ResolutionIndicationSyntax::ParenthesizedElementResolution(inner) => inner.deref(),
         }
     }
 }
@@ -16715,8 +17629,11 @@ impl AstNode for ReturnStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ReturnStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ReturnStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ReturnStatementSyntax {
@@ -16762,8 +17679,11 @@ impl AstNode for ReturnTypeSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         ReturnTypeSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for ReturnTypeSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl ReturnTypeSyntax {
@@ -16812,11 +17732,14 @@ impl AstNode for ScalarTypeDefinitionSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for ScalarTypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            ScalarTypeDefinitionSyntax::EnumerationTypeDefinition(inner) => inner.raw(),
-            ScalarTypeDefinitionSyntax::NumericTypeDefinition(inner) => inner.raw(),
-            ScalarTypeDefinitionSyntax::PhysicalTypeDefinition(inner) => inner.raw(),
+            ScalarTypeDefinitionSyntax::EnumerationTypeDefinition(inner) => inner.deref(),
+            ScalarTypeDefinitionSyntax::NumericTypeDefinition(inner) => inner.deref(),
+            ScalarTypeDefinitionSyntax::PhysicalTypeDefinition(inner) => inner.deref(),
         }
     }
 }
@@ -16848,10 +17771,13 @@ impl AstNode for SecondaryUnitSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for SecondaryUnitSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            SecondaryUnitSyntax::ArchitectureBody(inner) => inner.raw(),
-            SecondaryUnitSyntax::SecondaryUnitPackageBody(inner) => inner.raw(),
+            SecondaryUnitSyntax::ArchitectureBody(inner) => inner.deref(),
+            SecondaryUnitSyntax::SecondaryUnitPackageBody(inner) => inner.deref(),
         }
     }
 }
@@ -16890,8 +17816,11 @@ impl AstNode for SecondaryUnitDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SecondaryUnitDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SecondaryUnitDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SecondaryUnitDeclarationSyntax {
@@ -16935,8 +17864,11 @@ impl AstNode for SecondaryUnitPackageBodySyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SecondaryUnitPackageBodySyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SecondaryUnitPackageBodySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SecondaryUnitPackageBodySyntax {
@@ -16988,8 +17920,11 @@ impl AstNode for SelectedAssignmentPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedAssignmentPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SelectedAssignmentPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SelectedAssignmentPreambleSyntax {
@@ -17053,8 +17988,11 @@ impl AstNode for SelectedExpressionItemSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedExpressionItemSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SelectedExpressionItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SelectedExpressionItemSyntax {
@@ -17092,8 +18030,11 @@ impl AstNode for SelectedExpressionsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedExpressionsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SelectedExpressionsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SelectedExpressionsSyntax {
@@ -17175,8 +18116,11 @@ impl AstNode for SelectedForceAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedForceAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SelectedForceAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SelectedForceAssignmentSyntax {
@@ -17248,8 +18192,11 @@ impl AstNode for SelectedNameSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedNameSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SelectedNameSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SelectedNameSyntax {
@@ -17291,10 +18238,13 @@ impl AstNode for SelectedSignalAssignmentSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for SelectedSignalAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            SelectedSignalAssignmentSyntax::SelectedWaveformAssignment(inner) => inner.raw(),
-            SelectedSignalAssignmentSyntax::SelectedForceAssignment(inner) => inner.raw(),
+            SelectedSignalAssignmentSyntax::SelectedWaveformAssignment(inner) => inner.deref(),
+            SelectedSignalAssignmentSyntax::SelectedForceAssignment(inner) => inner.deref(),
         }
     }
 }
@@ -17348,8 +18298,11 @@ impl AstNode for SelectedVariableAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedVariableAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SelectedVariableAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SelectedVariableAssignmentSyntax {
@@ -17443,8 +18396,11 @@ impl AstNode for SelectedWaveformAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedWaveformAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SelectedWaveformAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SelectedWaveformAssignmentSyntax {
@@ -17517,8 +18473,11 @@ impl AstNode for SelectedWaveformItemSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedWaveformItemSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SelectedWaveformItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SelectedWaveformItemSyntax {
@@ -17556,8 +18515,11 @@ impl AstNode for SelectedWaveformsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SelectedWaveformsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SelectedWaveformsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SelectedWaveformsSyntax {
@@ -17597,8 +18559,11 @@ impl AstNode for SensitivityClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SensitivityClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SensitivityClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SensitivityClauseSyntax {
@@ -17636,8 +18601,11 @@ impl AstNode for SensitivityListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SensitivityListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SensitivityListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SensitivityListSyntax {
@@ -17687,8 +18655,11 @@ impl AstNode for SequenceOfStatementsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SequenceOfStatementsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SequenceOfStatementsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SequenceOfStatementsSyntax {
@@ -17811,21 +18782,24 @@ impl AstNode for SequentialStatementSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for SequentialStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            SequentialStatementSyntax::WaitStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::AssertionStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::ReportStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::SignalAssignmentStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::VariableAssignmentStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::ProcedureCallStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::IfStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::CaseStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::LoopStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::NextStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::ExitStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::ReturnStatement(inner) => inner.raw(),
-            SequentialStatementSyntax::NullStatement(inner) => inner.raw(),
+            SequentialStatementSyntax::WaitStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::AssertionStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::ReportStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::SignalAssignmentStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::VariableAssignmentStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::ProcedureCallStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::IfStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::CaseStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::LoopStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::NextStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::ExitStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::ReturnStatement(inner) => inner.deref(),
+            SequentialStatementSyntax::NullStatement(inner) => inner.deref(),
         }
     }
 }
@@ -17861,8 +18835,11 @@ impl AstNode for SeverityClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SeverityClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SeverityClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SeverityClauseSyntax {
@@ -17915,11 +18892,14 @@ impl AstNode for SignalAssignmentStatementSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for SignalAssignmentStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            SignalAssignmentStatementSyntax::SimpleSignalAssignment(inner) => inner.raw(),
-            SignalAssignmentStatementSyntax::ConditionalSignalAssignment(inner) => inner.raw(),
-            SignalAssignmentStatementSyntax::SelectedSignalAssignment(inner) => inner.raw(),
+            SignalAssignmentStatementSyntax::SimpleSignalAssignment(inner) => inner.deref(),
+            SignalAssignmentStatementSyntax::ConditionalSignalAssignment(inner) => inner.deref(),
+            SignalAssignmentStatementSyntax::SelectedSignalAssignment(inner) => inner.deref(),
         }
     }
 }
@@ -17979,8 +18959,11 @@ impl AstNode for SignalDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SignalDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SignalDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SignalDeclarationSyntax {
@@ -18075,11 +19058,14 @@ impl AstNode for SignalListSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for SignalListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            SignalListSyntax::SignalListList(inner) => inner.raw(),
-            SignalListSyntax::SignalListOthers(inner) => inner.raw(),
-            SignalListSyntax::SignalListAll(inner) => inner.raw(),
+            SignalListSyntax::SignalListList(inner) => inner.deref(),
+            SignalListSyntax::SignalListOthers(inner) => inner.deref(),
+            SignalListSyntax::SignalListAll(inner) => inner.deref(),
         }
     }
 }
@@ -18098,8 +19084,11 @@ impl AstNode for SignalListAllSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SignalListAllSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SignalListAllSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SignalListAllSyntax {
@@ -18131,8 +19120,11 @@ impl AstNode for SignalListListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SignalListListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SignalListListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SignalListListSyntax {
@@ -18160,8 +19152,11 @@ impl AstNode for SignalListOthersSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SignalListOthersSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SignalListOthersSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SignalListOthersSyntax {
@@ -18207,8 +19202,11 @@ impl AstNode for SignatureSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SignatureSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SignatureSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SignatureSyntax {
@@ -18269,8 +19267,11 @@ impl AstNode for SimpleConfigurationSpecificationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SimpleConfigurationSpecificationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SimpleConfigurationSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SimpleConfigurationSpecificationSyntax {
@@ -18367,8 +19368,11 @@ impl AstNode for SimpleForceAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SimpleForceAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SimpleForceAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SimpleForceAssignmentSyntax {
@@ -18456,8 +19460,11 @@ impl AstNode for SimpleReleaseAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SimpleReleaseAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SimpleReleaseAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SimpleReleaseAssignmentSyntax {
@@ -18524,11 +19531,14 @@ impl AstNode for SimpleSignalAssignmentSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for SimpleSignalAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            SimpleSignalAssignmentSyntax::SimpleWaveformAssignment(inner) => inner.raw(),
-            SimpleSignalAssignmentSyntax::SimpleForceAssignment(inner) => inner.raw(),
-            SimpleSignalAssignmentSyntax::SimpleReleaseAssignment(inner) => inner.raw(),
+            SimpleSignalAssignmentSyntax::SimpleWaveformAssignment(inner) => inner.deref(),
+            SimpleSignalAssignmentSyntax::SimpleForceAssignment(inner) => inner.deref(),
+            SimpleSignalAssignmentSyntax::SimpleReleaseAssignment(inner) => inner.deref(),
         }
     }
 }
@@ -18585,8 +19595,11 @@ impl AstNode for SimpleVariableAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SimpleVariableAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SimpleVariableAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SimpleVariableAssignmentSyntax {
@@ -18668,8 +19681,11 @@ impl AstNode for SimpleWaveformAssignmentSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SimpleWaveformAssignmentSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SimpleWaveformAssignmentSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SimpleWaveformAssignmentSyntax {
@@ -18724,8 +19740,11 @@ impl AstNode for StmtLabelSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         StmtLabelSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for StmtLabelSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl StmtLabelSyntax {
@@ -18783,8 +19802,11 @@ impl AstNode for SubprogramBodySyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramBodySyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramBodySyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramBodySyntax {
@@ -18860,8 +19882,11 @@ impl AstNode for SubprogramBodyEpilogueSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramBodyEpilogueSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramBodyEpilogueSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramBodyEpilogueSyntax {
@@ -18913,8 +19938,11 @@ impl AstNode for SubprogramBodyPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramBodyPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramBodyPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramBodyPreambleSyntax {
@@ -18957,8 +19985,11 @@ impl AstNode for SubprogramDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramDeclarationSyntax {
@@ -19109,29 +20140,32 @@ impl AstNode for SubprogramDeclarativeItemSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for SubprogramDeclarativeItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            SubprogramDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::SubprogramBody(inner) => inner.raw(),
+            SubprogramDeclarativeItemSyntax::SubprogramDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::SubprogramBody(inner) => inner.deref(),
             SubprogramDeclarativeItemSyntax::SubprogramInstantiationDeclaration(inner) => {
-                inner.raw()
+                inner.deref()
             }
-            SubprogramDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.raw(),
+            SubprogramDeclarativeItemSyntax::PackageDeclarationItem(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::PackageBodyDeclaration(inner) => inner.deref(),
             SubprogramDeclarativeItemSyntax::PackageInstantiationDeclarationItem(inner) => {
-                inner.raw()
+                inner.deref()
             }
-            SubprogramDeclarativeItemSyntax::TypeDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::VariableDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::FileDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::AliasDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::AttributeSpecification(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.raw(),
-            SubprogramDeclarativeItemSyntax::GroupDeclaration(inner) => inner.raw(),
+            SubprogramDeclarativeItemSyntax::TypeDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::SubtypeDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::ConstantDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::VariableDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::FileDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::AliasDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::AttributeDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::AttributeSpecification(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::UseClauseDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::GroupTemplateDeclaration(inner) => inner.deref(),
+            SubprogramDeclarativeItemSyntax::GroupDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -19169,8 +20203,11 @@ impl AstNode for SubprogramDeclarativePartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramDeclarativePartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramDeclarativePartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramDeclarativePartSyntax {
@@ -19208,8 +20245,11 @@ impl AstNode for SubprogramDefaultSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramDefaultSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramDefaultSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramDefaultSyntax {
@@ -19249,8 +20289,11 @@ impl AstNode for SubprogramHeaderSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramHeaderSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramHeaderSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramHeaderSyntax {
@@ -19302,8 +20345,11 @@ impl AstNode for SubprogramHeaderGenericClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramHeaderGenericClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramHeaderGenericClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramHeaderGenericClauseSyntax {
@@ -19361,8 +20407,11 @@ impl AstNode for SubprogramInstantiationDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramInstantiationDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramInstantiationDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramInstantiationDeclarationSyntax {
@@ -19437,8 +20486,11 @@ impl AstNode for SubprogramInstantiationDeclarationPreambleSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramInstantiationDeclarationPreambleSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramInstantiationDeclarationPreambleSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramInstantiationDeclarationPreambleSyntax {
@@ -19521,10 +20573,13 @@ impl AstNode for SubprogramSpecificationSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for SubprogramSpecificationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            SubprogramSpecificationSyntax::ProcedureSpecification(inner) => inner.raw(),
-            SubprogramSpecificationSyntax::FunctionSpecification(inner) => inner.raw(),
+            SubprogramSpecificationSyntax::ProcedureSpecification(inner) => inner.deref(),
+            SubprogramSpecificationSyntax::FunctionSpecification(inner) => inner.deref(),
         }
     }
 }
@@ -19565,8 +20620,11 @@ impl AstNode for SubprogramStatementPartSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubprogramStatementPartSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubprogramStatementPartSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubprogramStatementPartSyntax {
@@ -19619,8 +20677,11 @@ impl AstNode for SubtypeDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubtypeDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubtypeDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubtypeDeclarationSyntax {
@@ -19681,8 +20742,11 @@ impl AstNode for SubtypeIndicationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         SubtypeIndicationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for SubtypeIndicationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl SubtypeIndicationSyntax {
@@ -19743,10 +20807,13 @@ impl AstNode for TargetSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for TargetSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            TargetSyntax::NameTarget(inner) => inner.raw(),
-            TargetSyntax::AggregateTarget(inner) => inner.raw(),
+            TargetSyntax::NameTarget(inner) => inner.deref(),
+            TargetSyntax::AggregateTarget(inner) => inner.deref(),
         }
     }
 }
@@ -19782,8 +20849,11 @@ impl AstNode for TimeoutClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         TimeoutClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for TimeoutClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl TimeoutClauseSyntax {
@@ -19812,8 +20882,11 @@ impl AstNode for TransportDelayMechanismSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         TransportDelayMechanismSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for TransportDelayMechanismSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl TransportDelayMechanismSyntax {
@@ -19852,10 +20925,13 @@ impl AstNode for TypeDeclarationSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for TypeDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            TypeDeclarationSyntax::FullTypeDeclaration(inner) => inner.raw(),
-            TypeDeclarationSyntax::IncompleteTypeDeclaration(inner) => inner.raw(),
+            TypeDeclarationSyntax::FullTypeDeclaration(inner) => inner.deref(),
+            TypeDeclarationSyntax::IncompleteTypeDeclaration(inner) => inner.deref(),
         }
     }
 }
@@ -19913,13 +20989,16 @@ impl AstNode for TypeDefinitionSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for TypeDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            TypeDefinitionSyntax::ScalarTypeDefinition(inner) => inner.raw(),
-            TypeDefinitionSyntax::CompositeTypeDefinition(inner) => inner.raw(),
-            TypeDefinitionSyntax::AccessTypeDefinition(inner) => inner.raw(),
-            TypeDefinitionSyntax::FileTypeDefinition(inner) => inner.raw(),
-            TypeDefinitionSyntax::ProtectedTypeDefinition(inner) => inner.raw(),
+            TypeDefinitionSyntax::ScalarTypeDefinition(inner) => inner.deref(),
+            TypeDefinitionSyntax::CompositeTypeDefinition(inner) => inner.deref(),
+            TypeDefinitionSyntax::AccessTypeDefinition(inner) => inner.deref(),
+            TypeDefinitionSyntax::FileTypeDefinition(inner) => inner.deref(),
+            TypeDefinitionSyntax::ProtectedTypeDefinition(inner) => inner.deref(),
         }
     }
 }
@@ -19944,8 +21023,11 @@ impl AstNode for TypeMarkListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         TypeMarkListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for TypeMarkListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl TypeMarkListSyntax {
@@ -19973,8 +21055,11 @@ impl AstNode for UnaffectedWaveformSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         UnaffectedWaveformSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for UnaffectedWaveformSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl UnaffectedWaveformSyntax {
@@ -20029,8 +21114,11 @@ impl AstNode for UnaryExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         UnaryExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for UnaryExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl UnaryExpressionSyntax {
@@ -20135,8 +21223,11 @@ impl AstNode for UnboundedArrayDefinitionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         UnboundedArrayDefinitionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for UnboundedArrayDefinitionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl UnboundedArrayDefinitionSyntax {
@@ -20206,8 +21297,11 @@ impl AstNode for UnitDeclarationsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         UnitDeclarationsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for UnitDeclarationsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl UnitDeclarationsSyntax {
@@ -20254,8 +21348,11 @@ impl AstNode for UpLevelSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         UpLevelSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for UpLevelSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl UpLevelSyntax {
@@ -20301,8 +21398,11 @@ impl AstNode for UseClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         UseClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for UseClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl UseClauseSyntax {
@@ -20337,8 +21437,11 @@ impl AstNode for UseClauseContextItemSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         UseClauseContextItemSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for UseClauseContextItemSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl UseClauseContextItemSyntax {
@@ -20361,8 +21464,11 @@ impl AstNode for UseClauseDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         UseClauseDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for UseClauseDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl UseClauseDeclarationSyntax {
@@ -20405,11 +21511,16 @@ impl AstNode for VariableAssignmentStatementSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for VariableAssignmentStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            VariableAssignmentStatementSyntax::SimpleVariableAssignment(inner) => inner.raw(),
-            VariableAssignmentStatementSyntax::ConditionalVariableAssignment(inner) => inner.raw(),
-            VariableAssignmentStatementSyntax::SelectedVariableAssignment(inner) => inner.raw(),
+            VariableAssignmentStatementSyntax::SimpleVariableAssignment(inner) => inner.deref(),
+            VariableAssignmentStatementSyntax::ConditionalVariableAssignment(inner) => {
+                inner.deref()
+            }
+            VariableAssignmentStatementSyntax::SelectedVariableAssignment(inner) => inner.deref(),
         }
     }
 }
@@ -20466,8 +21577,11 @@ impl AstNode for VariableDeclarationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         VariableDeclarationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for VariableDeclarationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl VariableDeclarationSyntax {
@@ -20537,8 +21651,11 @@ impl AstNode for VerificationUnitBindingSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         VerificationUnitBindingSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for VerificationUnitBindingSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl VerificationUnitBindingSyntax {
@@ -20586,8 +21703,11 @@ impl AstNode for VerificationUnitBindingIndicationSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         VerificationUnitBindingIndicationSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for VerificationUnitBindingIndicationSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl VerificationUnitBindingIndicationSyntax {
@@ -20631,8 +21751,11 @@ impl AstNode for VerificationUnitListSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         VerificationUnitListSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for VerificationUnitListSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl VerificationUnitListSyntax {
@@ -20692,8 +21815,11 @@ impl AstNode for WaitStatementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         WaitStatementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for WaitStatementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl WaitStatementSyntax {
@@ -20754,10 +21880,13 @@ impl AstNode for WaveformSyntax {
             node.kind()
         )
     }
-    fn raw(&self) -> SyntaxNode {
+}
+impl Deref for WaveformSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
         match self {
-            WaveformSyntax::WaveformElements(inner) => inner.raw(),
-            WaveformSyntax::UnaffectedWaveform(inner) => inner.raw(),
+            WaveformSyntax::WaveformElements(inner) => inner.deref(),
+            WaveformSyntax::UnaffectedWaveform(inner) => inner.deref(),
         }
     }
 }
@@ -20793,8 +21922,11 @@ impl AstNode for WaveformElementSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         WaveformElementSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for WaveformElementSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl WaveformElementSyntax {
@@ -20826,8 +21958,11 @@ impl AstNode for WaveformElementsSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         WaveformElementsSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for WaveformElementsSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl WaveformElementsSyntax {
@@ -20872,8 +22007,11 @@ impl AstNode for WhenClauseSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         WhenClauseSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for WhenClauseSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl WhenClauseSyntax {
@@ -20934,8 +22072,11 @@ impl AstNode for WhenExpressionSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         WhenExpressionSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for WhenExpressionSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl WhenExpressionSyntax {
@@ -20993,8 +22134,11 @@ impl AstNode for WhenWaveformSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         WhenWaveformSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for WhenWaveformSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl WhenWaveformSyntax {
@@ -21043,8 +22187,11 @@ impl AstNode for WhileSchemeSyntax {
     fn cast_unchecked(node: SyntaxNode) -> Self {
         WhileSchemeSyntax(node)
     }
-    fn raw(&self) -> SyntaxNode {
-        self.0.clone()
+}
+impl Deref for WhileSchemeSyntax {
+    type Target = SyntaxNode;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 impl WhileSchemeSyntax {

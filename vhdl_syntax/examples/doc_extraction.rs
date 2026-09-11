@@ -40,7 +40,7 @@ end bar;
         WalkEvent::Leave(_) => None,
     }) {
         // We check the first token of the entity declaration
-        if let Some(token) = entity.raw().first_token() {
+        if let Some(token) = entity.first_token() {
             // The trivia is where all auxiliary information concerning a token is stored,
             // for example, comments, whitespaces or newlines.
             let comment = extract_doc_from_trivia(token.leading_trivia());

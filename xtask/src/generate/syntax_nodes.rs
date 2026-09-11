@@ -30,6 +30,7 @@ impl Generator for SyntaxNodeGenerator {
             use crate::syntax::meta::{Layout, Sequence, Choice, List, LayoutItem, LayoutItemKind};
             use crate::tokens::Keyword as Kw;
             use crate::tokens::TokenKind;
+            use std::ops::Deref;
         };
 
         // Sorted by node name for deterministic output
@@ -156,8 +157,13 @@ fn generate_sequence_ast_impl(name: &NodeKind, meta_items: &[TokenStream]) -> To
             fn cast_unchecked(node: SyntaxNode) -> Self {
                 #struct_name(node)
             }
-            fn raw(&self) -> SyntaxNode {
-                self.0.clone()
+        }
+
+        impl Deref for #struct_name {
+            type Target = SyntaxNode;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
             }
         }
     }
@@ -187,11 +193,11 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
                     }
                 })
                 .collect();
-            let raw_branches: Vec<TokenStream> = nodes
+            let deref_branches: Vec<TokenStream> = nodes
                 .iter()
                 .map(|kind| {
                     let variant = variant_ident(kind);
-                    quote! { #enum_name::#variant(inner) => inner.raw() }
+                    quote! { #enum_name::#variant(inner) => inner.deref() }
                 })
                 .collect();
             quote! {
@@ -203,9 +209,14 @@ fn generate_choice_ast_impl(node: &ChoiceNode, model: &Model) -> TokenStream {
                         #(#cast_unchecked_branches)*
                         unreachable!("cast_unchecked called with unexpected node kind {:?}", node.kind())
                     }
-                    fn raw(&self) -> SyntaxNode {
+                }
+
+                impl Deref for #enum_name {
+                    type Target = SyntaxNode;
+
+                    fn deref(&self) -> &Self::Target {
                         match self {
-                            #(#raw_branches, )*
+                            #(#deref_branches, )*
                         }
                     }
                 }
@@ -263,8 +274,13 @@ fn generate_list_ast_impl(
             fn cast_unchecked(node: SyntaxNode) -> Self {
                 #struct_name(node)
             }
-            fn raw(&self) -> SyntaxNode {
-                self.0.clone()
+        }
+
+        impl Deref for #struct_name {
+            type Target = SyntaxNode;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
             }
         }
     }

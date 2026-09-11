@@ -54,6 +54,7 @@ use crate::syntax::child::Child;
 use crate::syntax::green::{GreenChild, GreenNode, GreenToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::rewrite::{RewriteAction, Rewriter};
+use crate::syntax::visitor::Preorder;
 use crate::tokens::{Token, TokenKind, Trivia};
 use std::fmt::Debug;
 use std::io::{self, Write};
@@ -686,6 +687,11 @@ impl SyntaxNode {
                 }
             }
         }
+    }
+
+    /// Walk the tree according to the textual order.
+    pub fn walk(&self) -> Preorder {
+        Preorder::new(self.clone())
     }
 }
 

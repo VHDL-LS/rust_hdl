@@ -23,7 +23,7 @@
 //! assert!(errors.is_empty());
 //!
 //! let mut out = Vec::new();
-//! design.raw().write_to(&mut out).unwrap();
+//! design.write_to(&mut out).unwrap();
 //! assert_eq!(out, src.as_bytes());
 //! ```
 //!

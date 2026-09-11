@@ -20,7 +20,7 @@
 //! use vhdl_syntax::fmt::write::FormatToExt;
 //!
 //! let node = EntityDeclarationPreambleBuilder::new(Identifier::from(b"my_entity")).build();
-//! assert_eq!(node.raw().display().to_string(), " entity my_entity is");
+//! assert_eq!(node.display().to_string(), " entity my_entity is");
 //! ```
 
 use crate::latin_1::{char_to_latin1, Latin1Str, Latin1String, NonLatin1CharError};

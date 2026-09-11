@@ -11,7 +11,6 @@ use vhdl_syntax::parser;
 use vhdl_syntax::syntax::node::SyntaxElement;
 use vhdl_syntax::syntax::node_kind::NodeKind;
 use vhdl_syntax::syntax::rewrite::RewriteAction;
-use vhdl_syntax::syntax::AstNode;
 use vhdl_syntax::tokens::TokenKind;
 
 fn main() {
@@ -27,7 +26,7 @@ end foo;
         "Did not expect diagnostics for correct VHDL"
     );
 
-    let new_file = file.raw().rewrite_tokens(|token| {
+    let new_file = file.rewrite_tokens(|token| {
         if token.kind() == TokenKind::Identifier
             && (token.parent().kind() == NodeKind::EntityDeclarationPreamble
                 || token.parent().kind() == NodeKind::EntityDeclarationEpilogue)

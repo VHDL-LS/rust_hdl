@@ -4,7 +4,7 @@ use similar::{ChangeTag, TextDiff};
 use vhdl_syntax::{
     self, parser,
     parser::error::display_errors,
-    syntax::{node::SyntaxElement, validate::error::Validation, AstNode},
+    syntax::{node::SyntaxElement, validate::error::Validation},
 };
 
 // PSL is not supported yet by vhdl_syntax
@@ -31,8 +31,7 @@ fn check_file(path: impl Into<std::path::PathBuf>) {
         display_errors(&diagnostics)
     );
     let mut expected_buf = Vec::new();
-    file.raw()
-        .write_to(&mut expected_buf)
+    file.write_to(&mut expected_buf)
         .expect("Cannot write to vec");
     if buf != expected_buf {
         let diff = TextDiff::from_lines(&buf, &expected_buf);
@@ -50,7 +49,7 @@ fn check_file(path: impl Into<std::path::PathBuf>) {
         }
         panic!()
     }
-    if let Err(err) = file.raw().validate() {
+    if let Err(err) = file.validate() {
         println!("Parser <-> AST validation failed: {err}");
         for item in err.items() {
             match item {

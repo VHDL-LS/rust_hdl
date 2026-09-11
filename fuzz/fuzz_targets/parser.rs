@@ -7,12 +7,11 @@
 
 use libfuzzer_sys::fuzz_target;
 use vhdl_syntax::parser::parse;
-use vhdl_syntax::syntax::{AstNode, DesignFileSyntax};
+use vhdl_syntax::syntax::DesignFileSyntax;
 
 fn unparse(file: &DesignFileSyntax) -> Vec<u8> {
     let mut buf = Vec::new();
-    file.raw()
-        .write_to(&mut buf)
+    file.write_to(&mut buf)
         .expect("writing to a Vec cannot fail");
     buf
 }

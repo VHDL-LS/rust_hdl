@@ -60,16 +60,17 @@ pub mod rewrite;
 pub mod validate;
 pub mod visitor;
 
+use std::ops::Deref;
+
 use crate::syntax::meta::Layout;
 pub use crate::syntax::node::{SyntaxElement, SyntaxNode, SyntaxToken};
 use crate::syntax::rewrite::RewriteAction;
-use crate::syntax::visitor::Preorder;
 pub use crate::tokens::TokenKind;
 pub use generated::*;
 
 pub trait AstNode
 where
-    Self: Sized,
+    Self: Sized + Deref<Target = SyntaxNode>,
 {
     /// Static meta-information about this node's layout.
     const META: &'static Layout;
@@ -78,7 +79,9 @@ where
     fn cast_unchecked(node: SyntaxNode) -> Self;
 
     /// Return the underlying Syntax Node.
-    fn raw(&self) -> SyntaxNode;
+    fn raw(&self) -> SyntaxNode {
+        self.deref().clone()
+    }
 
     /// Cast an abstract SyntaxNode into the AstNode described by `Self`.
     fn cast(node: SyntaxNode) -> Option<Self> {
@@ -98,13 +101,18 @@ where
         }
     }
 
-    /// Walk the tree according to the textual order.
-    fn walk(&self) -> Preorder {
-        Preorder::new(self.raw())
-    }
-
     fn rewrite(&self, rewrite: impl FnMut(&SyntaxElement) -> RewriteAction) -> Self {
         let result = self.raw().rewrite(rewrite);
+        Self::cast_unchecked(result)
+    }
+
+    fn rewrite_nodes(&self, rewrite: impl Fn(&SyntaxNode) -> RewriteAction) -> Self {
+        let result = self.raw().rewrite_nodes(rewrite);
+        Self::cast_unchecked(result)
+    }
+
+    fn rewrite_tokens(&self, rewrite: impl Fn(&SyntaxToken) -> RewriteAction) -> Self {
+        let result = self.raw().rewrite_tokens(rewrite);
         Self::cast_unchecked(result)
     }
 }

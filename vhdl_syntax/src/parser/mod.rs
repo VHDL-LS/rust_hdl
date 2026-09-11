@@ -24,7 +24,6 @@
 //!
 //! // The tree still contains an architecture
 //! let kinds: Vec<_> = design
-//!     .raw()
 //!     .children()
 //!     .filter_map(|unit| unit.first_child().map(|node| node.kind()))
 //!     .collect();

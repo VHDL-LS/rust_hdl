@@ -17,7 +17,7 @@
 //!
 //! let (design, _) = parser::parse("entity foo is -- keep me\nend foo;\n");
 //!
-//! let renamed = design.raw().rewrite_tokens(|token| {
+//! let renamed = design.rewrite_tokens(|token| {
 //!     if token.kind() == TokenKind::Identifier && token.text() == "foo" {
 //!         RewriteAction::Change(SyntaxElement::Token(
 //!             token.clone_with_utf8_text("bar").unwrap(),

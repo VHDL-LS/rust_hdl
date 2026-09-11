@@ -34,7 +34,7 @@ impl<T> RawNodeBuilder<T> {
 
     pub fn push_nodes<N: AstNode>(mut self, nodes: impl IntoIterator<Item = N>) -> Self {
         for node in nodes {
-            self.push(GreenChild::Node(node.raw().green().clone()));
+            self.push(GreenChild::Node(node.green().clone()));
         }
         self
     }
