@@ -9,12 +9,13 @@ use std::marker::PhantomData;
 use crate::syntax::green::{GreenChild, GreenNode, GreenNodeData, GreenToken};
 use crate::syntax::meta::Layout;
 use crate::syntax::node::SyntaxNode;
-use crate::syntax::AstNode;
+use crate::syntax::{AstNode, NodeKind};
 use crate::tokens::Token;
 
 #[must_use]
 pub struct RawNodeBuilder<T> {
-    data: GreenNodeData,
+    data: Vec<GreenChild>,
+    kind: NodeKind,
     _marker: PhantomData<T>,
 }
 
@@ -65,8 +66,8 @@ impl<T> RawNodeBuilder<T> {
     }
 
     pub fn finish_untyped(self) -> SyntaxNode {
-        assert!(!self.data.is_empty(), "Cannot build empty nodes");
-        SyntaxNode::new_root(GreenNode::new(self.data))
+        let data = GreenNodeData::new(self.kind, self.data).expect("Cannot build empty nodes");
+        SyntaxNode::new_root(GreenNode::new(data))
     }
 }
 
@@ -74,11 +75,13 @@ impl<T: AstNode> RawNodeBuilder<T> {
     pub fn new() -> RawNodeBuilder<T> {
         match T::META {
             Layout::Sequence(sequence) => RawNodeBuilder {
-                data: GreenNodeData::new(sequence.kind),
+                data: Vec::new(),
+                kind: sequence.kind,
                 _marker: PhantomData,
             },
             Layout::List(list) => RawNodeBuilder {
-                data: GreenNodeData::new(list.kind),
+                data: Vec::new(),
+                kind: list.kind,
                 _marker: PhantomData,
             },
             Layout::Choice(_) => unreachable!("Choice nodes cannot be built"),

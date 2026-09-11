@@ -25,14 +25,15 @@
 //!     } else {
 //!         RewriteAction::Leave
 //!     }
-//! });
+//! })
+//! .expect("no token was removed");
 //!
 //! let mut out = Vec::new();
 //! renamed.write_to(&mut out).unwrap();
 //! assert_eq!(out, b"entity bar is -- keep me\nend bar;\n");
 //! ```
 //!
-//! # Two things to know
+//! # Three things to know
 //!
 //! A rewrite is applied to the *children* of the node it starts from, so a node can never replace
 //! itself — start from an ancestor of what you mean to change.
@@ -41,6 +42,11 @@
 //! replacement is taken as final, and the subtree it stands for is never visited. Rewriting an
 //! outer node and its inner ones in a single pass is therefore not possible; run a second pass
 //! over the result instead.
+//!
+//! Nodes can never be empty. Consequently, when rewriting nodes and all children of a node are dropped,
+//! the entire node is also dropped.
+//! Therefore, a rewriter can return `None`, if every node is dropped.
+
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -72,17 +78,20 @@ impl<R: FnMut(&SyntaxElement) -> RewriteAction> Rewriter<R> {
         Rewriter { rewrite_action }
     }
 
-    pub fn rewrite(&mut self, syntax_node: SyntaxNode) -> SyntaxNode {
-        SyntaxNode::new_root(self.rewrite_node_to_green(syntax_node))
+    pub fn rewrite(&mut self, syntax_node: SyntaxNode) -> Option<SyntaxNode> {
+        self.rewrite_node_to_green(syntax_node)
+            .map(SyntaxNode::new_root)
     }
 
-    fn rewrite_node_to_green(&mut self, syntax_node: SyntaxNode) -> GreenNode {
-        let mut new_green_node = GreenNodeData::new(syntax_node.kind());
+    fn rewrite_node_to_green(&mut self, syntax_node: SyntaxNode) -> Option<GreenNode> {
+        let mut new_green_node = Vec::new();
         for child in syntax_node.children_with_tokens() {
             match (self.rewrite_action)(&child) {
                 RewriteAction::Leave => match child {
                     SyntaxElement::Node(node) => {
-                        new_green_node.push(GreenChild::Node(self.rewrite_node_to_green(node)));
+                        if let Some(node) = self.rewrite_node_to_green(node) {
+                            new_green_node.push(GreenChild::Node(node));
+                        }
                     }
                     SyntaxElement::Token(token) => {
                         new_green_node.push(GreenChild::Token(token.green().clone()));
@@ -94,7 +103,7 @@ impl<R: FnMut(&SyntaxElement) -> RewriteAction> Rewriter<R> {
                 RewriteAction::Remove => {}
             }
         }
-        GreenNode::new(new_green_node)
+        GreenNodeData::new(syntax_node.kind(), new_green_node).map(GreenNode::new)
     }
 }
 
@@ -130,7 +139,7 @@ impl<R: TokenRewrite> TokenRewriter<R> {
     fn rewrite_node_to_green(&mut self, syntax_node: SyntaxNode) -> GreenNode {
         self.rewrite.enter(&syntax_node);
 
-        let mut new_green_node = GreenNodeData::new(syntax_node.kind());
+        let mut new_green_node = Vec::new();
         for child in syntax_node.children_with_tokens() {
             match child {
                 SyntaxElement::Node(node) => {
@@ -147,7 +156,10 @@ impl<R: TokenRewrite> TokenRewriter<R> {
             }
         }
         self.rewrite.exit(&syntax_node);
-        GreenNode::new(new_green_node)
+        GreenNode::new(
+            GreenNodeData::new(syntax_node.kind(), new_green_node)
+                .expect("Children cannot be removed in a TokenRewriter"),
+        )
     }
 }
 
@@ -171,6 +183,15 @@ mod tests {
         file.raw()
     }
 
+    /// [SyntaxNode::rewrite], asserting that something is left over.
+    fn rewrite_non_empty(
+        root: &SyntaxNode,
+        rewrite: impl FnMut(&SyntaxElement) -> RewriteAction,
+    ) -> SyntaxNode {
+        root.rewrite(rewrite)
+            .expect("the rewrite removed every element")
+    }
+
     const MULTI_ENTITY: &str = "\
 entity myent is
 end entity;
@@ -185,14 +206,14 @@ end myent3;
     #[test]
     fn leave_round_trips() {
         let root = parse_root(MULTI_ENTITY);
-        let new_root = root.rewrite(|_| RewriteAction::Leave);
+        let new_root = rewrite_non_empty(&root, |_| RewriteAction::Leave);
         assert_eq!(format!("{}", new_root.display()), MULTI_ENTITY);
     }
 
     #[test]
     fn change_single_token() {
         let root = parse_root(MULTI_ENTITY);
-        let new_root = root.rewrite(|el| match el {
+        let new_root = rewrite_non_empty(&root, |el| match el {
             SyntaxElement::Token(tok)
                 if tok.kind() == crate::tokens::TokenKind::Identifier && tok.text() == "myent2" =>
             {
@@ -222,7 +243,7 @@ end myent3;
             }
         }
         let target_offset = target.get().expect("design unit index out of range");
-        root.rewrite(|el| match el {
+        rewrite_non_empty(&root, |el| match el {
             SyntaxElement::Node(n)
                 if n.kind() == NodeKind::DesignUnit && n.offset() == target_offset =>
             {
@@ -277,7 +298,7 @@ end entity myent2;"
     #[test]
     fn remove_all_design_units() {
         let root = parse_root(MULTI_ENTITY);
-        let new_root = root.rewrite(|el| match el {
+        let new_root = rewrite_non_empty(&root, |el| match el {
             SyntaxElement::Node(n) if n.kind() == NodeKind::DesignUnit => RewriteAction::Remove,
             _ => RewriteAction::Leave,
         });
@@ -370,8 +391,14 @@ end entity myent2;"
     #[test]
     fn idempotent_when_no_match() {
         let root = parse_root(MULTI_ENTITY);
-        let once = root.rewrite(|_| RewriteAction::Leave);
-        let twice = once.rewrite(|_| RewriteAction::Leave);
+        let once = rewrite_non_empty(&root, |_| RewriteAction::Leave);
+        let twice = rewrite_non_empty(&once, |_| RewriteAction::Leave);
         assert_eq!(once.green(), twice.green());
+    }
+
+    #[test]
+    fn removing_every_child_removes_the_node() {
+        let root = parse_root(MULTI_ENTITY);
+        assert_eq!(root.rewrite(|_| RewriteAction::Remove), None);
     }
 }

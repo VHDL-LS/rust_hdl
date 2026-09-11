@@ -154,8 +154,8 @@ impl NodeBuilder {
                         }
                         continue;
                     }
-                    let mut data = GreenNodeData::new(kind);
-                    data.push_children(children.drain(first_child..));
+                    let data = GreenNodeData::new(kind, children.drain(first_child..))
+                        .expect("empty nodes are dropped above");
                     children.push(GreenChild::Node(GreenNode::new(data)));
                 }
                 Event::Push(token, err) => {

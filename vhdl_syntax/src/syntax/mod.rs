@@ -101,18 +101,15 @@ where
         }
     }
 
-    fn rewrite(&self, rewrite: impl FnMut(&SyntaxElement) -> RewriteAction) -> Self {
-        let result = self.raw().rewrite(rewrite);
-        Self::cast_unchecked(result)
+    fn rewrite(&self, rewrite: impl FnMut(&SyntaxElement) -> RewriteAction) -> Option<Self> {
+        self.raw().rewrite(rewrite).map(Self::cast_unchecked)
     }
 
-    fn rewrite_nodes(&self, rewrite: impl Fn(&SyntaxNode) -> RewriteAction) -> Self {
-        let result = self.raw().rewrite_nodes(rewrite);
-        Self::cast_unchecked(result)
+    fn rewrite_nodes(&self, rewrite: impl Fn(&SyntaxNode) -> RewriteAction) -> Option<Self> {
+        self.raw().rewrite_nodes(rewrite).map(Self::cast_unchecked)
     }
 
-    fn rewrite_tokens(&self, rewrite: impl Fn(&SyntaxToken) -> RewriteAction) -> Self {
-        let result = self.raw().rewrite_tokens(rewrite);
-        Self::cast_unchecked(result)
+    fn rewrite_tokens(&self, rewrite: impl Fn(&SyntaxToken) -> RewriteAction) -> Option<Self> {
+        self.raw().rewrite_tokens(rewrite).map(Self::cast_unchecked)
     }
 }

@@ -96,10 +96,9 @@ impl Iterator for PreorderWithTokens {
         self.next = next.as_ref().and_then(|next| {
             Some(match next {
                 WalkEvent::Enter(el) => match el {
-                    crate::syntax::child::Child::Node(node) => match node.first_child_or_token() {
-                        Some(child) => WalkEvent::Enter(child),
-                        None => WalkEvent::Leave(node.clone().into()),
-                    },
+                    crate::syntax::child::Child::Node(node) => {
+                        WalkEvent::Enter(node.first_child_or_token())
+                    }
                     crate::syntax::child::Child::Token(token) => {
                         WalkEvent::Leave(token.clone().into())
                     }

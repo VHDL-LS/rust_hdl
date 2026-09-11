@@ -117,7 +117,7 @@ impl SourceLocConverter {
         let mut wide_char_lines = BTreeMap::new();
         let mut cursor = 0usize;
 
-        let mut tok = root.first_token();
+        let mut tok = Some(root.first_token());
         while let Some(t) = tok {
             for piece in t.leading_trivia() {
                 handle_piece(piece, cursor, &mut line_starts, &mut wide_char_lines)?;

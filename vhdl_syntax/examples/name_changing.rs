@@ -26,21 +26,23 @@ end foo;
         "Did not expect diagnostics for correct VHDL"
     );
 
-    let new_file = file.rewrite_tokens(|token| {
-        if token.kind() == TokenKind::Identifier
-            && (token.parent().kind() == NodeKind::EntityDeclarationPreamble
-                || token.parent().kind() == NodeKind::EntityDeclarationEpilogue)
-        {
-            let new_name = format!("tb_{}", token.text());
-            RewriteAction::Change(SyntaxElement::Token(
-                token
-                    .clone_with_utf8_text(new_name)
-                    .expect("Name was not Latin1"),
-            ))
-        } else {
-            RewriteAction::Leave
-        }
-    });
+    let new_file = file
+        .rewrite_tokens(|token| {
+            if token.kind() == TokenKind::Identifier
+                && (token.parent().kind() == NodeKind::EntityDeclarationPreamble
+                    || token.parent().kind() == NodeKind::EntityDeclarationEpilogue)
+            {
+                let new_name = format!("tb_{}", token.text());
+                RewriteAction::Change(SyntaxElement::Token(
+                    token
+                        .clone_with_utf8_text(new_name)
+                        .expect("Name was not Latin1"),
+                ))
+            } else {
+                RewriteAction::Leave
+            }
+        })
+        .expect("the design file still has content");
 
     assert_eq!(
         format!("{}", new_file.display()),

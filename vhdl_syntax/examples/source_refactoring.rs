@@ -64,22 +64,24 @@ end foobar;
     )
     .build();
 
-    let new_file = file.rewrite(|node| match node {
-        SyntaxElement::Node(node) => match EntityDeclarationSyntax::cast(node.clone()) {
-            // If the syntax node is an entity and is named 'foo', replace it with the replacement entity.
-            Some(ent)
-                if ent
-                    .entity_declaration_preamble()
-                    .and_then(|preamble| preamble.identifier_token())
-                    .is_some_and(|tok| tok.text() == "foo") =>
-            {
-                RewriteAction::Change(SyntaxElement::Node(replacement_entity.raw()))
-            }
-            // If the syntax node is not an entity, or the name of the entity is not 'foo', leave the node as-is
-            _ => RewriteAction::Leave,
-        },
-        SyntaxElement::Token(_) => RewriteAction::Leave,
-    });
+    let new_file = file
+        .rewrite(|node| match node {
+            SyntaxElement::Node(node) => match EntityDeclarationSyntax::cast(node.clone()) {
+                // If the syntax node is an entity and is named 'foo', replace it with the replacement entity.
+                Some(ent)
+                    if ent
+                        .entity_declaration_preamble()
+                        .and_then(|preamble| preamble.identifier_token())
+                        .is_some_and(|tok| tok.text() == "foo") =>
+                {
+                    RewriteAction::Change(SyntaxElement::Node(replacement_entity.raw()))
+                }
+                // If the syntax node is not an entity, or the name of the entity is not 'foo', leave the node as-is
+                _ => RewriteAction::Leave,
+            },
+            SyntaxElement::Token(_) => RewriteAction::Leave,
+        })
+        .expect("the design file still has content");
 
     assert_eq!(
         format!("{}", new_file.display()),

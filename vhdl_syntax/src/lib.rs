@@ -45,6 +45,7 @@ pub mod builder;
 pub mod fmt;
 pub(crate) mod interning;
 pub mod latin_1;
+pub(crate) mod non_empty;
 pub mod parser;
 #[cfg(feature = "serde")]
 pub mod serde;
