@@ -610,6 +610,12 @@ impl SyntaxNode {
         self.offset()..self.offset() + self.byte_len()
     }
 
+    /// Returns the byte range of this node's text, excluding leading trivia.
+    pub fn text_range(&self) -> Range<usize> {
+        self.offset() + self.first_token().unwrap().leading_trivia().byte_len()
+            ..self.offset() + self.byte_len()
+    }
+
     /// Returns `true` if `offset` lies within [`range`](Self::range).
     pub fn contains_offset(&self, offset: usize) -> bool {
         self.range().contains(&offset)
@@ -870,6 +876,25 @@ mod tests {
             .map(|syntax_token| syntax_token.token().clone())
             .collect::<VecDeque<_>>();
         assert_eq!(new_tokens, orig_tokens);
+    }
+
+    #[test]
+    fn text_range_excludes_leading_trivia() {
+        let mut green_node = GreenNodeData::new(EntityDeclaration);
+        green_node.push_tokens([
+            Token::new(
+                TokenKind::Keyword(Keyword::Entity),
+                b"entity",
+                Trivia::from([TriviaPiece::Spaces(2)]),
+            ),
+            Token::simple(TokenKind::Identifier, b"foo"),
+        ]);
+        let node = SyntaxNode::new_root(GreenNode::new(green_node));
+        let first = node.first_token().expect("Node must have first token");
+
+        assert_eq!(first.range(), 0..8);
+        assert_eq!(first.text_range(), 2..8);
+        assert_eq!(first.text(), "entity");
     }
 
     #[test]
