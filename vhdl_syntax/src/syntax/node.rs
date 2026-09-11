@@ -471,12 +471,19 @@ impl SyntaxNode {
 
     /// Returns the previous sibling node
     pub fn prev_sibling(&self) -> Option<SyntaxNode> {
-        self.parent()?.nth_child(self.index().checked_sub(1)?)
+        self.parent()?
+            .children_with_tokens()
+            .take(self.index())
+            .filter_map(|child| child.as_node())
+            .last()
     }
 
     /// Returns the next sibling node
     pub fn next_sibling(&self) -> Option<SyntaxNode> {
-        self.parent()?.nth_child(self.0.index + 1)
+        self.parent()?
+            .children_with_tokens()
+            .skip(self.index() + 1)
+            .find_map(|child| child.as_node())
     }
 
     /// Returns the previous child or token.
@@ -725,7 +732,7 @@ impl SyntaxElement {
 
 #[cfg(test)]
 mod tests {
-    use crate::syntax::green::{GreenChild, GreenNode};
+    use crate::syntax::green::{GreenChild, GreenNode, GreenToken};
     use crate::syntax::node::{SyntaxElement, SyntaxNode};
     use crate::syntax::node_kind::NodeKind::*;
     use crate::syntax::rewrite::RewriteAction;
@@ -893,6 +900,61 @@ mod tests {
         assert_eq!(first.range(), 0..8);
         assert_eq!(first.text_range(), 2..8);
         assert_eq!(first.text(), "entity");
+    }
+
+    fn interleaved_root() -> SyntaxNode {
+        let semicolon =
+            || GreenChild::Token(GreenToken::new(Token::simple(TokenKind::SemiColon, b";")));
+        let entity = GreenChild::Node(GreenNode::from_tokens(
+            EntityDeclaration,
+            [Token::simple(
+                TokenKind::Keyword(Keyword::Entity),
+                b"entity",
+            )],
+        ));
+        let architecture = GreenChild::Node(GreenNode::from_tokens(
+            ArchitectureBody,
+            [Token::simple(
+                TokenKind::Keyword(Keyword::Architecture),
+                b"architecture",
+            )],
+        ));
+        SyntaxNode::new_root(GreenNode::from_children(
+            DesignFile,
+            [semicolon(), entity, semicolon(), architecture, semicolon()],
+        ))
+    }
+
+    #[test]
+    fn next_sibling_skips_tokens() {
+        let root = interleaved_root();
+        let entity = root.first_child().expect("has an entity child");
+        assert_eq!(entity.kind(), EntityDeclaration);
+
+        let architecture = entity.next_sibling().expect("has a next sibling node");
+        assert_eq!(architecture.kind(), ArchitectureBody);
+        // Only tokens follow the architecture body
+        assert!(architecture.next_sibling().is_none());
+    }
+
+    #[test]
+    fn prev_sibling_skips_tokens() {
+        let root = interleaved_root();
+        let architecture = root.nth_child(1).expect("has an architecture child");
+        assert_eq!(architecture.kind(), ArchitectureBody);
+
+        let entity = architecture
+            .prev_sibling()
+            .expect("has a previous sibling node");
+        assert_eq!(entity.kind(), EntityDeclaration);
+        assert!(entity.prev_sibling().is_none());
+    }
+
+    #[test]
+    fn root_has_no_siblings() {
+        let root = interleaved_root();
+        assert!(root.prev_sibling().is_none());
+        assert!(root.next_sibling().is_none());
     }
 
     #[test]
