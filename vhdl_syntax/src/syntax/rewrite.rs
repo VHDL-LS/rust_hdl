@@ -137,7 +137,9 @@ impl<R: TokenRewrite> TokenRewriter<R> {
                     new_green_node.push(GreenChild::Node(self.rewrite_node_to_green(node)));
                 }
                 SyntaxElement::Token(tok) => match self.rewrite.token(&tok) {
-                    TokenRewriteAction::Keep => {}
+                    TokenRewriteAction::Keep => {
+                        new_green_node.push(GreenChild::Token(tok.green().clone()));
+                    }
                     TokenRewriteAction::Replace(syntax_token) => {
                         new_green_node.push(GreenChild::Token(syntax_token.green().clone()));
                     }
@@ -289,6 +291,80 @@ end entity myent2;"
             Some(Child::Token(crate::tokens::TokenKind::Eof))
         ));
         assert!(remaining_kinds.next().is_none());
+    }
+
+    /// Keeps every token except those whose text matches `replace`, which get `with` instead.
+    struct RenameTokens {
+        replace: &'static str,
+        with: &'static str,
+        kept: usize,
+        replaced: usize,
+        entered: Vec<NodeKind>,
+        exited: Vec<NodeKind>,
+    }
+
+    impl TokenRewrite for RenameTokens {
+        fn enter(&mut self, node: &SyntaxNode) {
+            self.entered.push(node.kind());
+        }
+
+        fn token(&mut self, token: &SyntaxToken) -> TokenRewriteAction {
+            if token.text() == self.replace {
+                self.replaced += 1;
+                TokenRewriteAction::Replace(token.clone_with_text(self.with.as_bytes()))
+            } else {
+                self.kept += 1;
+                TokenRewriteAction::Keep
+            }
+        }
+
+        fn exit(&mut self, node: &SyntaxNode) {
+            self.exited.push(node.kind());
+        }
+    }
+
+    fn rename_tokens(
+        src: &str,
+        replace: &'static str,
+        with: &'static str,
+    ) -> (SyntaxNode, RenameTokens) {
+        let root = parse_root(src);
+        let mut rewriter = TokenRewriter::new(RenameTokens {
+            replace,
+            with,
+            kept: 0,
+            replaced: 0,
+            entered: Vec::new(),
+            exited: Vec::new(),
+        });
+        let new_root = rewriter.rewrite(root);
+        (new_root, rewriter.rewrite)
+    }
+
+    #[test]
+    fn token_rewriter_keep_retains_tokens() {
+        let (new_root, state) = rename_tokens(MULTI_ENTITY, "\0no-such-token\0", "");
+        assert_eq!(format!("{}", new_root.display()), MULTI_ENTITY);
+        assert_eq!(state.replaced, 0);
+        assert!(state.kept > 0);
+    }
+
+    #[test]
+    fn token_rewriter_replace_keeps_surrounding_tokens() {
+        let (new_root, state) = rename_tokens(MULTI_ENTITY, "myent2", "myentX");
+        assert_eq!(
+            format!("{}", new_root.display()),
+            MULTI_ENTITY.replace("myent2", "myentX")
+        );
+        assert_eq!(state.replaced, 2);
+    }
+
+    #[test]
+    fn token_rewriter_visits_every_node_once() {
+        let (_, state) = rename_tokens(MULTI_ENTITY, "\0no-such-token\0", "");
+        assert_eq!(state.entered.len(), state.exited.len());
+        assert_eq!(state.entered.first(), Some(&NodeKind::DesignFile));
+        assert_eq!(state.exited.last(), Some(&NodeKind::DesignFile));
     }
 
     #[test]
