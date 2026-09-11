@@ -40,18 +40,17 @@ end bar;
         WalkEvent::Leave(_) => None,
     }) {
         // We check the first token of the entity declaration
-        if let Some(token) = entity.first_token() {
-            // The trivia is where all auxiliary information concerning a token is stored,
-            // for example, comments, whitespaces or newlines.
-            let comment = extract_doc_from_trivia(token.leading_trivia());
-            // If the entity has a name token, add the extracted documentation to the map
-            if let Some(ident) = entity
-                .entity_declaration_preamble()
-                .and_then(|preamble| preamble.identifier_token())
-            {
-                if !comment.is_empty() {
-                    comments.insert(ident.text().to_string(), comment);
-                }
+        let token = entity.first_token();
+        // The trivia is where all auxiliary information concerning a token is stored,
+        // for example, comments, whitespaces or newlines.
+        let comment = extract_doc_from_trivia(token.leading_trivia());
+        // If the entity has a name token, add the extracted documentation to the map
+        if let Some(ident) = entity
+            .entity_declaration_preamble()
+            .and_then(|preamble| preamble.identifier_token())
+        {
+            if !comment.is_empty() {
+                comments.insert(ident.text().to_string(), comment);
             }
         }
     }

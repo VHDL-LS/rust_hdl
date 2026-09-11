@@ -56,16 +56,18 @@ end foo;
 
     // 4) Single rewrite pass: every visited UseClauseContextItem is either swapped to
     //    its sorted replacement (`Change`) or dropped entirely (`Remove`).
-    let new_file = file.rewrite(|el| match el {
-        SyntaxElement::Node(n) => match plan.get(&n.offset()) {
-            Some(Some(replacement)) => {
-                RewriteAction::Change(SyntaxElement::Node(replacement.clone()))
-            }
-            Some(None) => RewriteAction::Remove,
-            None => RewriteAction::Leave,
-        },
-        SyntaxElement::Token(_) => RewriteAction::Leave,
-    });
+    let new_file = file
+        .rewrite(|el| match el {
+            SyntaxElement::Node(n) => match plan.get(&n.offset()) {
+                Some(Some(replacement)) => {
+                    RewriteAction::Change(SyntaxElement::Node(replacement.clone()))
+                }
+                Some(None) => RewriteAction::Remove,
+                None => RewriteAction::Leave,
+            },
+            SyntaxElement::Token(_) => RewriteAction::Leave,
+        })
+        .expect("the design file still has content");
 
     assert_eq!(
         format!("{}", new_file.display()),

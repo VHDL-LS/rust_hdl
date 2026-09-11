@@ -254,21 +254,21 @@ impl SyntaxToken {
 
     pub fn prev_token(&self) -> Option<SyntaxToken> {
         match self.prev_sibling_or_token() {
-            Some(element) => element.last_token(),
+            Some(element) => Some(element.last_token()),
             None => self
                 .ancestors()
                 .find_map(|it| it.prev_sibling_or_token())
-                .and_then(|element| element.last_token()),
+                .map(|element| element.last_token()),
         }
     }
 
     pub fn next_token(&self) -> Option<SyntaxToken> {
         match self.next_sibling_or_token() {
-            Some(element) => element.first_token(),
+            Some(element) => Some(element.first_token()),
             None => self
                 .ancestors()
                 .find_map(|node| node.next_sibling_or_token())
-                .and_then(|element| element.first_token()),
+                .map(|element| element.first_token()),
         }
     }
 
@@ -440,27 +440,23 @@ impl SyntaxNode {
 
     /// Return the first token of this node.
     /// Note that this method searches deep, i.e., also considers tokens of sub-nodes
-    // TODO: drop the `Option` as `SyntaxNode`s cannot be empty.
-    pub fn first_token(&self) -> Option<SyntaxToken> {
-        self.children_with_tokens()
-            .filter_map(|node| match node {
-                SyntaxElement::Node(n) => n.first_token(),
-                SyntaxElement::Token(t) => Some(t),
-            })
-            .next()
+    pub fn first_token(&self) -> SyntaxToken {
+        self.first_child_or_token().first_token()
     }
 
     /// Returns the first child-node of this node.
-    // TODO: drop the `Option` as `SyntaxNode`s cannot be empty.
+    ///
+    /// Returns `None` if this node contains only tokens.
     pub fn first_child(&self) -> Option<SyntaxNode> {
         self.children().next()
     }
 
     /// Returns the first element in this node, i.e, a `SyntaxToken` if its a token
     /// or a `SyntaxNode` if its a node
-    // TODO: drop the `Option` as `SyntaxNode`s cannot be empty.
-    pub fn first_child_or_token(&self) -> Option<SyntaxElement> {
-        self.children_with_tokens().next()
+    pub fn first_child_or_token(&self) -> SyntaxElement {
+        self.children_with_tokens()
+            .next()
+            .expect("invariant: a SyntaxNode is never empty")
     }
 
     /// Returns the `nth` child (i.e., syntax node) of this node
@@ -530,16 +526,17 @@ impl SyntaxNode {
             .nth(self.index().checked_add(1)?)
     }
 
-    /// Returns the last token of the direct children of this node
-    // TODO: drop Option
-    pub fn last_token(&self) -> Option<SyntaxToken> {
-        self.last_child_or_token()?.last_token()
+    /// Returns the last token of this node.
+    /// Note that this method searches deep, i.e., also considers tokens of sub-nodes
+    pub fn last_token(&self) -> SyntaxToken {
+        self.last_child_or_token().last_token()
     }
 
     /// Returns the last child or token of the direct children of this node
-    // TODO: drop Option
-    pub fn last_child_or_token(&self) -> Option<SyntaxElement> {
-        self.children_with_tokens().last()
+    pub fn last_child_or_token(&self) -> SyntaxElement {
+        self.children_with_tokens()
+            .last()
+            .expect("invariant: a SyntaxNode is never empty")
     }
 
     /// Return an iterator over all ancestors of this node, i.e., the parent,
@@ -549,12 +546,18 @@ impl SyntaxNode {
     }
 
     /// Rewrite this node, i.e., change selected elements and produce a different `SyntaxNode`
-    pub fn rewrite(&self, rewrite: impl FnMut(&SyntaxElement) -> RewriteAction) -> SyntaxNode {
+    pub fn rewrite(
+        &self,
+        rewrite: impl FnMut(&SyntaxElement) -> RewriteAction,
+    ) -> Option<SyntaxNode> {
         Rewriter::new(rewrite).rewrite(self.clone())
     }
 
     /// Rewrite nodes. Like [SyntaxNode::rewrite], but only called on nodes
-    pub fn rewrite_nodes(&self, rewrite: impl Fn(&SyntaxNode) -> RewriteAction) -> SyntaxNode {
+    pub fn rewrite_nodes(
+        &self,
+        rewrite: impl Fn(&SyntaxNode) -> RewriteAction,
+    ) -> Option<SyntaxNode> {
         Rewriter::new(|element| match element {
             SyntaxElement::Node(node) => rewrite(node),
             SyntaxElement::Token(_) => RewriteAction::Leave,
@@ -563,7 +566,10 @@ impl SyntaxNode {
     }
 
     /// Rewrite tokens. Like [SyntaxNode::rewrite], but only called on tokens
-    pub fn rewrite_tokens(&self, rewrite: impl Fn(&SyntaxToken) -> RewriteAction) -> SyntaxNode {
+    pub fn rewrite_tokens(
+        &self,
+        rewrite: impl Fn(&SyntaxToken) -> RewriteAction,
+    ) -> Option<SyntaxNode> {
         Rewriter::new(|element| match element {
             SyntaxElement::Node(_) => RewriteAction::Leave,
             SyntaxElement::Token(token) => rewrite(token),
@@ -613,7 +619,7 @@ impl SyntaxNode {
 
     /// Returns the byte range of this node's text, excluding leading trivia.
     pub fn text_range(&self) -> Range<usize> {
-        self.offset() + self.first_token().unwrap().leading_trivia().byte_len()
+        self.offset() + self.first_token().leading_trivia().byte_len()
             ..self.offset() + self.byte_len()
     }
 
@@ -664,11 +670,6 @@ impl SyntaxNode {
     /// trivia is attributed to the following token rather than returning
     /// `None`. Useful when a caller needs some token to anchor an action on
     /// (e.g. a cursor position in an editor).
-    ///
-    /// # Panics
-    ///
-    /// Panics if this node contains no tokens. The builder API guarantees that
-    /// every `SyntaxNode` contains at least one token transitively.
     pub fn covering_token_at_offset(&self, offset: usize) -> SyntaxToken {
         match self.find_token(|child| match child {
             Child::Node(node) => node.contains_offset(offset),
@@ -676,14 +677,11 @@ impl SyntaxNode {
         }) {
             Some(token) => token,
             None => {
-                let first_tok = self
-                    .first_token()
-                    .expect("every SyntaxNode must contain at least one token");
+                let first_tok = self.first_token();
                 if offset < first_tok.offset() {
                     first_tok
                 } else {
                     self.last_token()
-                        .expect("every SyntaxNode must contain at least one token")
                 }
             }
         }
@@ -696,17 +694,17 @@ impl SyntaxNode {
 }
 
 impl SyntaxElement {
-    pub fn last_token(&self) -> Option<SyntaxToken> {
+    pub fn last_token(&self) -> SyntaxToken {
         match self {
-            Child::Token(token) => Some(token.clone()),
+            Child::Token(token) => token.clone(),
             Child::Node(node) => node.last_token(),
         }
     }
 
-    pub fn first_token(&self) -> Option<SyntaxToken> {
+    pub fn first_token(&self) -> SyntaxToken {
         match self {
             SyntaxElement::Node(node) => node.first_token(),
-            SyntaxElement::Token(token) => Some(token.clone()),
+            SyntaxElement::Token(token) => token.clone(),
         }
     }
 
@@ -727,7 +725,7 @@ impl SyntaxElement {
 
 #[cfg(test)]
 mod tests {
-    use crate::syntax::green::{GreenChild, GreenNode, GreenNodeData};
+    use crate::syntax::green::{GreenChild, GreenNode};
     use crate::syntax::node::{SyntaxElement, SyntaxNode};
     use crate::syntax::node_kind::NodeKind::*;
     use crate::syntax::rewrite::RewriteAction;
@@ -739,13 +737,8 @@ mod tests {
     #[test]
     fn no_leading_trivia() {
         let token = Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity");
-        let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_token(token);
-        let node = SyntaxNode::new_root(GreenNode::new(green_node));
-        assert_eq!(
-            node.first_token().unwrap().leading_trivia(),
-            &Trivia::default()
-        );
+        let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, [token]));
+        assert_eq!(node.first_token().leading_trivia(), &Trivia::default());
     }
 
     #[test]
@@ -755,11 +748,9 @@ mod tests {
             b"entity",
             Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
         );
-        let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_token(token);
-        let node = SyntaxNode::new_root(GreenNode::new(green_node));
+        let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, [token]));
         assert_eq!(
-            node.first_token().unwrap().leading_trivia(),
+            node.first_token().leading_trivia(),
             &Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
@@ -778,9 +769,7 @@ mod tests {
                 Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             ),
         ];
-        let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_tokens(tokens);
-        let node = SyntaxNode::new_root(GreenNode::new(green_node));
+        let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, tokens));
         assert_eq!(
             node.tokens().nth(1).unwrap().leading_trivia(),
             &Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
@@ -790,13 +779,8 @@ mod tests {
     #[test]
     fn no_trailing_trivia() {
         let token = Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity");
-        let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_token(token);
-        let node = SyntaxNode::new_root(GreenNode::new(green_node));
-        assert_eq!(
-            node.first_token().unwrap().trailing_trivia(),
-            Trivia::default()
-        );
+        let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, [token]));
+        assert_eq!(node.first_token().trailing_trivia(), Trivia::default());
     }
 
     #[test]
@@ -813,11 +797,9 @@ mod tests {
                 Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             ),
         ];
-        let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_tokens(tokens);
-        let node = SyntaxNode::new_root(GreenNode::new(green_node));
+        let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, tokens));
         assert_eq!(
-            node.first_token().unwrap().trailing_trivia(),
+            node.first_token().trailing_trivia(),
             Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
@@ -828,10 +810,13 @@ mod tests {
             .tokenize()
             .map(|(tok, _)| tok)
             .collect::<Vec<_>>();
-        let mut data = GreenNodeData::new(EntityDeclaration);
-        data.push_tokens(orig_tokens.clone());
-        let node = SyntaxNode::new_root(GreenNode::new(data));
-        let new_node = node.rewrite(|_| RewriteAction::Leave);
+        let node = SyntaxNode::new_root(GreenNode::from_tokens(
+            EntityDeclaration,
+            orig_tokens.clone(),
+        ));
+        let new_node = node
+            .rewrite(|_| RewriteAction::Leave)
+            .expect("nothing was removed");
         let new_tokens = new_node
             .tokens()
             .map(|syntax_token| syntax_token.token().clone())
@@ -841,16 +826,19 @@ mod tests {
 
     #[test]
     fn rewrite_tokens() {
-        let mut data = GreenNodeData::new(EntityDeclaration);
-        data.push_tokens("entity foo is end foo;".tokenize().map(|(tok, _)| tok));
-        let node = SyntaxNode::new_root(GreenNode::new(data));
-        let new_node = node.rewrite_tokens(|tok| {
-            if tok.text() == "foo" {
-                RewriteAction::Change(SyntaxElement::Token(tok.clone_with_text(b"bar")))
-            } else {
-                RewriteAction::Leave
-            }
-        });
+        let node = SyntaxNode::new_root(GreenNode::from_tokens(
+            EntityDeclaration,
+            "entity foo is end foo;".tokenize().map(|(tok, _)| tok),
+        ));
+        let new_node = node
+            .rewrite_tokens(|tok| {
+                if tok.text() == "foo" {
+                    RewriteAction::Change(SyntaxElement::Token(tok.clone_with_text(b"bar")))
+                } else {
+                    RewriteAction::Leave
+                }
+            })
+            .expect("nothing was removed");
         let new_tokens = new_node
             .tokens()
             .map(|syntax_token| syntax_token.token().clone())
@@ -870,13 +858,16 @@ mod tests {
             .tokenize()
             .map(|(tok, _)| tok)
             .collect::<Vec<_>>();
-        let mut data = GreenNodeData::new(EntityDeclaration);
-        data.push_tokens(orig_tokens.clone());
-        let node = SyntaxNode::new_root(GreenNode::new(data));
-        let new_node = node.rewrite_nodes(|node| match node.kind() {
-            EntityDeclaration => panic!("Should not modify self"),
-            _ => RewriteAction::Leave,
-        });
+        let node = SyntaxNode::new_root(GreenNode::from_tokens(
+            EntityDeclaration,
+            orig_tokens.clone(),
+        ));
+        let new_node = node
+            .rewrite_nodes(|node| match node.kind() {
+                EntityDeclaration => panic!("Should not modify self"),
+                _ => RewriteAction::Leave,
+            })
+            .expect("nothing was removed");
         let new_tokens = new_node
             .tokens()
             .map(|syntax_token| syntax_token.token().clone())
@@ -886,17 +877,18 @@ mod tests {
 
     #[test]
     fn text_range_excludes_leading_trivia() {
-        let mut green_node = GreenNodeData::new(EntityDeclaration);
-        green_node.push_tokens([
-            Token::new(
-                TokenKind::Keyword(Keyword::Entity),
-                b"entity",
-                Trivia::from([TriviaPiece::Spaces(2)]),
-            ),
-            Token::simple(TokenKind::Identifier, b"foo"),
-        ]);
-        let node = SyntaxNode::new_root(GreenNode::new(green_node));
-        let first = node.first_token().expect("Node must have first token");
+        let node = SyntaxNode::new_root(GreenNode::from_tokens(
+            EntityDeclaration,
+            [
+                Token::new(
+                    TokenKind::Keyword(Keyword::Entity),
+                    b"entity",
+                    Trivia::from([TriviaPiece::Spaces(2)]),
+                ),
+                Token::simple(TokenKind::Identifier, b"foo"),
+            ],
+        ));
+        let first = node.first_token();
 
         assert_eq!(first.range(), 0..8);
         assert_eq!(first.text_range(), 2..8);
@@ -905,24 +897,25 @@ mod tests {
 
     #[test]
     fn next_token() {
-        let mut top = GreenNodeData::new(DesignFile);
-        let mut n1 = GreenNodeData::new(EntityDeclaration);
-        n1.push_tokens([
-            Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
-            Token::simple(TokenKind::Identifier, b"foo"),
-        ]);
-        let n1 = GreenNode::new(n1);
-        let mut n2 = GreenNodeData::new(ArchitectureBody);
-        n2.push_tokens([
-            Token::simple(TokenKind::Keyword(Keyword::Architecture), b"architecture"),
-            Token::simple(TokenKind::Identifier, b"bar"),
-        ]);
-        let n2 = GreenNode::new(n2);
+        let n1 = GreenNode::from_tokens(
+            EntityDeclaration,
+            [
+                Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity"),
+                Token::simple(TokenKind::Identifier, b"foo"),
+            ],
+        );
+        let n2 = GreenNode::from_tokens(
+            ArchitectureBody,
+            [
+                Token::simple(TokenKind::Keyword(Keyword::Architecture), b"architecture"),
+                Token::simple(TokenKind::Identifier, b"bar"),
+            ],
+        );
+        let top =
+            GreenNode::from_children(DesignFile, [GreenChild::Node(n1), GreenChild::Node(n2)]);
 
-        top.push_children([GreenChild::Node(n1), GreenChild::Node(n2)]);
-
-        let s = SyntaxNode::new_root(GreenNode::new(top));
-        let first_token = s.first_token().expect("Node must have first token");
+        let s = SyntaxNode::new_root(top);
+        let first_token = s.first_token();
         assert!(first_token.kind() == TokenKind::Keyword(Keyword::Entity));
         // Same node
         let second_token = first_token
