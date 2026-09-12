@@ -27,10 +27,11 @@
 //! ```
 //!
 //! # Tree traversal
-//! Traversal cen be accommodated by the many methods on `SyntaxNode`, such as
+//! Traversal can be accommodated by several methods on `SyntaxNode`, such as
 //! [SyntaxNode::children], [SyntaxNode::parent] or [SyntaxNode::ancestors]. To traverse the tree
-//! in textual pre-order, for example, to search for a node of a certain type, use
-//! [Preorder](crate::syntax::Preorder).
+//! in textual pre-order, for example, to search for a node of a certain type, use one of the
+//! visitor methods, i.e., [SyntaxNode::walk], [SyntaxNode::descendants],
+//! [SyntaxNode::descendants_with_tokens] or [SyntaxNode::visit_tokens].
 //!
 //! # Mutability
 //! Once created, a [SyntaxNode] is immutable. To change the tree, for example, for refactorings,
@@ -54,7 +55,7 @@ use crate::syntax::child::Child;
 use crate::syntax::green::{GreenChild, GreenNode, GreenToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::rewrite::{RewriteAction, Rewriter};
-use crate::syntax::visitor::Preorder;
+use crate::syntax::visitor::{PreorderWithTokens, WalkEvent};
 use crate::tokens::{Token, TokenKind, Trivia};
 use std::fmt::Debug;
 use std::io::{self, Write};
@@ -694,9 +695,50 @@ impl SyntaxNode {
         }
     }
 
-    /// Walk the tree according to the textual order.
-    pub fn walk(&self) -> Preorder {
-        Preorder::new(self.clone())
+    /// Walks this node and everything below it in textual order.
+    ///
+    /// This is the most general traversal. Unless that is needed, one of
+    /// [descendants](Self::descendants), [descendants_with_tokens](Self::descendants_with_tokens)
+    /// or [visit_tokens](Self::visit_tokens) is usually simpler.
+    ///
+    /// The iterator yields
+    /// - a [WalkEvent::Enter] when entering a node, starting with this node itself,
+    /// - a [WalkEvent::Leave] when leaving a node, ending with this node itself,
+    /// - a [WalkEvent::Token] when visiting a token.
+    pub fn walk(&self) -> PreorderWithTokens {
+        PreorderWithTokens::new(self.clone())
+    }
+
+    /// Returns an iterator over this node and all nodes below it, in textual order.
+    /// Tokens are not visited; use [descendants_with_tokens](Self::descendants_with_tokens)
+    /// to visit those as well.
+    // TODO: could optimize performance further using a dedicated iterator.
+    // This currently visits both nodes and tokens and only filters nodes
+    pub fn descendants(&self) -> impl Iterator<Item = SyntaxNode> + use<'_> {
+        PreorderWithTokens::new(self.clone()).filter_map(|event| match event {
+            WalkEvent::Enter(node) => Some(node),
+            _ => None,
+        })
+    }
+
+    /// Returns an iterator over this node and every node as well as token below it,
+    /// in textual order.
+    pub fn descendants_with_tokens(&self) -> impl Iterator<Item = SyntaxElement> + use<'_> {
+        PreorderWithTokens::new(self.clone()).filter_map(|event| match event {
+            WalkEvent::Enter(node) => Some(SyntaxElement::Node(node)),
+            WalkEvent::Token(token) => Some(SyntaxElement::Token(token)),
+            _ => None,
+        })
+    }
+
+    /// Returns an iterator over all tokens below this node, in textual order.
+    /// As opposed to [tokens](Self::tokens), this searches deep, i.e., it also returns the
+    /// tokens of sub-nodes.
+    pub fn visit_tokens(&self) -> impl Iterator<Item = SyntaxToken> + use<'_> {
+        PreorderWithTokens::new(self.clone()).filter_map(|event| match event {
+            WalkEvent::Token(token) => Some(token),
+            _ => None,
+        })
     }
 }
 

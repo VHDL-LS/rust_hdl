@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 use vhdl_syntax::parser;
-use vhdl_syntax::syntax::visitor::WalkEvent;
 use vhdl_syntax::syntax::AstNode;
 use vhdl_syntax::syntax::EntityDeclarationSyntax;
 use vhdl_syntax::tokens::{Trivia, TriviaPiece};
@@ -35,10 +34,7 @@ end bar;
     // Walk the file filtering all entities.
     // Every walked AST node will be visited twice; once when entering and once when leaving.
     // Since we simply want to visit each entity, we only look at enter events.
-    for entity in file.walk().filter_map(|event| match event {
-        WalkEvent::Enter(node) => EntityDeclarationSyntax::cast(node),
-        WalkEvent::Leave(_) => None,
-    }) {
+    for entity in file.descendants().filter_map(EntityDeclarationSyntax::cast) {
         // We check the first token of the entity declaration
         let token = entity.first_token();
         // The trivia is where all auxiliary information concerning a token is stored,

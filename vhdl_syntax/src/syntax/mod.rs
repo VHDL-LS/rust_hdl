@@ -17,7 +17,6 @@
 //!
 //! ```
 //! use vhdl_syntax::parser;
-//! use vhdl_syntax::syntax::visitor::WalkEvent;
 //! use vhdl_syntax::syntax::{AstNode, EntityDeclarationSyntax, NodeKind};
 //!
 //! let (design, _) = parser::parse("\
@@ -27,11 +26,8 @@
 //!
 //! // Untyped: walk the tree and look at kinds.
 //! let entity = design
-//!     .walk()
-//!     .find_map(|event| match event {
-//!         WalkEvent::Enter(node) if node.kind() == NodeKind::EntityDeclaration => Some(node),
-//!         _ => None,
-//!     })
+//!     .descendants()
+//!     .find(|node| node.kind() == NodeKind::EntityDeclaration)
 //!     .unwrap();
 //!
 //! // Typed: the same node, addressed by name.
@@ -65,6 +61,7 @@ use std::ops::Deref;
 use crate::syntax::meta::Layout;
 pub use crate::syntax::node::{SyntaxElement, SyntaxNode, SyntaxToken};
 use crate::syntax::rewrite::RewriteAction;
+pub use crate::syntax::visitor::{PreorderWithTokens, WalkEvent};
 pub use crate::tokens::TokenKind;
 pub use generated::*;
 

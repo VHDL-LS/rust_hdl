@@ -14,8 +14,6 @@
 
 use vhdl_syntax::parser;
 use vhdl_syntax::parser::error::display_errors;
-use vhdl_syntax::syntax::node::SyntaxNode;
-use vhdl_syntax::syntax::visitor::WalkEvent;
 use vhdl_syntax::syntax::{
     AstNode, EntityDeclarationSyntax, InterfaceDeclarationSyntax, InterfaceListSyntax,
 };
@@ -48,19 +46,15 @@ end entity blinky;
         display_errors(&diagnostics)
     );
 
-    for entity in design.walk().filter_map(extract_entity_declaration) {
+    for entity in design
+        .descendants()
+        .filter_map(EntityDeclarationSyntax::cast)
+    {
         let name = extract_entity_name(&entity);
         let generics = extract_generics(&entity);
         let ports = extract_ports(&entity);
 
         println!("{}", build_testbench(&name, &generics, &ports));
-    }
-}
-
-fn extract_entity_declaration(event: WalkEvent<SyntaxNode>) -> Option<EntityDeclarationSyntax> {
-    match event {
-        WalkEvent::Enter(node) => EntityDeclarationSyntax::cast(node),
-        WalkEvent::Leave(_) => None,
     }
 }
 

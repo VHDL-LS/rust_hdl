@@ -13,7 +13,6 @@
 
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::validate::validator::check_node;
-use crate::syntax::visitor::{Preorder, WalkEvent};
 
 pub mod error;
 pub mod validator;
@@ -29,10 +28,8 @@ impl SyntaxNode {
     /// are reported against the child, not the root.
     pub fn validate(&self) -> Result<(), ValidationError> {
         let mut err = ValidationError::new();
-        for event in Preorder::new(self.clone()) {
-            if let WalkEvent::Enter(node) = event {
-                check_node(&node, &mut err);
-            }
+        for node in self.descendants() {
+            check_node(&node, &mut err);
         }
         err.into_result()
     }

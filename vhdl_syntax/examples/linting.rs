@@ -5,7 +5,6 @@
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
 use vhdl_syntax::parser;
-use vhdl_syntax::syntax::visitor::WalkEvent;
 use vhdl_syntax::syntax::AstNode;
 use vhdl_syntax::syntax::EntityDeclarationSyntax;
 
@@ -25,10 +24,10 @@ end entity bar;
         "Did not expect diagnostics for correct VHDL"
     );
     // Walk the input file and filter entity declarations.
-    for entity_declaration in design.walk().filter_map(|event| match event {
-        WalkEvent::Enter(node) => EntityDeclarationSyntax::cast(node),
-        WalkEvent::Leave(_) => None,
-    }) {
+    for entity_declaration in design
+        .descendants()
+        .filter_map(EntityDeclarationSyntax::cast)
+    {
         if let Some(first_ident) = entity_declaration
             .entity_declaration_preamble()
             .and_then(|preamble| preamble.identifier_token())
