@@ -16,6 +16,7 @@ extern crate self as vhdl_lang;
 pub mod ast;
 #[macro_use]
 mod analysis;
+mod api;
 mod config;
 mod data;
 mod lint;
