@@ -15,15 +15,15 @@ rust-version.workspace = true
 publish = true
 
 [dependencies]
-nonzero_ext = "0.3.0"
-rustc-hash = "2.1.3"
-serde = { version = "1.0.228", optional = true, features = ["derive"]}
+nonzero_ext.workspace = true
+rustc-hash.workspace = true
+serde = { workspace = true, optional = true, features = ["derive"] }
 
 [dev-dependencies]
-assert_matches = "1.5.0"
-pretty_assertions = "1.4.1"
-insta = { version = "1.36", features = ["redactions"] }
-similar = { version = "3.1.2", features = ["bytes"] }
+assert_matches.workspace = true
+pretty_assertions.workspace = true
+insta = { workspace = true, features = ["redactions"] }
+similar = { workspace = true, features = ["bytes"] }
 
 [features]
 serde = ["dep:serde"]
