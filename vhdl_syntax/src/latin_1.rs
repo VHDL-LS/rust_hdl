@@ -73,7 +73,7 @@ use std::borrow::{Borrow, Cow};
 use std::hash::{Hash, Hasher};
 use std::ops::{self, Range};
 use std::str::{self, FromStr};
-use std::{cmp, fmt, slice};
+use std::{cmp, fmt, slice, vec};
 
 /// An owned Latin-1 string type.
 pub struct Latin1String {
@@ -190,6 +190,10 @@ impl Latin1String {
 
     pub fn push(&mut self, byte: u8) {
         self.bytes.push(byte)
+    }
+
+    pub fn push_str(&mut self, string: impl AsRef<Latin1Str>) {
+        self.bytes.extend(string.as_ref());
     }
 
     pub fn append(&mut self, other: &mut Latin1String) {
@@ -326,6 +330,26 @@ impl Extend<u8> for Latin1String {
 impl<'a> Extend<&'a u8> for Latin1String {
     fn extend<T: IntoIterator<Item = &'a u8>>(&mut self, iter: T) {
         self.bytes.extend(iter);
+    }
+}
+
+impl IntoIterator for Latin1String {
+    type Item = u8;
+
+    type IntoIter = vec::IntoIter<u8>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.bytes.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a Latin1String {
+    type Item = &'a u8;
+
+    type IntoIter = slice::Iter<'a, u8>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.bytes.iter()
     }
 }
 
