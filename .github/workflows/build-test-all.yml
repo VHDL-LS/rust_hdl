@@ -26,7 +26,7 @@ jobs:
           - x86_64-pc-windows-msvc
           - aarch64-apple-darwin
         rust:
-          - stable
+          - "1.95" # MSRV, keep in sync with `rust-version` in Cargo.toml
 
         include:
           - target: x86_64-unknown-linux-gnu
@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
           target: ${{ matrix.target }}
@@ -76,15 +76,15 @@ jobs:
         run: cargo test --manifest-path ${{ matrix.crate.name }}/Cargo.toml --release --target ${{ matrix.target }}
 
       - name: rustfmt
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu' && matrix.rust == 'stable' }}
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu' && matrix.rust == '1.95' }}
         run: cargo fmt --manifest-path ${{ matrix.crate.name }}/Cargo.toml -- --check
 
       - name: clippy
-        if: ${{ matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu' && matrix.rust == 'stable' }}
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu' && matrix.rust == '1.95' }}
         run: cargo clippy --manifest-path ${{ matrix.crate.name }}/Cargo.toml --all-targets --all-features -- -D warnings
 
       - name: Assemble
-        if: ${{ matrix.crate.binary == true && matrix.rust == 'stable' }}
+        if: ${{ matrix.crate.binary == true && matrix.rust == '1.95' }}
         run: |
           mkdir ${{ matrix.crate.name }}-${{ matrix.target }}
           mkdir ${{ matrix.crate.name }}-${{ matrix.target }}/bin
@@ -92,7 +92,7 @@ jobs:
           cp target/${{ matrix.target }}/release/${{ matrix.crate.name }}${{ matrix.ext }} ${{ matrix.crate.name }}-${{ matrix.target }}/bin
 
       - name: Upload
-        if: ${{ matrix.crate.binary == true && matrix.rust == 'stable' }}
+        if: ${{ matrix.crate.binary == true && matrix.rust == '1.95' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: ${{ matrix.crate.name }}-${{ matrix.target }}
@@ -103,8 +103,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.95" # MSRV
           components: rustfmt
       - name: Check generated code is up-to-date
         run: cargo xtask codegen --check
@@ -116,8 +117,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.95" # MSRV
           components: rustfmt, clippy
 
       - name: Cache cargo
@@ -147,8 +149,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.95" # MSRV
           components: rustfmt, clippy
 
       - name: Build
