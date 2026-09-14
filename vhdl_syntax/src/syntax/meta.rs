@@ -35,6 +35,31 @@ pub enum Layout {
     List(List),
 }
 
+impl Layout {
+    /// Returns the concrete node kinds that a node with this layout can have.
+    ///
+    /// For a sequence or list, this is the node's own kind.
+    /// For a choice, these are all kinds that the choice covers.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use vhdl_syntax::syntax::{AstNode, NodeKind, TargetSyntax, EntityDeclarationSyntax};
+    /// // A Target can be a name target (`foo <= ...`) or an aggregate target (`(foo, bar) <= ...`)
+    /// assert_eq!(TargetSyntax::META.concrete_kinds(), &[NodeKind::NameTarget, NodeKind::AggregateTarget]);
+    ///
+    /// // An EntityDeclarationSyntax is always an EntityDeclaration
+    /// assert_eq!(EntityDeclarationSyntax::META.concrete_kinds(), &[NodeKind::EntityDeclaration]);
+    /// ```
+    pub fn concrete_kinds(&self) -> &[NodeKind] {
+        match self {
+            Layout::Sequence(sequence) => std::slice::from_ref(&sequence.kind),
+            Layout::Choice(choices) => choices.options,
+            Layout::List(list) => std::slice::from_ref(&list.kind),
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone)]
 /// The Layout of a Syntax Node
 pub struct Sequence {
