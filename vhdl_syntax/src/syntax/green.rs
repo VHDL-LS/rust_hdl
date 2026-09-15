@@ -9,6 +9,7 @@ use crate::non_empty::NonEmpty;
 use crate::syntax::child::Child;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::{Token, TokenKind, Trivia};
+use std::slice;
 use std::io::{self, Write};
 use std::slice;
 use std::sync::Arc;
