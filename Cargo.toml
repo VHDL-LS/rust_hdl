@@ -13,11 +13,18 @@ members = [
     "vhdl_syntax",
     "xtask",
     "vhdl-dump-ast",
+    "vhdl-lint",
 ]
 
 # By default, do not include members that are only needed at build-time
 # e.g., (vhdl_lang_macros, xtask)
-default-members = ["vhdl_lang", "vhdl_ls", "vhdl_syntax", "vhdl-dump-ast"]
+default-members = [
+    "vhdl_lang",
+    "vhdl_ls",
+    "vhdl_syntax",
+    "vhdl-dump-ast",
+    "vhdl-lint",
+]
 
 [workspace.package]
 version = "0.88.0"
@@ -34,6 +41,8 @@ vhdl_lang = { version = "^0.88.0", path = "vhdl_lang" }
 vhdl_lang_macros = { version = "^0.88.0", path = "vhdl_lang_macros" }
 vhdl_syntax = { version = "0.2.0", path = "vhdl_syntax" }
 
+annotate-snippets = "0.12.16"
+anstream = "1.0.0"
 anyhow = "1.0.52"
 clap = { version = "4.1.14", features = ["derive"] }
 convert_case = "0.12"
@@ -44,6 +53,7 @@ env_logger = "0.11.8"
 fnv = "1.0.5"
 fuzzy-matcher = "0.3.7"
 glob = "0.3.2"
+ignore = "0.4.30"
 itertools = "0.15"
 log = "0.4.27"
 lsp-types = "^0.95.1"
