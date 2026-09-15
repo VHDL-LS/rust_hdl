@@ -59,7 +59,7 @@ pub mod visitor;
 use std::ops::Deref;
 
 use crate::syntax::meta::Layout;
-pub use crate::syntax::node::{SyntaxElement, SyntaxNode, SyntaxToken};
+pub use crate::syntax::node::{ChildrenWithTokens, SyntaxElement, SyntaxNode, SyntaxToken};
 use crate::syntax::rewrite::RewriteAction;
 pub use crate::syntax::visitor::{PreorderWithTokens, WalkEvent};
 pub use crate::tokens::TokenKind;

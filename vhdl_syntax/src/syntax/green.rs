@@ -10,6 +10,7 @@ use crate::syntax::child::Child;
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::{Token, TokenKind, Trivia};
 use std::io::{self, Write};
+use std::slice;
 use std::sync::Arc;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -104,7 +105,7 @@ impl GreenNode {
         )
     }
 
-    pub fn children(&self) -> impl Iterator<Item = &GreenChild> {
+    pub fn children(&self) -> slice::Iter<'_, GreenChild> {
         self.0.children.iter()
     }
 

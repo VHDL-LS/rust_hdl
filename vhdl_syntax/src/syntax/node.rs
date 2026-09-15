@@ -59,9 +59,10 @@ use crate::syntax::visitor::{PreorderWithTokens, WalkEvent};
 use crate::tokens::{Token, TokenKind, Trivia};
 use std::fmt::Debug;
 use std::io::{self, Write};
-use std::iter;
+use std::iter::FusedIterator;
 use std::ops::Range;
 use std::sync::Arc;
+use std::{iter, slice};
 
 /// A union of either a child or a token
 pub type SyntaxElement = Child<SyntaxNode, SyntaxToken>;
@@ -369,6 +370,67 @@ impl Debug for SyntaxNode {
     }
 }
 
+/// Iterator over the direct children (nodes and tokens) of a [SyntaxNode].
+#[derive(Debug, Clone)]
+pub struct ChildrenWithTokens<'a> {
+    index: usize,
+    itr: slice::Iter<'a, GreenChild>,
+    offset: usize,
+    parent: SyntaxNode,
+}
+
+impl<'a> Iterator for ChildrenWithTokens<'a> {
+    type Item = SyntaxElement;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let child = self.itr.next()?;
+        let child_len = child.byte_len();
+        let next_child = match child {
+            Child::Token(token) => Child::Token(SyntaxToken::new(
+                self.offset,
+                self.index,
+                self.parent.clone(),
+                token.clone(),
+            )),
+            Child::Node(node) => Child::Node(SyntaxNode::new_child(
+                self.offset,
+                self.index,
+                self.parent.clone(),
+                node.clone(),
+            )),
+        };
+        self.offset += child_len;
+        self.index += 1;
+        Some(next_child)
+    }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        for _ in 0..n {
+            let child = self.itr.next()?;
+            self.offset += child.byte_len();
+            self.index += 1;
+        }
+        self.next()
+    }
+
+    fn last(mut self) -> Option<Self::Item> {
+        let len = self.len();
+        self.nth(len.checked_sub(1)?)
+    }
+
+    fn count(self) -> usize {
+        self.len()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.itr.size_hint()
+    }
+}
+
+impl<'a> ExactSizeIterator for ChildrenWithTokens<'a> {}
+
+impl<'a> FusedIterator for ChildrenWithTokens<'a> {}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct SyntaxNodeData {
     offset: usize,
@@ -401,28 +463,13 @@ impl SyntaxNode {
     /// Produces an iterator over all direct children of this node in lexicographical order
     /// (i.e., as written in the source text).
     /// As opposed of simply [SyntaxNode::children], this includes tokens too.
-    pub fn children_with_tokens(
-        &self,
-    ) -> impl Iterator<Item = Child<SyntaxNode, SyntaxToken>> + use<'_> {
-        let parent_offset = self.offset();
-        self.green()
-            .children()
-            .enumerate()
-            .scan(0usize, move |run, (i, child)| {
-                let child_offset = parent_offset + *run;
-                *run += child.byte_len();
-                Some(match child {
-                    Child::Token(t) => {
-                        Child::Token(SyntaxToken::new(child_offset, i, self.clone(), t.clone()))
-                    }
-                    Child::Node(n) => Child::Node(SyntaxNode::new_child(
-                        child_offset,
-                        i,
-                        self.clone(),
-                        n.clone(),
-                    )),
-                })
-            })
+    pub fn children_with_tokens(&self) -> ChildrenWithTokens<'_> {
+        ChildrenWithTokens {
+            index: 0,
+            itr: self.green().children(),
+            offset: self.offset(),
+            parent: self.clone(),
+        }
     }
 
     /// Produces an iterator over all direct (i.e., not nested) child syntax nodes.
