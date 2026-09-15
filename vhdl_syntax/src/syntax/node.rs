@@ -51,7 +51,7 @@
 //! Many known optimization possibilities are currently ignored.
 
 use crate::latin_1::{Latin1Str, Latin1String, Utf8ToLatin1Error};
-use crate::syntax::child::Child;
+use crate::syntax::child::{Child, ChildKind};
 use crate::syntax::green::{GreenChild, GreenNode, GreenToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::rewrite::{RewriteAction, Rewriter};
@@ -88,6 +88,13 @@ impl SyntaxElement {
         match self {
             Child::Node(node) => node.parent(),
             Child::Token(token) => Some(token.parent()),
+        }
+    }
+
+    pub fn kind(&self) -> ChildKind {
+        match self {
+            Child::Node(node) => Child::Node(node.kind()),
+            Child::Token(token) => Child::Token(token.kind()),
         }
     }
 }
@@ -377,6 +384,12 @@ pub struct ChildrenWithTokens<'a> {
     itr: slice::Iter<'a, GreenChild>,
     offset: usize,
     parent: SyntaxNode,
+}
+
+impl<'a> ChildrenWithTokens<'a> {
+    pub fn kind_at(&self, index: usize) -> Option<ChildKind> {
+        self.itr.as_slice().get(index).map(|child| child.kind())
+    }
 }
 
 impl<'a> Iterator for ChildrenWithTokens<'a> {

@@ -6,7 +6,7 @@
 // Copyright (c)  2024, Lukas Scheller lukasscheller@icloud.com
 use crate::latin_1::Latin1Str;
 use crate::non_empty::NonEmpty;
-use crate::syntax::child::Child;
+use crate::syntax::child::{Child, ChildKind};
 use crate::syntax::node_kind::NodeKind;
 use crate::tokens::{Token, TokenKind, Trivia};
 use std::io::{self, Write};
@@ -50,6 +50,15 @@ impl GreenToken {
 pub(crate) struct GreenNode(Arc<GreenNodeData>);
 
 pub(crate) type GreenChild = Child<GreenNode, GreenToken>;
+
+impl GreenChild {
+    pub fn kind(&self) -> ChildKind {
+        match self {
+            Child::Node(node) => Child::Node(node.kind()),
+            Child::Token(token) => Child::Token(token.kind()),
+        }
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub(crate) struct GreenNodeData {
