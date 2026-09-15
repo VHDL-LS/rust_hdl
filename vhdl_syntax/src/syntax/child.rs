@@ -10,7 +10,7 @@ use crate::{syntax::NodeKind, tokens::TokenKind};
 ///
 /// This enum is generic to accommodate for the different kinds of childs
 /// (for example, the internal `GreenChild` or the public `SyntaxElement`)
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum Child<N, T> {
     Node(N),
     Token(T),
