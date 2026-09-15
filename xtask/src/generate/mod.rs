@@ -11,6 +11,8 @@ pub mod meta;
 pub use meta::MetaGenerator;
 pub mod syntax_nodes;
 pub use syntax_nodes::SyntaxNodeGenerator;
+pub mod valid_nodes;
+pub use valid_nodes::ValidNodeGenerator;
 
 use crate::model::Model;
 use anyhow::Result;
