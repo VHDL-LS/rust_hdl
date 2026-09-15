@@ -89,7 +89,7 @@ fn generate_choice_enum(node: &ChoiceNode, model: &Model) -> TokenStream {
 ///
 /// `Model::check_choice_alternatives_are_nodes` has already ruled out an alternative that
 /// renames a token, so this only has to peel aliases.
-fn resolved_alternative(kind: &NodeKind, model: &Model) -> NodeKind {
+pub(crate) fn resolved_alternative(kind: &NodeKind, model: &Model) -> NodeKind {
     match model.resolve_alias(kind) {
         NodeOrTokenKind::Node(kind) => kind,
         NodeOrTokenKind::Token(_) => {
@@ -475,6 +475,8 @@ fn generate_mod() -> TokenStream {
 
         pub mod meta;
         pub use meta::*;
+
+        pub mod valid_nodes;
     }
 }
 

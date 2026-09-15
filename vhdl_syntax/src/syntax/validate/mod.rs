@@ -15,6 +15,7 @@ use crate::syntax::node::SyntaxNode;
 use crate::syntax::validate::validator::check_node;
 
 pub mod error;
+pub mod valid_node;
 pub mod validator;
 
 pub use error::{Missing, ValidationError};

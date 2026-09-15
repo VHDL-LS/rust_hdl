@@ -7,7 +7,7 @@
 use clap::{Parser, Subcommand};
 use generate::{
     check_generators, run_generators, BuilderGenerator, Generator, MetaGenerator,
-    SyntaxNodeGenerator,
+    SyntaxNodeGenerator, ValidNodeGenerator,
 };
 use model::load_model;
 use std::path::Path;
@@ -59,8 +59,12 @@ fn main() {
             let output_dir = workspace_root.join("vhdl_syntax/src/syntax/generated");
             let file = workspace_root.join("xtask/doc/vhdl-08-modified.ungram");
             let model = load_model(&file);
-            let generators: &[&dyn Generator] =
-                &[&SyntaxNodeGenerator, &BuilderGenerator, &MetaGenerator];
+            let generators: &[&dyn Generator] = &[
+                &SyntaxNodeGenerator,
+                &BuilderGenerator,
+                &MetaGenerator,
+                &ValidNodeGenerator,
+            ];
 
             if check {
                 let stale = check_generators(generators, &model, &output_dir)
