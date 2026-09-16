@@ -1,0 +1,52 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+
+    architecture a of e is
+    begin
+        lbl : postponed for i in r generate
+        end generate;
+    end architecture;
+    
+
+== tree ==
+ArchitectureBody
+  ArchitecturePreamble
+    Keyword(Architecture)
+    Identifier 'a'
+    Keyword(Of)
+    Name
+      NameDesignatorPrefix
+        Identifier 'e'
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  ArchitectureStatementPart
+    ForGenerateStatement
+      StmtLabel
+        Identifier 'lbl'
+        Colon
+      Keyword(Postponed)
+      ForGeneratePreamble
+        Keyword(For)
+        ParameterSpecification
+          Identifier 'i'
+          Keyword(In)
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                Identifier 'r'
+        Keyword(Generate)
+      GenerateEpilogue
+        Keyword(End)
+        Keyword(Generate)
+        SemiColon
+  ArchitectureEpilogue
+    Keyword(End)
+    Keyword(Architecture)
+    SemiColon
+
+== diagnostics ==
+4:15..4:24 unexpected 'postponed'

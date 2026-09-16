@@ -4,10 +4,12 @@
 //
 // Copyright (c)  2025, Lukas Scheller lukasscheller@icloud.com
 
+use crate::parser::error::SyntaxErrKind;
 use crate::parser::marker::{CompletedMarker, Marker, Precede, UnknownMarker};
 use crate::parser::productions::declarations::is_start_of_declarative_part;
 use crate::parser::util::{choice_options, StallGuard};
 use crate::parser::Parser;
+use crate::syntax::child::ChildKind;
 use crate::syntax::meta::Layout;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::syntax::{
@@ -21,6 +23,7 @@ impl Parser {
     pub(crate) fn block_statement(&mut self) -> CompletedMarker {
         self.node(BlockStatement, |p| {
             p.label();
+            p.reject_postponed();
             p.block_preamble();
             p.block_header();
             p.block_declarative_part();
@@ -157,6 +160,7 @@ impl Parser {
     pub(crate) fn component_instantiation_statement(&mut self) -> CompletedMarker {
         self.node(ComponentInstantiationStatement, |p| {
             p.label();
+            p.reject_postponed();
             p.instantiated_unit();
             p.instantiation_statement_inner();
             p.expect_token(SemiColon);
@@ -189,6 +193,17 @@ impl Parser {
             marker
         } else {
             unknown.resolve(self, ConcurrentSimpleSignalAssignment)
+        }
+    }
+
+    /// Concurrent statements match on `postponed`.
+    /// This rejects them for those that don't accept the keyword (generate statements,
+    /// block statements, ...) to avoid infinite recursion.
+    fn reject_postponed(&mut self) {
+        if self.opt_token(Keyword(Kw::Postponed)) {
+            self.push_err(SyntaxErrKind::Unexpected(ChildKind::Token(Keyword(
+                Kw::Postponed,
+            ))));
         }
     }
 
@@ -323,6 +338,7 @@ impl Parser {
     pub(crate) fn case_generate_statement(&mut self) -> CompletedMarker {
         self.node(CaseGenerateStatement, |p| {
             p.label();
+            p.reject_postponed();
             p.case_generate_preamble();
             p.case_generate_alternative();
             while p.next_is(Keyword(Kw::When)) {
@@ -353,6 +369,7 @@ impl Parser {
     pub(crate) fn for_generate_statement(&mut self) -> CompletedMarker {
         self.node(ForGenerateStatement, |p| {
             p.label();
+            p.reject_postponed();
             p.for_generate_preamble();
             p.generate_statement_body();
             p.generate_epilogue();
@@ -407,6 +424,7 @@ impl Parser {
     pub(crate) fn if_generate_statement(&mut self) -> CompletedMarker {
         self.node(IfGenerateStatement, |p| {
             p.label();
+            p.reject_postponed();
             p.if_generate_if();
             while p.next_is(Keyword(Kw::Elsif)) {
                 p.if_generate_elsif();
@@ -1034,6 +1052,20 @@ architecture a of e is
   begin
     use work.all;
   end architecture;",
+            Parser::architecture
+        );
+    }
+
+    #[test]
+    fn reproducer() {
+        assert_recovery_snapshot!(
+            "
+    architecture a of e is
+    begin
+        lbl : postponed for i in r generate
+        end generate;
+    end architecture;
+    ",
             Parser::architecture
         );
     }
