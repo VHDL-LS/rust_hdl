@@ -34,9 +34,11 @@
 //!
 //! [`parse`] currently only works for VHDL-2008 without Property Specification Language (PSL) statements.
 //! Supporting more revisions is forseen in the future.
+use crate::parser::error::SyntaxErr;
 use crate::parser::error_recovery::RecoveryState;
 use crate::standard::VHDLStandard;
 use crate::syntax::node::SyntaxNode;
+use crate::syntax::validate::valid_node::Valid;
 use crate::syntax::{DesignFileSyntax, NodeKind};
 use crate::tokens::TokenStream;
 
@@ -90,6 +92,19 @@ pub fn parse(token_stream: impl Into<TokenStream>) -> (DesignFileSyntax, Vec<err
     parse_with_standard(VHDLStandard::default(), token_stream)
 }
 
+pub struct ParseError {
+    pub file: DesignFileSyntax,
+    pub errors: Vec<SyntaxErr>,
+}
+
+/// Parse and return a VHDL file using the default VHDL standard.
+/// As opposed to `parse`, this function returns a validated file or an error.
+///
+/// Use [`parse_valid_with_standard`] to use a non-default VHDL standard.
+pub fn parse_valid(input: impl Into<TokenStream>) -> Result<Valid<DesignFileSyntax>, ParseError> {
+    parse_valid_with_standard(VHDLStandard::default(), input)
+}
+
 /// Parse and return a VHDL file, tokenizing and parsing under the given `standard`.
 ///
 /// **Note**: This is mostly a placeholder right now. Currently, not much changes
@@ -103,6 +118,20 @@ pub fn parse_with_standard(
     let (syntax_node, diagnostics) = parser.into_root();
     debug_assert!(syntax_node.kind() == NodeKind::DesignFile);
     (DesignFileSyntax(syntax_node), diagnostics)
+}
+
+/// Like [parse_with_standard], but returns a validated fle or an error.
+pub fn parse_valid_with_standard(
+    standard: VHDLStandard,
+    input: impl Into<TokenStream>,
+) -> Result<Valid<DesignFileSyntax>, ParseError> {
+    let (file, errors) = parse_with_standard(standard, input);
+    if errors.is_empty() {
+        // no syntax errors implies no validation errors.
+        Ok(Valid::new_unchecked(file))
+    } else {
+        Err(ParseError { file, errors })
+    }
 }
 
 #[cfg(test)]

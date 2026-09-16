@@ -17,7 +17,7 @@ fn unparse(file: &DesignFileSyntax) -> Vec<u8> {
 }
 
 fuzz_target!(|data: &[u8]| {
-    let (file, _diagnostics) = parse(data);
+    let (file, diagnostics) = parse(data);
 
     let unparsed = unparse(&file);
     assert!(
@@ -26,4 +26,8 @@ fuzz_target!(|data: &[u8]| {
         String::from_utf8_lossy(data),
         String::from_utf8_lossy(&unparsed),
     );
+
+    if diagnostics.is_empty() {
+        assert!(file.validate().is_ok())
+    }
 });
