@@ -9,7 +9,7 @@
 //! This module provides the [`VHDLStandard`] enum to represent all supported VHDL versions
 //! and methods to work with standards.
 
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 /// VHDL standard version.
 ///
@@ -95,12 +95,12 @@ impl std::fmt::Display for ParseVHDLStandardError {
 
 impl std::error::Error for ParseVHDLStandardError {}
 
-impl TryFrom<&str> for VHDLStandard {
-    type Error = ParseVHDLStandardError;
+impl FromStr for VHDLStandard {
+    type Err = ParseVHDLStandardError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         use VHDLStandard::*;
-        Ok(match value {
+        Ok(match s {
             "1987" | "87" => VHDL1987,
             "1993" | "93" => VHDL1993,
             "2000" | "00" => VHDL2000,
