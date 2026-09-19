@@ -20,6 +20,7 @@ jobs:
           - { name: "vhdl_ls", binary: true }
           - { name: "vhdl_syntax", binary: false }
           - { name: "vhdl-dump-ast", binary: false }
+          - { name: "vhdl-lint", binary: false }
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
