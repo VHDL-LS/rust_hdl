@@ -56,7 +56,7 @@ impl EncodedSpan {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct WideChar {
     // Byte offset relative to line start
     offset: usize,
@@ -97,6 +97,7 @@ impl WideChar {
 /// let loc = converter.source_loc(42);
 /// // loc.line and loc.col are zero-based, with col in UTF-16 code units.
 /// ```
+#[derive(Debug, Clone)]
 pub struct SourceLocConverter {
     line_starts: Vec<usize>,
     text_len: usize,
