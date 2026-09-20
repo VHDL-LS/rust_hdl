@@ -1529,6 +1529,7 @@ name = "vhdl_syntax"
 version = "0.2.0"
 dependencies = [
  "assert_matches",
+ "brunch",
  "insta",
  "nonzero_ext",
  "pretty_assertions",

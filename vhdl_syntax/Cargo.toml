@@ -24,6 +24,7 @@ assert_matches.workspace = true
 pretty_assertions.workspace = true
 insta = { workspace = true, features = ["redactions"] }
 similar = { workspace = true, features = ["bytes"] }
+brunch.workspace = true
 
 [features]
 serde = ["dep:serde"]
@@ -31,3 +32,11 @@ default = []
 
 [package.metadata.docs.rs]
 all-features = true
+
+[[bench]]
+name = "tokenize"
+harness = false
+
+[[bench]]
+name = "parse"
+harness = false
