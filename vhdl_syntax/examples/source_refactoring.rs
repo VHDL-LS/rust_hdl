@@ -24,7 +24,7 @@ use vhdl_syntax::syntax::EntityDeclarationBuilder;
 use vhdl_syntax::syntax::EntityDeclarationEpilogueBuilder;
 use vhdl_syntax::syntax::EntityDeclarationPreambleBuilder;
 use vhdl_syntax::syntax::EntityDeclarationSyntax;
-use vhdl_syntax::tokens::Trivia;
+use vhdl_syntax::tokens::TriviaBuf;
 use vhdl_syntax::tokens::TriviaPiece;
 
 fn main() {
@@ -53,14 +53,14 @@ end foobar;
     let replacement_entity = EntityDeclarationBuilder::new(
         EntityDeclarationPreambleBuilder::new(b"no_longer_foo")
             // Clear the default-inserted space before the `entity` token
-            .with_entity_token_trivia(Trivia::new()),
+            .with_entity_token_trivia(TriviaBuf::new()),
     )
     .with_entity_declaration_epilogue(
         EntityDeclarationEpilogueBuilder::new()
             // Replace space between 'is' and 'end' with newline
-            .with_end_token_trivia(Trivia::from([TriviaPiece::LineFeeds(1)]))
+            .with_end_token_trivia(TriviaBuf::from([TriviaPiece::LineFeeds(1)]))
             .with_simple_name(b"no_longer_foo")
-            .with_semi_colon_token_trivia(Trivia::new()),
+            .with_semi_colon_token_trivia(TriviaBuf::new()),
     )
     .build();
 

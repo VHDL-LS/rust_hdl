@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::str::FromStr;
-use vhdl_syntax::tokens::{Token, TokenKind, Tokenizer, Trivia};
+use vhdl_syntax::tokens::{Token, TokenKind, Tokenizer, TriviaBuf};
 
 /// Upper bound on the number of repetitions generated for a `Rep` rule.
 const MAX_REPETITIONS: usize = 8;
@@ -42,7 +42,7 @@ impl Grammar {
         let opaque = opaque
             .iter()
             .map(|(name, text)| {
-                let token = Token::new(TokenKind::Identifier, *text, Trivia::default());
+                let token = Token::new(TokenKind::Identifier, *text, TriviaBuf::default());
                 (node_by_name(name), token)
             })
             .collect();
@@ -58,7 +58,7 @@ impl Grammar {
 
 /// Build the token a grammar terminal stands for.
 fn terminal_token(path: &str, name: &str) -> Token {
-    let literal = |kind, text: &[u8]| Token::new(kind, text, Trivia::default());
+    let literal = |kind, text: &[u8]| Token::new(kind, text, TriviaBuf::default());
     if let Some(class) = name.strip_prefix('#') {
         return match class {
             "identifier" => literal(TokenKind::Identifier, b"i"),
@@ -114,7 +114,7 @@ impl<G: GrammarSource> Arbitrary<'_> for Design<G> {
         if generator.tokens.last().map(Token::kind) != Some(TokenKind::Eof) {
             generator
                 .tokens
-                .push(Token::new(TokenKind::Eof, b"", Trivia::default()));
+                .push(Token::new(TokenKind::Eof, b"", TriviaBuf::default()));
         }
         Ok(Design {
             tokens: generator.tokens,

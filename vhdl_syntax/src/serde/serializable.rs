@@ -4,14 +4,14 @@ use crate::serde::flags::SerdeFlags;
 
 /// Utility helper to serialize Syntax elements (i.e., nodes, tokens, ...).
 /// Usually constructed via [ToSerializable](crate::serde::ToSerializable)
-pub struct Serializable<'a, T> {
+pub struct Serializable<'a, T: ?Sized> {
     /// The actual data to serialize
     pub(crate) inner: &'a T,
     /// Flags relevant when serializing
     pub(crate) flags: Rc<SerdeFlags>,
 }
 
-impl<'a, T> Serializable<'a, T> {
+impl<'a, T: ?Sized> Serializable<'a, T> {
     pub fn new(inner: &'a T, flags: impl Into<Rc<SerdeFlags>>) -> Serializable<'a, T> {
         Serializable {
             inner,
@@ -23,7 +23,7 @@ impl<'a, T> Serializable<'a, T> {
         Self::new(inner, SerdeFlags::default())
     }
 
-    pub fn new_with_same_flags<'b, U>(&self, new_inner: &'b U) -> Serializable<'b, U> {
+    pub fn new_with_same_flags<'b, U: ?Sized>(&self, new_inner: &'b U) -> Serializable<'b, U> {
         Serializable::new(new_inner, self.flags.clone())
     }
 }

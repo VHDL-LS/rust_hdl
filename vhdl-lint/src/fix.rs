@@ -3,7 +3,7 @@ use vhdl_syntax::{
     parser::error::Span,
     standard::VHDLStandard,
     syntax::SyntaxToken,
-    tokens::{token::requires_separator, Keyword, Token, TokenKind, Trivia},
+    tokens::{token::requires_separator, Keyword, Token, TokenKind, TriviaBuf},
 };
 
 #[derive(Debug, Clone)]
@@ -97,7 +97,7 @@ impl Edits {
 
     pub fn insert_after(&self, token: &SyntaxToken, replacement: impl Into<TokenData>) -> Edit {
         let replacement = replacement.into();
-        let new_token = Token::new(replacement.kind, replacement.text, Trivia::default());
+        let new_token = Token::new(replacement.kind, replacement.text, TriviaBuf::default());
         let requires_sep = requires_separator(token.token(), &new_token, self.standard);
         // Keywords usually look nicer with a leading space.
         let mut replacement = if matches!(new_token.kind(), TokenKind::Keyword(_)) || requires_sep {

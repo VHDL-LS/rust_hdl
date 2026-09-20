@@ -56,7 +56,7 @@ use crate::syntax::green::{GreenChild, GreenNode, GreenToken};
 use crate::syntax::node_kind::NodeKind;
 use crate::syntax::rewrite::{RewriteAction, Rewriter};
 use crate::syntax::visitor::{PreorderWithTokens, WalkEvent};
-use crate::tokens::{Token, TokenKind, Trivia};
+use crate::tokens::{Token, TokenKind, Trivia, TriviaBuf};
 use std::fmt::Debug;
 use std::io::{self, Write};
 use std::iter::FusedIterator;
@@ -194,7 +194,7 @@ impl SyntaxToken {
     /// Returns all trailing trivia between this token and the next one, resp. only the trailing
     /// trivia of this token, if there is no next token.
     /// TODO: After trivia-interning, we should be able to return `&Trivia` here, similar to `leading_trivia`
-    pub fn trailing_trivia(&self) -> Trivia {
+    pub fn trailing_trivia(&self) -> TriviaBuf {
         self.next_token()
             .map(|tok| tok.leading_trivia().to_owned())
             .unwrap_or_default()
@@ -282,11 +282,11 @@ impl SyntaxToken {
     }
 
     pub fn clone_with_text(&self, text: impl AsRef<Latin1Str>) -> SyntaxToken {
-        let token = Token::new(self.kind(), text, self.green().leading_trivia().clone());
+        let token = Token::new(self.kind(), text, self.green().leading_trivia().to_owned());
         self.clone_with_token(token)
     }
 
-    pub fn clone_with_leading_trivia(&self, trivia: Trivia) -> SyntaxToken {
+    pub fn clone_with_leading_trivia(&self, trivia: TriviaBuf) -> SyntaxToken {
         let token = Token::new(self.kind(), self.green().text(), trivia);
         self.clone_with_token(token)
     }
@@ -839,7 +839,7 @@ mod tests {
     use crate::syntax::node_kind::NodeKind::*;
     use crate::syntax::rewrite::RewriteAction;
     use crate::tokens::Tokenize;
-    use crate::tokens::{Keyword, Token, TokenKind, Trivia, TriviaPiece};
+    use crate::tokens::{Keyword, Token, TokenKind, TriviaBuf, TriviaPiece};
     use pretty_assertions::assert_eq;
     use std::collections::VecDeque;
 
@@ -847,7 +847,7 @@ mod tests {
     fn no_leading_trivia() {
         let token = Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity");
         let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, [token]));
-        assert_eq!(node.first_token().leading_trivia(), &Trivia::default());
+        assert_eq!(node.first_token().leading_trivia(), &TriviaBuf::default());
     }
 
     #[test]
@@ -855,12 +855,12 @@ mod tests {
         let token = Token::new(
             TokenKind::Keyword(Keyword::Entity),
             b"entity",
-            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
+            TriviaBuf::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
         );
         let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, [token]));
         assert_eq!(
             node.first_token().leading_trivia(),
-            &Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
+            &TriviaBuf::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
 
@@ -870,18 +870,18 @@ mod tests {
             Token::new(
                 TokenKind::Keyword(Keyword::Entity),
                 b"entity",
-                Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
+                TriviaBuf::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             ),
             Token::new(
                 TokenKind::Identifier,
                 b"foo",
-                Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
+                TriviaBuf::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             ),
         ];
         let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, tokens));
         assert_eq!(
             node.tokens().nth(1).unwrap().leading_trivia(),
-            &Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
+            &TriviaBuf::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
 
@@ -889,7 +889,7 @@ mod tests {
     fn no_trailing_trivia() {
         let token = Token::simple(TokenKind::Keyword(Keyword::Entity), b"entity");
         let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, [token]));
-        assert_eq!(node.first_token().trailing_trivia(), Trivia::default());
+        assert_eq!(node.first_token().trailing_trivia(), TriviaBuf::default());
     }
 
     #[test]
@@ -898,18 +898,18 @@ mod tests {
             Token::new(
                 TokenKind::Keyword(Keyword::Entity),
                 b"entity",
-                Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
+                TriviaBuf::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             ),
             Token::new(
                 TokenKind::Identifier,
                 b"foo",
-                Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
+                TriviaBuf::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)]),
             ),
         ];
         let node = SyntaxNode::new_root(GreenNode::from_tokens(EntityDeclaration, tokens));
         assert_eq!(
             node.first_token().trailing_trivia(),
-            Trivia::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
+            TriviaBuf::from([TriviaPiece::Spaces(2), TriviaPiece::LineFeeds(1)])
         );
     }
 
@@ -992,7 +992,7 @@ mod tests {
                 Token::new(
                     TokenKind::Keyword(Keyword::Entity),
                     b"entity",
-                    Trivia::from([TriviaPiece::Spaces(2)]),
+                    TriviaBuf::from([TriviaPiece::Spaces(2)]),
                 ),
                 Token::simple(TokenKind::Identifier, b"foo"),
             ],

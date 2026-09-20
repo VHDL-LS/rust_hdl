@@ -7,7 +7,7 @@
 use crate::interning::{Interned, Interner};
 use crate::latin_1::Latin1Str;
 use crate::standard::VHDLStandard;
-use crate::tokens::{TokenKind, TokenStream, Tokenizer, Trivia};
+use crate::tokens::{TokenKind, TokenStream, Tokenizer, Trivia, TriviaBuf};
 use std::fmt::Debug;
 use std::io::{self, Write};
 use std::sync::RwLock;
@@ -17,7 +17,7 @@ static STR_INTERNER: RwLock<Interner<Latin1Str>> = RwLock::new(Interner::new());
 /// A source-code token.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Token {
-    pub(crate) leading_trivia: Trivia,
+    pub(crate) leading_trivia: TriviaBuf,
     kind: TokenKind,
     text: Interned<Latin1Str>,
 }
@@ -33,7 +33,7 @@ impl Debug for Token {
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, text: impl AsRef<Latin1Str>, leading_trivia: Trivia) -> Token {
+    pub fn new(kind: TokenKind, text: impl AsRef<Latin1Str>, leading_trivia: TriviaBuf) -> Token {
         Token {
             leading_trivia,
             kind,
@@ -41,13 +41,13 @@ impl Token {
         }
     }
 
-    pub(crate) fn eof(leading_trivia: Trivia) -> Token {
+    pub(crate) fn eof(leading_trivia: TriviaBuf) -> Token {
         Token::new(TokenKind::Eof, b"", leading_trivia)
     }
 
     #[cfg(test)]
     pub fn simple(kind: TokenKind, text: impl AsRef<Latin1Str>) -> Token {
-        Token::new(kind, text, Trivia::default())
+        Token::new(kind, text, TriviaBuf::default())
     }
 
     pub fn kind(&self) -> TokenKind {
@@ -58,7 +58,7 @@ impl Token {
         &self.leading_trivia
     }
 
-    pub fn set_leading_trivia(&mut self, trivia: Trivia) {
+    pub fn set_leading_trivia(&mut self, trivia: TriviaBuf) {
         self.leading_trivia = trivia;
     }
 

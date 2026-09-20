@@ -236,7 +236,7 @@ mod tests {
     use crate::parser::error::Span;
     use crate::syntax::child::ChildKind;
     use crate::tokens::trivia_piece::TriviaPiece;
-    use crate::tokens::Trivia;
+    use crate::tokens::TriviaBuf;
 
     const ROOT: NodeKind = NodeKind::DesignFile;
     const OUTER: NodeKind = NodeKind::DesignUnit;
@@ -248,9 +248,9 @@ mod tests {
     /// A token preceded by `spaces` spaces of leading trivia.
     fn tok(text: &'static [u8], spaces: usize) -> Token {
         let trivia = if spaces == 0 {
-            Trivia::new()
+            TriviaBuf::new()
         } else {
-            Trivia::from([TriviaPiece::Spaces(spaces)])
+            TriviaBuf::from([TriviaPiece::Spaces(spaces)])
         };
         Token::new(TokenKind::Identifier, text, trivia)
     }

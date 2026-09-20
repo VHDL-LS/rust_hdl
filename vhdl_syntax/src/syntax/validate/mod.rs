@@ -52,10 +52,10 @@ mod tests {
     use crate::syntax::{
         EntityDeclarationEpilogueSyntax, InterfaceDeclarationSyntax, InterfaceListBuilder,
     };
-    use crate::tokens::{Keyword, Token, TokenKind, Trivia};
+    use crate::tokens::{Keyword, Token, TokenKind, TriviaBuf};
 
     fn tok(kind: TokenKind, text: &[u8]) -> Token {
-        Token::new(kind, text, Trivia::default())
+        Token::new(kind, text, TriviaBuf::default())
     }
 
     /// Build an `EntityDeclarationPreamble` node from the given raw tokens.

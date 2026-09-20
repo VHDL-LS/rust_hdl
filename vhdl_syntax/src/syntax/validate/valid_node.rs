@@ -54,7 +54,7 @@ mod tests {
     use crate::syntax::builder::RawNodeBuilder;
     use crate::syntax::validate::valid_node::Valid;
     use crate::syntax::{AstNode, EntityDeclarationPreambleSyntax, NodeKind};
-    use crate::tokens::{Keyword, Token, TokenKind, Trivia};
+    use crate::tokens::{Keyword, Token, TokenKind, TriviaBuf};
 
     fn node<T: AstNode>(input: &str, production: fn(&mut Parser)) -> T {
         let (node, diagnostics) = parse_syntax(input, production);
@@ -76,7 +76,7 @@ mod tests {
             .push_token(Token::new(
                 TokenKind::Keyword(Keyword::Entity),
                 b"entity",
-                Trivia::default(),
+                TriviaBuf::default(),
             ))
             .finish();
 
@@ -115,7 +115,7 @@ end entity foo
             .push_token(Token::new(
                 TokenKind::Keyword(Keyword::Entity),
                 b"entity",
-                Trivia::default(),
+                TriviaBuf::default(),
             ))
             .finish();
 

@@ -28,7 +28,7 @@ impl Generator for BuilderGenerator {
             use super::*;
             use crate::builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral};
             use crate::syntax::builder::RawNodeBuilder;
-            use crate::tokens::{Keyword as Kw, Token, TokenKind, Trivia};
+            use crate::tokens::{Keyword as Kw, Token, TokenKind, TriviaBuf};
         };
 
         // Compute which sequence nodes have builders whose new() takes zero args,
@@ -204,7 +204,7 @@ fn generate_token_trivia_setter(item: &Field, kind: &TokenKind) -> TokenStream {
         Cardinality::Optional { .. } if has_canonical_text(kind) => {
             let default_expr = token_default_expr(kind);
             quote! {
-                pub fn #with_trivia(mut self, trivia: Trivia) -> Self {
+                pub fn #with_trivia(mut self, trivia: TriviaBuf) -> Self {
                     let tok = self.#field.get_or_insert_with(|| #default_expr);
                     tok.set_leading_trivia(trivia);
                     self
@@ -212,7 +212,7 @@ fn generate_token_trivia_setter(item: &Field, kind: &TokenKind) -> TokenStream {
             }
         }
         Cardinality::Optional { .. } => quote! {
-            pub fn #with_trivia(mut self, trivia: Trivia) -> Self {
+            pub fn #with_trivia(mut self, trivia: TriviaBuf) -> Self {
                 if let Some(ref mut t) = self.#field {
                     t.set_leading_trivia(trivia);
                 }
@@ -220,7 +220,7 @@ fn generate_token_trivia_setter(item: &Field, kind: &TokenKind) -> TokenStream {
             }
         },
         Cardinality::Required { .. } => quote! {
-            pub fn #with_trivia(mut self, trivia: Trivia) -> Self {
+            pub fn #with_trivia(mut self, trivia: TriviaBuf) -> Self {
                 self.#field.set_leading_trivia(trivia);
                 self
             }
@@ -629,7 +629,7 @@ fn generate_list_builder(list: &ListNode, model: &Model) -> TokenStream {
                         // Trivia is leading, so whitespace *after* a separator belongs to the
                         // next element; the separator itself carries none.
                         let mut separator = #separator_expr;
-                        separator.set_leading_trivia(Trivia::default());
+                        separator.set_leading_trivia(TriviaBuf::default());
                         builder = builder.push_token(separator);
                     }
                     first = false;

@@ -21,7 +21,7 @@ use vhdl_syntax::{
         LiteralExpressionBuilder, LiteralSyntax, LiteralToken, NameDesignatorPrefixBuilder,
         NameDesignatorToken, PrimaryUnitSyntax, SelectedNameBuilder, SuffixToken,
     },
-    tokens::{Token, TokenKind, Trivia, TriviaPiece},
+    tokens::{Token, TokenKind, TriviaBuf, TriviaPiece},
 };
 
 // MARK: Architecture Epilogue
@@ -40,7 +40,7 @@ fn arch_epilogue_with_optional_tokens() {
     let arch_tok = Token::new(
         TokenKind::Keyword(Kw::Architecture),
         Kw::Architecture.canonical_text(),
-        Trivia::from([TriviaPiece::Spaces(1)]),
+        TriviaBuf::from([TriviaPiece::Spaces(1)]),
     );
     let node = ArchitectureEpilogueBuilder::new()
         .with_architecture_token(arch_tok)
@@ -71,7 +71,7 @@ fn entity_preamble_custom_entity_token() {
     let kw = Token::new(
         TokenKind::Keyword(Kw::Entity),
         Kw::Entity.canonical_text(),
-        Trivia::default(),
+        TriviaBuf::default(),
     );
     let node = EntityDeclarationPreambleBuilder::new(Identifier::from(b"e"))
         .with_entity_token(kw) // full Token for explicit trivia control (canonical field)

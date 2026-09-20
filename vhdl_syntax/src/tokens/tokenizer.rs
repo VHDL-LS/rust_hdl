@@ -8,7 +8,7 @@ use crate::latin_1::{Latin1Str, Latin1String};
 use crate::standard::VHDLStandard;
 use crate::tokens::comment::Comment;
 use crate::tokens::TokenKind::*;
-use crate::tokens::{Keyword as Kw, Trivia, TriviaPiece};
+use crate::tokens::{Keyword as Kw, TriviaBuf, TriviaPiece};
 use crate::tokens::{Token, TokenKind};
 use std::iter::Peekable;
 use std::mem::replace;
@@ -432,8 +432,8 @@ impl<T: Iterator<Item = u8>> Tokenizer<T> {
     }
 
     /// Consumes all trivia.
-    fn consume_trivia(&mut self) -> (Trivia, Option<LexErr>) {
-        let mut trivia = Trivia::default();
+    fn consume_trivia(&mut self) -> (TriviaBuf, Option<LexErr>) {
+        let mut trivia = TriviaBuf::default();
         // Note: we currently only allow one error. This is fine because an unterminated input will consume everything.
         // If we ever decide against this, the design must change.
         while let Some((piece, err)) = self.consume_trivia_piece() {
@@ -706,7 +706,7 @@ mod tests {
     use crate::tokens::tokenizer::Tokenize;
     use crate::tokens::TokenKind;
     use crate::tokens::TokenKind::*;
-    use crate::tokens::{Keyword as Kw, Token, Trivia, TriviaPiece};
+    use crate::tokens::{Keyword as Kw, Token, TriviaBuf, TriviaPiece};
     use pretty_assertions::assert_eq;
 
     fn kinds_tokenize_remove_eof(code: &str) -> Vec<TokenKind> {
@@ -755,14 +755,14 @@ mod tests {
 
     #[test]
     fn tokenize_empty_input() {
-        assert_eq!("".tokenize_vec(), vec![Token::eof(Trivia::default())]);
+        assert_eq!("".tokenize_vec(), vec![Token::eof(TriviaBuf::default())]);
     }
 
     #[test]
     fn tokenize_input_only_trivia() {
         assert_eq!(
             "  ".tokenize_vec(),
-            vec![Token::eof(Trivia::from([TriviaPiece::Spaces(2)]))]
+            vec![Token::eof(TriviaBuf::from([TriviaPiece::Spaces(2)]))]
         );
     }
 
@@ -817,10 +817,14 @@ entity foo"
                 Token::new(
                     Keyword(Kw::Entity),
                     b"entity",
-                    Trivia::from([TriviaPiece::LineFeeds(2)]),
+                    TriviaBuf::from([TriviaPiece::LineFeeds(2)]),
                 ),
-                Token::new(Identifier, b"foo", Trivia::from([TriviaPiece::Spaces(1)])),
-                Token::eof(Trivia::default())
+                Token::new(
+                    Identifier,
+                    b"foo",
+                    TriviaBuf::from([TriviaPiece::Spaces(1)])
+                ),
+                Token::eof(TriviaBuf::default())
             ]
         );
     }
@@ -869,13 +873,13 @@ entity foo"
 my_other_ident"
                 .tokenize_vec(),
             vec![
-                Token::new(Identifier, b"my_ident", Trivia::default(),),
+                Token::new(Identifier, b"my_ident", TriviaBuf::default(),),
                 Token::new(
                     Identifier,
                     b"my_other_ident",
-                    Trivia::from([TriviaPiece::LineFeeds(2)])
+                    TriviaBuf::from([TriviaPiece::LineFeeds(2)])
                 ),
-                Token::eof(Trivia::default())
+                Token::eof(TriviaBuf::default())
             ]
         );
     }
@@ -961,13 +965,13 @@ my_other_ident"
         assert_eq!(
             "\"str\" \"ing\"".tokenize_vec(),
             vec![
-                Token::new(StringLiteral, b"\"str\"", Trivia::default(),),
+                Token::new(StringLiteral, b"\"str\"", TriviaBuf::default(),),
                 Token::new(
                     StringLiteral,
                     b"\"ing\"",
-                    Trivia::from([TriviaPiece::Spaces(1)]),
+                    TriviaBuf::from([TriviaPiece::Spaces(1)]),
                 ),
-                Token::eof(Trivia::default())
+                Token::eof(TriviaBuf::default())
             ]
         );
     }
@@ -1211,19 +1215,19 @@ my_other_ident"
                 Token::new(
                     AbstractLiteral,
                     b"1",
-                    Trivia::from([TriviaPiece::LineFeeds(1)]),
+                    TriviaBuf::from([TriviaPiece::LineFeeds(1)]),
                 ),
                 Token::new(
                     Minus,
                     b"-",
-                    Trivia::from([
+                    TriviaBuf::from([
                         TriviaPiece::LineFeeds(1),
                         TriviaPiece::LineComment(Comment::from_raw(b"--comment")),
                         TriviaPiece::LineFeeds(1)
                     ])
                 ),
-                Token::new(AbstractLiteral, b"2", Trivia::default(),),
-                Token::eof(Trivia::from([TriviaPiece::LineFeeds(1)]))
+                Token::new(AbstractLiteral, b"2", TriviaBuf::default(),),
+                Token::eof(TriviaBuf::from([TriviaPiece::LineFeeds(1)]))
             ]
         )
     }
@@ -1248,19 +1252,19 @@ comment
                 Token::new(
                     AbstractLiteral,
                     b"1",
-                    Trivia::from([TriviaPiece::LineFeeds(1)]),
+                    TriviaBuf::from([TriviaPiece::LineFeeds(1)]),
                 ),
                 Token::new(
                     Minus,
                     b"-",
-                    Trivia::from([
+                    TriviaBuf::from([
                         TriviaPiece::LineFeeds(2),
                         TriviaPiece::BlockComment(Comment::from_raw(b"/*\ncomment\n*/")),
                         TriviaPiece::LineFeeds(2),
                     ])
                 ),
-                Token::new(AbstractLiteral, b"2", Trivia::default(),),
-                Token::eof(Trivia::from([
+                Token::new(AbstractLiteral, b"2", TriviaBuf::default(),),
+                Token::eof(TriviaBuf::from([
                     TriviaPiece::Spaces(1),
                     TriviaPiece::BlockComment(Comment::from_raw("/*\ncomment\n*/")),
                     TriviaPiece::LineFeeds(2),
@@ -1276,8 +1280,8 @@ comment
             assert_eq!(
                 input.tokenize_vec(),
                 vec![
-                    Token::new(AbstractLiteral, b"1", Trivia::default()),
-                    Token::eof(Trivia::from([
+                    Token::new(AbstractLiteral, b"1", TriviaBuf::default()),
+                    Token::eof(TriviaBuf::from([
                         TriviaPiece::Spaces(1),
                         TriviaPiece::BlockComment(Comment::from_raw(comment)),
                     ])),

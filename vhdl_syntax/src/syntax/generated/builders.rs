@@ -6,7 +6,7 @@
 use super::*;
 use crate::builder::{AbstractLiteral, BitStringLiteral, CharLiteral, Identifier, StringLiteral};
 use crate::syntax::builder::RawNodeBuilder;
-use crate::tokens::{Keyword as Kw, Token, TokenKind, Trivia};
+use crate::tokens::{Keyword as Kw, Token, TokenKind, TriviaBuf};
 pub struct AbsolutePathnameBuilder {
     dot_token: Token,
     partial_pathname: PartialPathnameSyntax,
@@ -22,7 +22,7 @@ impl AbsolutePathnameBuilder {
         self.dot_token = t.into();
         self
     }
-    pub fn with_dot_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_dot_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.dot_token.set_leading_trivia(trivia);
         self
     }
@@ -57,7 +57,7 @@ impl AccessTypeDefinitionBuilder {
         self.access_token = t.into();
         self
     }
-    pub fn with_access_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_access_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.access_token.set_leading_trivia(trivia);
         self
     }
@@ -92,7 +92,7 @@ impl ActualPartBuilder {
         self.inertial_token = Some(t.into());
         self
     }
-    pub fn with_inertial_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_inertial_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .inertial_token
             .get_or_insert_with(|| Kw::Inertial.canonical_token());
@@ -155,7 +155,7 @@ impl ActualPartOpenBuilder {
         self.open_token = t.into();
         self
     }
-    pub fn with_open_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_open_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.open_token.set_leading_trivia(trivia);
         self
     }
@@ -207,7 +207,7 @@ impl AfterClauseBuilder {
         self.after_token = t.into();
         self
     }
-    pub fn with_after_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_after_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.after_token.set_leading_trivia(trivia);
         self
     }
@@ -244,7 +244,7 @@ impl AggregateBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -259,7 +259,7 @@ impl AggregateBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -326,7 +326,7 @@ impl AliasDeclarationBuilder {
         self.alias_token = t.into();
         self
     }
-    pub fn with_alias_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_alias_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.alias_token.set_leading_trivia(trivia);
         self
     }
@@ -342,7 +342,7 @@ impl AliasDeclarationBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -358,7 +358,7 @@ impl AliasDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -394,7 +394,7 @@ impl AliasSubtypeBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -432,7 +432,7 @@ impl AllSensitivityListBuilder {
         self.all_token = t.into();
         self
     }
-    pub fn with_all_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_all_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.all_token.set_leading_trivia(trivia);
         self
     }
@@ -460,7 +460,7 @@ impl AllocatorBuilder {
         self.new_token = t.into();
         self
     }
-    pub fn with_new_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_new_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.new_token.set_leading_trivia(trivia);
         self
     }
@@ -595,7 +595,7 @@ impl ArchitectureEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -603,7 +603,7 @@ impl ArchitectureEpilogueBuilder {
         self.architecture_token = Some(t.into());
         self
     }
-    pub fn with_architecture_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_architecture_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .architecture_token
             .get_or_insert_with(|| Kw::Architecture.canonical_token());
@@ -614,7 +614,7 @@ impl ArchitectureEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -624,7 +624,7 @@ impl ArchitectureEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -666,7 +666,7 @@ impl ArchitecturePreambleBuilder {
         self.architecture_token = t.into();
         self
     }
-    pub fn with_architecture_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_architecture_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.architecture_token.set_leading_trivia(trivia);
         self
     }
@@ -674,7 +674,7 @@ impl ArchitecturePreambleBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -682,7 +682,7 @@ impl ArchitecturePreambleBuilder {
         self.of_token = t.into();
         self
     }
-    pub fn with_of_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_of_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.of_token.set_leading_trivia(trivia);
         self
     }
@@ -694,7 +694,7 @@ impl ArchitecturePreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -761,7 +761,7 @@ impl AssertionBuilder {
         self.assert_token = t.into();
         self
     }
-    pub fn with_assert_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_assert_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.assert_token.set_leading_trivia(trivia);
         self
     }
@@ -816,7 +816,7 @@ impl AssertionStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -888,7 +888,7 @@ impl AttributeDeclarationBuilder {
         self.attribute_token = t.into();
         self
     }
-    pub fn with_attribute_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_attribute_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.attribute_token.set_leading_trivia(trivia);
         self
     }
@@ -896,7 +896,7 @@ impl AttributeDeclarationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -904,7 +904,7 @@ impl AttributeDeclarationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -916,7 +916,7 @@ impl AttributeDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -956,7 +956,7 @@ impl AttributeNameBuilder {
         self.tick_token = t.into();
         self
     }
-    pub fn with_tick_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_tick_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.tick_token.set_leading_trivia(trivia);
         self
     }
@@ -1006,7 +1006,7 @@ impl AttributeSpecificationBuilder {
         self.attribute_token = t.into();
         self
     }
-    pub fn with_attribute_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_attribute_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.attribute_token.set_leading_trivia(trivia);
         self
     }
@@ -1014,7 +1014,7 @@ impl AttributeSpecificationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -1022,7 +1022,7 @@ impl AttributeSpecificationBuilder {
         self.of_token = t.into();
         self
     }
-    pub fn with_of_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_of_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.of_token.set_leading_trivia(trivia);
         self
     }
@@ -1034,7 +1034,7 @@ impl AttributeSpecificationBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -1046,7 +1046,7 @@ impl AttributeSpecificationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -1133,7 +1133,7 @@ impl BindingBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -1207,7 +1207,7 @@ impl BindingUseClauseBuilder {
         self.use_token = t.into();
         self
     }
-    pub fn with_use_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_use_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.use_token.set_leading_trivia(trivia);
         self
     }
@@ -1300,7 +1300,7 @@ impl BlockConfigurationEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -1308,7 +1308,7 @@ impl BlockConfigurationEpilogueBuilder {
         self.for_token = t.into();
         self
     }
-    pub fn with_for_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_for_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.for_token.set_leading_trivia(trivia);
         self
     }
@@ -1316,7 +1316,7 @@ impl BlockConfigurationEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -1372,7 +1372,7 @@ impl BlockConfigurationPreambleBuilder {
         self.for_token = t.into();
         self
     }
-    pub fn with_for_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_for_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.for_token.set_leading_trivia(trivia);
         self
     }
@@ -1445,7 +1445,7 @@ impl BlockEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -1453,7 +1453,7 @@ impl BlockEpilogueBuilder {
         self.block_token = t.into();
         self
     }
-    pub fn with_block_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_block_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.block_token.set_leading_trivia(trivia);
         self
     }
@@ -1461,7 +1461,7 @@ impl BlockEpilogueBuilder {
         self.label = Some(t.into().into());
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
@@ -1471,7 +1471,7 @@ impl BlockEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -1547,7 +1547,7 @@ impl BlockPreambleBuilder {
         self.block_token = t.into();
         self
     }
-    pub fn with_block_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_block_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.block_token.set_leading_trivia(trivia);
         self
     }
@@ -1562,7 +1562,7 @@ impl BlockPreambleBuilder {
         self.is_token = Some(t.into());
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .is_token
             .get_or_insert_with(|| Kw::Is.canonical_token());
@@ -1702,7 +1702,7 @@ impl CaseGenerateAlternativeBuilder {
         self.when_token = t.into();
         self
     }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_when_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.when_token.set_leading_trivia(trivia);
         self
     }
@@ -1718,7 +1718,7 @@ impl CaseGenerateAlternativeBuilder {
         self.right_arrow_token = t.into();
         self
     }
-    pub fn with_right_arrow_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_arrow_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_arrow_token.set_leading_trivia(trivia);
         self
     }
@@ -1761,7 +1761,7 @@ impl CaseGeneratePreambleBuilder {
         self.case_token = t.into();
         self
     }
-    pub fn with_case_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_case_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.case_token.set_leading_trivia(trivia);
         self
     }
@@ -1773,7 +1773,7 @@ impl CaseGeneratePreambleBuilder {
         self.generate_token = t.into();
         self
     }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generate_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generate_token.set_leading_trivia(trivia);
         self
     }
@@ -1945,7 +1945,7 @@ impl CaseStatementAlternativePreambleBuilder {
         self.when_token = t.into();
         self
     }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_when_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.when_token.set_leading_trivia(trivia);
         self
     }
@@ -1957,7 +1957,7 @@ impl CaseStatementAlternativePreambleBuilder {
         self.right_arrow_token = t.into();
         self
     }
-    pub fn with_right_arrow_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_arrow_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_arrow_token.set_leading_trivia(trivia);
         self
     }
@@ -2000,7 +2000,7 @@ impl CaseStatementEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -2008,7 +2008,7 @@ impl CaseStatementEpilogueBuilder {
         self.case_token = t.into();
         self
     }
-    pub fn with_case_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_case_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.case_token.set_leading_trivia(trivia);
         self
     }
@@ -2016,7 +2016,7 @@ impl CaseStatementEpilogueBuilder {
         self.que_token = Some(t.into());
         self
     }
-    pub fn with_que_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_que_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .que_token
             .get_or_insert_with(|| TokenKind::Que.canonical_token().unwrap());
@@ -2027,7 +2027,7 @@ impl CaseStatementEpilogueBuilder {
         self.label = Some(t.into().into());
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
@@ -2037,7 +2037,7 @@ impl CaseStatementEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2081,7 +2081,7 @@ impl CaseStatementPreambleBuilder {
         self.case_token = t.into();
         self
     }
-    pub fn with_case_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_case_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.case_token.set_leading_trivia(trivia);
         self
     }
@@ -2089,7 +2089,7 @@ impl CaseStatementPreambleBuilder {
         self.que_token = Some(t.into());
         self
     }
-    pub fn with_que_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_que_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .que_token
             .get_or_insert_with(|| TokenKind::Que.canonical_token().unwrap());
@@ -2104,7 +2104,7 @@ impl CaseStatementPreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -2209,7 +2209,7 @@ impl ComponentConfigurationEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -2217,7 +2217,7 @@ impl ComponentConfigurationEpilogueBuilder {
         self.for_token = t.into();
         self
     }
-    pub fn with_for_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_for_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.for_token.set_leading_trivia(trivia);
         self
     }
@@ -2225,7 +2225,7 @@ impl ComponentConfigurationEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2257,7 +2257,7 @@ impl ComponentConfigurationPreambleBuilder {
         self.for_token = t.into();
         self
     }
-    pub fn with_for_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_for_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.for_token.set_leading_trivia(trivia);
         self
     }
@@ -2357,7 +2357,7 @@ impl ComponentDeclarationEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -2365,7 +2365,7 @@ impl ComponentDeclarationEpilogueBuilder {
         self.component_token = t.into();
         self
     }
-    pub fn with_component_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_component_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.component_token.set_leading_trivia(trivia);
         self
     }
@@ -2373,7 +2373,7 @@ impl ComponentDeclarationEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -2383,7 +2383,7 @@ impl ComponentDeclarationEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2418,7 +2418,7 @@ impl ComponentDeclarationPreambleBuilder {
         self.component_token = t.into();
         self
     }
-    pub fn with_component_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_component_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.component_token.set_leading_trivia(trivia);
         self
     }
@@ -2426,7 +2426,7 @@ impl ComponentDeclarationPreambleBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -2434,7 +2434,7 @@ impl ComponentDeclarationPreambleBuilder {
         self.is_token = Some(t.into());
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .is_token
             .get_or_insert_with(|| Kw::Is.canonical_token());
@@ -2494,7 +2494,7 @@ impl ComponentInstantiationStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2537,7 +2537,7 @@ impl ComponentSpecificationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2594,7 +2594,7 @@ impl CompoundConfigurationSpecificationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2650,7 +2650,7 @@ impl ConcurrentAssertionStatementBuilder {
         self.postponed_token = Some(t.into());
         self
     }
-    pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_postponed_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .postponed_token
             .get_or_insert_with(|| Kw::Postponed.canonical_token());
@@ -2665,7 +2665,7 @@ impl ConcurrentAssertionStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2717,7 +2717,7 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
         self.postponed_token = Some(t.into());
         self
     }
-    pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_postponed_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .postponed_token
             .get_or_insert_with(|| Kw::Postponed.canonical_token());
@@ -2732,7 +2732,7 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -2740,7 +2740,7 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
         self.guarded_token = Some(t.into());
         self
     }
-    pub fn with_guarded_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_guarded_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .guarded_token
             .get_or_insert_with(|| Kw::Guarded.canonical_token());
@@ -2759,7 +2759,7 @@ impl ConcurrentConditionalSignalAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2806,7 +2806,7 @@ impl ConcurrentProcedureCallOrComponentInstantiationStatementBuilder {
         self.postponed_token = Some(t.into());
         self
     }
-    pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_postponed_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .postponed_token
             .get_or_insert_with(|| Kw::Postponed.canonical_token());
@@ -2821,7 +2821,7 @@ impl ConcurrentProcedureCallOrComponentInstantiationStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2878,7 +2878,7 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
         self.postponed_token = Some(t.into());
         self
     }
-    pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_postponed_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .postponed_token
             .get_or_insert_with(|| Kw::Postponed.canonical_token());
@@ -2900,7 +2900,7 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -2908,7 +2908,7 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
         self.guarded_token = Some(t.into());
         self
     }
-    pub fn with_guarded_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_guarded_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .guarded_token
             .get_or_insert_with(|| Kw::Guarded.canonical_token());
@@ -2927,7 +2927,7 @@ impl ConcurrentSelectedSignalAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -2981,7 +2981,7 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
         self.postponed_token = Some(t.into());
         self
     }
-    pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_postponed_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .postponed_token
             .get_or_insert_with(|| Kw::Postponed.canonical_token());
@@ -2996,7 +2996,7 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -3004,7 +3004,7 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
         self.guarded_token = Some(t.into());
         self
     }
-    pub fn with_guarded_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_guarded_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .guarded_token
             .get_or_insert_with(|| Kw::Guarded.canonical_token());
@@ -3023,7 +3023,7 @@ impl ConcurrentSimpleSignalAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -3060,7 +3060,7 @@ impl ConditionClauseBuilder {
         self.until_token = t.into();
         self
     }
-    pub fn with_until_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_until_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.until_token.set_leading_trivia(trivia);
         self
     }
@@ -3154,7 +3154,7 @@ impl ConditionalForceAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -3162,7 +3162,7 @@ impl ConditionalForceAssignmentBuilder {
         self.force_token = t.into();
         self
     }
-    pub fn with_force_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_force_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.force_token.set_leading_trivia(trivia);
         self
     }
@@ -3181,7 +3181,7 @@ impl ConditionalForceAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -3234,7 +3234,7 @@ impl ConditionalVariableAssignmentBuilder {
         self.colon_eq_token = t.into();
         self
     }
-    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_eq_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_eq_token.set_leading_trivia(trivia);
         self
     }
@@ -3249,7 +3249,7 @@ impl ConditionalVariableAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -3302,7 +3302,7 @@ impl ConditionalWaveformAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -3318,7 +3318,7 @@ impl ConditionalWaveformAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -3468,7 +3468,7 @@ impl ConfigurationDeclarationEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -3476,7 +3476,7 @@ impl ConfigurationDeclarationEpilogueBuilder {
         self.configuration_token = Some(t.into());
         self
     }
-    pub fn with_configuration_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_configuration_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .configuration_token
             .get_or_insert_with(|| Kw::Configuration.canonical_token());
@@ -3487,7 +3487,7 @@ impl ConfigurationDeclarationEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -3497,7 +3497,7 @@ impl ConfigurationDeclarationEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -3539,7 +3539,7 @@ impl ConfigurationDeclarationPreambleBuilder {
         self.configuration_token = t.into();
         self
     }
-    pub fn with_configuration_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_configuration_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.configuration_token.set_leading_trivia(trivia);
         self
     }
@@ -3547,7 +3547,7 @@ impl ConfigurationDeclarationPreambleBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -3555,7 +3555,7 @@ impl ConfigurationDeclarationPreambleBuilder {
         self.of_token = t.into();
         self
     }
-    pub fn with_of_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_of_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.of_token.set_leading_trivia(trivia);
         self
     }
@@ -3567,7 +3567,7 @@ impl ConfigurationDeclarationPreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -3644,7 +3644,7 @@ impl ConstantDeclarationBuilder {
         self.constant_token = t.into();
         self
     }
-    pub fn with_constant_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_constant_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.constant_token.set_leading_trivia(trivia);
         self
     }
@@ -3656,7 +3656,7 @@ impl ConstantDeclarationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -3672,7 +3672,7 @@ impl ConstantDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -3714,7 +3714,7 @@ impl ConstrainedArrayDefinitionBuilder {
         self.array_token = t.into();
         self
     }
-    pub fn with_array_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_array_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.array_token.set_leading_trivia(trivia);
         self
     }
@@ -3726,7 +3726,7 @@ impl ConstrainedArrayDefinitionBuilder {
         self.of_token = t.into();
         self
     }
-    pub fn with_of_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_of_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.of_token.set_leading_trivia(trivia);
         self
     }
@@ -3845,7 +3845,7 @@ impl ContextDeclarationEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -3853,7 +3853,7 @@ impl ContextDeclarationEpilogueBuilder {
         self.context_token = Some(t.into());
         self
     }
-    pub fn with_context_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_context_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .context_token
             .get_or_insert_with(|| Kw::Context.canonical_token());
@@ -3864,7 +3864,7 @@ impl ContextDeclarationEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -3874,7 +3874,7 @@ impl ContextDeclarationEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -3909,7 +3909,7 @@ impl ContextDeclarationPreambleBuilder {
         self.context_token = t.into();
         self
     }
-    pub fn with_context_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_context_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.context_token.set_leading_trivia(trivia);
         self
     }
@@ -3917,7 +3917,7 @@ impl ContextDeclarationPreambleBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -3925,7 +3925,7 @@ impl ContextDeclarationPreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -3959,7 +3959,7 @@ impl ContextReferenceBuilder {
         self.context_token = t.into();
         self
     }
-    pub fn with_context_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_context_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.context_token.set_leading_trivia(trivia);
         self
     }
@@ -3971,7 +3971,7 @@ impl ContextReferenceBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -4006,7 +4006,7 @@ impl DeclarationStatementSeparatorBuilder {
         self.begin_token = t.into();
         self
     }
-    pub fn with_begin_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_begin_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.begin_token.set_leading_trivia(trivia);
         self
     }
@@ -4038,7 +4038,7 @@ impl DesignFileBuilder {
         self.eof_token = t.into();
         self
     }
-    pub fn with_eof_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_eof_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.eof_token.set_leading_trivia(trivia);
         self
     }
@@ -4109,7 +4109,7 @@ impl DisconnectionSpecificationBuilder {
         self.disconnect_token = t.into();
         self
     }
-    pub fn with_disconnect_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_disconnect_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.disconnect_token.set_leading_trivia(trivia);
         self
     }
@@ -4124,7 +4124,7 @@ impl DisconnectionSpecificationBuilder {
         self.after_token = t.into();
         self
     }
-    pub fn with_after_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_after_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.after_token.set_leading_trivia(trivia);
         self
     }
@@ -4136,7 +4136,7 @@ impl DisconnectionSpecificationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -4205,7 +4205,7 @@ impl ElementChoicesBuilder {
         self.right_arrow_token = t.into();
         self
     }
-    pub fn with_right_arrow_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_arrow_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_arrow_token.set_leading_trivia(trivia);
         self
     }
@@ -4247,7 +4247,7 @@ impl ElementDeclarationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -4262,7 +4262,7 @@ impl ElementDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -4321,7 +4321,7 @@ impl ElseExpressionBuilder {
         self.else_token = t.into();
         self
     }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_else_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.else_token.set_leading_trivia(trivia);
         self
     }
@@ -4356,7 +4356,7 @@ impl ElseWaveformBuilder {
         self.else_token = t.into();
         self
     }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_else_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.else_token.set_leading_trivia(trivia);
         self
     }
@@ -4398,7 +4398,7 @@ impl ElseWhenExpressionBuilder {
         self.else_token = t.into();
         self
     }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_else_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.else_token.set_leading_trivia(trivia);
         self
     }
@@ -4410,7 +4410,7 @@ impl ElseWhenExpressionBuilder {
         self.when_token = t.into();
         self
     }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_when_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.when_token.set_leading_trivia(trivia);
         self
     }
@@ -4454,7 +4454,7 @@ impl ElseWhenWaveformBuilder {
         self.else_token = t.into();
         self
     }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_else_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.else_token.set_leading_trivia(trivia);
         self
     }
@@ -4466,7 +4466,7 @@ impl ElseWhenWaveformBuilder {
         self.when_token = t.into();
         self
     }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_when_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.when_token.set_leading_trivia(trivia);
         self
     }
@@ -4508,7 +4508,7 @@ impl EndPackageBodyBuilder {
         self.package_token = t.into();
         self
     }
-    pub fn with_package_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_package_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.package_token.set_leading_trivia(trivia);
         self
     }
@@ -4516,7 +4516,7 @@ impl EndPackageBodyBuilder {
         self.body_token = t.into();
         self
     }
-    pub fn with_body_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_body_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.body_token.set_leading_trivia(trivia);
         self
     }
@@ -4551,7 +4551,7 @@ impl EntityClassEntryBuilder {
         self.box_token = Some(t.into());
         self
     }
-    pub fn with_box_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_box_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .box_token
             .get_or_insert_with(|| TokenKind::BOX.canonical_token().unwrap());
@@ -4585,7 +4585,7 @@ impl EntityConfigurationAspectBuilder {
         self.configuration_token = t.into();
         self
     }
-    pub fn with_configuration_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_configuration_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.configuration_token.set_leading_trivia(trivia);
         self
     }
@@ -4690,7 +4690,7 @@ impl EntityDeclarationEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -4698,7 +4698,7 @@ impl EntityDeclarationEpilogueBuilder {
         self.entity_token = Some(t.into());
         self
     }
-    pub fn with_entity_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_entity_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .entity_token
             .get_or_insert_with(|| Kw::Entity.canonical_token());
@@ -4709,7 +4709,7 @@ impl EntityDeclarationEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -4719,7 +4719,7 @@ impl EntityDeclarationEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -4754,7 +4754,7 @@ impl EntityDeclarationPreambleBuilder {
         self.entity_token = t.into();
         self
     }
-    pub fn with_entity_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_entity_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.entity_token.set_leading_trivia(trivia);
         self
     }
@@ -4762,7 +4762,7 @@ impl EntityDeclarationPreambleBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -4770,7 +4770,7 @@ impl EntityDeclarationPreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -4865,7 +4865,7 @@ impl EntityEntityAspectBuilder {
         self.entity_token = t.into();
         self
     }
-    pub fn with_entity_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_entity_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.entity_token.set_leading_trivia(trivia);
         self
     }
@@ -4939,7 +4939,7 @@ impl EntityNameListAllBuilder {
         self.all_token = t.into();
         self
     }
-    pub fn with_all_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_all_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.all_token.set_leading_trivia(trivia);
         self
     }
@@ -4970,7 +4970,7 @@ impl EntityNameListOthersBuilder {
         self.others_token = t.into();
         self
     }
-    pub fn with_others_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_others_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.others_token.set_leading_trivia(trivia);
         self
     }
@@ -5001,7 +5001,7 @@ impl EntityOpenAspectBuilder {
         self.open_token = t.into();
         self
     }
-    pub fn with_open_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_open_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.open_token.set_leading_trivia(trivia);
         self
     }
@@ -5038,7 +5038,7 @@ impl EntitySpecificationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -5145,7 +5145,7 @@ impl EnumerationTypeDefinitionBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -5157,7 +5157,7 @@ impl EnumerationTypeDefinitionBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -5204,7 +5204,7 @@ impl ExitStatementBuilder {
         self.exit_token = t.into();
         self
     }
-    pub fn with_exit_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_exit_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.exit_token.set_leading_trivia(trivia);
         self
     }
@@ -5212,7 +5212,7 @@ impl ExitStatementBuilder {
         self.label = Some(t.into().into());
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
@@ -5226,7 +5226,7 @@ impl ExitStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -5293,7 +5293,7 @@ impl ExternalConstantNameBuilder {
         self.lt_lt_token = t.into();
         self
     }
-    pub fn with_lt_lt_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lt_lt_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lt_lt_token.set_leading_trivia(trivia);
         self
     }
@@ -5301,7 +5301,7 @@ impl ExternalConstantNameBuilder {
         self.constant_token = t.into();
         self
     }
-    pub fn with_constant_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_constant_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.constant_token.set_leading_trivia(trivia);
         self
     }
@@ -5313,7 +5313,7 @@ impl ExternalConstantNameBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -5325,7 +5325,7 @@ impl ExternalConstantNameBuilder {
         self.gt_gt_token = t.into();
         self
     }
-    pub fn with_gt_gt_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_gt_gt_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.gt_gt_token.set_leading_trivia(trivia);
         self
     }
@@ -5371,7 +5371,7 @@ impl ExternalSignalNameBuilder {
         self.lt_lt_token = t.into();
         self
     }
-    pub fn with_lt_lt_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lt_lt_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lt_lt_token.set_leading_trivia(trivia);
         self
     }
@@ -5379,7 +5379,7 @@ impl ExternalSignalNameBuilder {
         self.signal_token = t.into();
         self
     }
-    pub fn with_signal_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_signal_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.signal_token.set_leading_trivia(trivia);
         self
     }
@@ -5391,7 +5391,7 @@ impl ExternalSignalNameBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -5403,7 +5403,7 @@ impl ExternalSignalNameBuilder {
         self.gt_gt_token = t.into();
         self
     }
-    pub fn with_gt_gt_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_gt_gt_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.gt_gt_token.set_leading_trivia(trivia);
         self
     }
@@ -5449,7 +5449,7 @@ impl ExternalVariableNameBuilder {
         self.lt_lt_token = t.into();
         self
     }
-    pub fn with_lt_lt_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lt_lt_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lt_lt_token.set_leading_trivia(trivia);
         self
     }
@@ -5457,7 +5457,7 @@ impl ExternalVariableNameBuilder {
         self.variable_token = t.into();
         self
     }
-    pub fn with_variable_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_variable_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.variable_token.set_leading_trivia(trivia);
         self
     }
@@ -5469,7 +5469,7 @@ impl ExternalVariableNameBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -5481,7 +5481,7 @@ impl ExternalVariableNameBuilder {
         self.gt_gt_token = t.into();
         self
     }
-    pub fn with_gt_gt_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_gt_gt_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.gt_gt_token.set_leading_trivia(trivia);
         self
     }
@@ -5527,7 +5527,7 @@ impl FileDeclarationBuilder {
         self.file_token = t.into();
         self
     }
-    pub fn with_file_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_file_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.file_token.set_leading_trivia(trivia);
         self
     }
@@ -5539,7 +5539,7 @@ impl FileDeclarationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -5555,7 +5555,7 @@ impl FileDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -5596,7 +5596,7 @@ impl FileOpenInformationBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -5632,7 +5632,7 @@ impl FileOpenKindBuilder {
         self.open_token = t.into();
         self
     }
-    pub fn with_open_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_open_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.open_token.set_leading_trivia(trivia);
         self
     }
@@ -5669,7 +5669,7 @@ impl FileTypeDefinitionBuilder {
         self.file_token = t.into();
         self
     }
-    pub fn with_file_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_file_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.file_token.set_leading_trivia(trivia);
         self
     }
@@ -5677,7 +5677,7 @@ impl FileTypeDefinitionBuilder {
         self.of_token = t.into();
         self
     }
-    pub fn with_of_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_of_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.of_token.set_leading_trivia(trivia);
         self
     }
@@ -5715,7 +5715,7 @@ impl ForGeneratePreambleBuilder {
         self.for_token = t.into();
         self
     }
-    pub fn with_for_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_for_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.for_token.set_leading_trivia(trivia);
         self
     }
@@ -5730,7 +5730,7 @@ impl ForGeneratePreambleBuilder {
         self.generate_token = t.into();
         self
     }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generate_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generate_token.set_leading_trivia(trivia);
         self
     }
@@ -5813,7 +5813,7 @@ impl ForSchemeBuilder {
         self.for_token = t.into();
         self
     }
-    pub fn with_for_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_for_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.for_token.set_leading_trivia(trivia);
         self
     }
@@ -5855,7 +5855,7 @@ impl FormalBuilder {
         self.right_arrow_token = t.into();
         self
     }
-    pub fn with_right_arrow_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_arrow_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_arrow_token.set_leading_trivia(trivia);
         self
     }
@@ -5895,7 +5895,7 @@ impl FullTypeDeclarationBuilder {
         self.type_token = t.into();
         self
     }
-    pub fn with_type_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_type_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.type_token.set_leading_trivia(trivia);
         self
     }
@@ -5903,7 +5903,7 @@ impl FullTypeDeclarationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -5911,7 +5911,7 @@ impl FullTypeDeclarationBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -5923,7 +5923,7 @@ impl FullTypeDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -5971,7 +5971,7 @@ impl FunctionSpecificationBuilder {
         self.function_token = t.into();
         self
     }
-    pub fn with_function_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_function_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.function_token.set_leading_trivia(trivia);
         self
     }
@@ -5991,7 +5991,7 @@ impl FunctionSpecificationBuilder {
         self.return_token = t.into();
         self
     }
-    pub fn with_return_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_return_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.return_token.set_leading_trivia(trivia);
         self
     }
@@ -6078,7 +6078,7 @@ impl GenerateBodyEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -6086,7 +6086,7 @@ impl GenerateBodyEpilogueBuilder {
         self.label = Some(t.into().into());
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
@@ -6096,7 +6096,7 @@ impl GenerateBodyEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -6137,7 +6137,7 @@ impl GenerateEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -6145,7 +6145,7 @@ impl GenerateEpilogueBuilder {
         self.generate_token = t.into();
         self
     }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generate_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generate_token.set_leading_trivia(trivia);
         self
     }
@@ -6153,7 +6153,7 @@ impl GenerateEpilogueBuilder {
         self.label = Some(t.into().into());
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
@@ -6163,7 +6163,7 @@ impl GenerateEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -6248,7 +6248,7 @@ impl GenericClauseBuilder {
         self.generic_token = t.into();
         self
     }
-    pub fn with_generic_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generic_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generic_token.set_leading_trivia(trivia);
         self
     }
@@ -6256,7 +6256,7 @@ impl GenericClauseBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -6268,7 +6268,7 @@ impl GenericClauseBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -6276,7 +6276,7 @@ impl GenericClauseBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -6314,7 +6314,7 @@ impl GenericMapBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -6351,7 +6351,7 @@ impl GenericMapAspectBuilder {
         self.generic_token = t.into();
         self
     }
-    pub fn with_generic_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generic_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generic_token.set_leading_trivia(trivia);
         self
     }
@@ -6359,7 +6359,7 @@ impl GenericMapAspectBuilder {
         self.map_token = t.into();
         self
     }
-    pub fn with_map_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_map_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.map_token.set_leading_trivia(trivia);
         self
     }
@@ -6367,7 +6367,7 @@ impl GenericMapAspectBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -6379,7 +6379,7 @@ impl GenericMapAspectBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -6453,7 +6453,7 @@ impl GroupDeclarationBuilder {
         self.group_token = t.into();
         self
     }
-    pub fn with_group_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_group_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.group_token.set_leading_trivia(trivia);
         self
     }
@@ -6461,7 +6461,7 @@ impl GroupDeclarationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -6469,7 +6469,7 @@ impl GroupDeclarationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -6481,7 +6481,7 @@ impl GroupDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -6528,7 +6528,7 @@ impl GroupTemplateDeclarationBuilder {
         self.group_token = t.into();
         self
     }
-    pub fn with_group_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_group_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.group_token.set_leading_trivia(trivia);
         self
     }
@@ -6536,7 +6536,7 @@ impl GroupTemplateDeclarationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -6544,7 +6544,7 @@ impl GroupTemplateDeclarationBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -6552,7 +6552,7 @@ impl GroupTemplateDeclarationBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -6567,7 +6567,7 @@ impl GroupTemplateDeclarationBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -6575,7 +6575,7 @@ impl GroupTemplateDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -6617,7 +6617,7 @@ impl GuardedSignalSpecificationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -6662,7 +6662,7 @@ impl IfGenerateElseBuilder {
         self.else_token = t.into();
         self
     }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_else_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.else_token.set_leading_trivia(trivia);
         self
     }
@@ -6674,7 +6674,7 @@ impl IfGenerateElseBuilder {
         self.generate_token = t.into();
         self
     }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generate_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generate_token.set_leading_trivia(trivia);
         self
     }
@@ -6720,7 +6720,7 @@ impl IfGenerateElsifBuilder {
         self.elsif_token = t.into();
         self
     }
-    pub fn with_elsif_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_elsif_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.elsif_token.set_leading_trivia(trivia);
         self
     }
@@ -6736,7 +6736,7 @@ impl IfGenerateElsifBuilder {
         self.generate_token = t.into();
         self
     }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generate_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generate_token.set_leading_trivia(trivia);
         self
     }
@@ -6783,7 +6783,7 @@ impl IfGenerateIfBuilder {
         self.if_token = t.into();
         self
     }
-    pub fn with_if_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_if_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.if_token.set_leading_trivia(trivia);
         self
     }
@@ -6799,7 +6799,7 @@ impl IfGenerateIfBuilder {
         self.generate_token = t.into();
         self
     }
-    pub fn with_generate_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generate_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generate_token.set_leading_trivia(trivia);
         self
     }
@@ -6952,7 +6952,7 @@ impl IfStatementElseBuilder {
         self.else_token = t.into();
         self
     }
-    pub fn with_else_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_else_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.else_token.set_leading_trivia(trivia);
         self
     }
@@ -6991,7 +6991,7 @@ impl IfStatementElsifBuilder {
         self.elsif_token = t.into();
         self
     }
-    pub fn with_elsif_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_elsif_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.elsif_token.set_leading_trivia(trivia);
         self
     }
@@ -7003,7 +7003,7 @@ impl IfStatementElsifBuilder {
         self.then_token = t.into();
         self
     }
-    pub fn with_then_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_then_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.then_token.set_leading_trivia(trivia);
         self
     }
@@ -7049,7 +7049,7 @@ impl IfStatementEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -7057,7 +7057,7 @@ impl IfStatementEpilogueBuilder {
         self.if_token = t.into();
         self
     }
-    pub fn with_if_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_if_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.if_token.set_leading_trivia(trivia);
         self
     }
@@ -7065,7 +7065,7 @@ impl IfStatementEpilogueBuilder {
         self.label = Some(t.into().into());
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
@@ -7075,7 +7075,7 @@ impl IfStatementEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -7116,7 +7116,7 @@ impl IfStatementPreambleBuilder {
         self.if_token = t.into();
         self
     }
-    pub fn with_if_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_if_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.if_token.set_leading_trivia(trivia);
         self
     }
@@ -7128,7 +7128,7 @@ impl IfStatementPreambleBuilder {
         self.then_token = t.into();
         self
     }
-    pub fn with_then_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_then_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.then_token.set_leading_trivia(trivia);
         self
     }
@@ -7163,7 +7163,7 @@ impl IncompleteTypeDeclarationBuilder {
         self.type_token = t.into();
         self
     }
-    pub fn with_type_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_type_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.type_token.set_leading_trivia(trivia);
         self
     }
@@ -7171,7 +7171,7 @@ impl IncompleteTypeDeclarationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -7179,7 +7179,7 @@ impl IncompleteTypeDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -7213,7 +7213,7 @@ impl IndexConstraintBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -7225,7 +7225,7 @@ impl IndexConstraintBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -7263,7 +7263,7 @@ impl IndexSubtypeDefinitionBuilder {
         self.range_token = t.into();
         self
     }
-    pub fn with_range_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_range_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.range_token.set_leading_trivia(trivia);
         self
     }
@@ -7271,7 +7271,7 @@ impl IndexSubtypeDefinitionBuilder {
         self.box_token = t.into();
         self
     }
-    pub fn with_box_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_box_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.box_token.set_leading_trivia(trivia);
         self
     }
@@ -7312,7 +7312,7 @@ impl InertialDelayMechanismBuilder {
         self.inertial_token = t.into();
         self
     }
-    pub fn with_inertial_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_inertial_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.inertial_token.set_leading_trivia(trivia);
         self
     }
@@ -7343,7 +7343,7 @@ impl InitialValueBuilder {
         self.colon_eq_token = t.into();
         self
     }
-    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_eq_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_eq_token.set_leading_trivia(trivia);
         self
     }
@@ -7378,7 +7378,7 @@ impl InstantiatedComponentBuilder {
         self.component_token = Some(t.into());
         self
     }
-    pub fn with_component_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_component_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .component_token
             .get_or_insert_with(|| Kw::Component.canonical_token());
@@ -7416,7 +7416,7 @@ impl InstantiatedConfigurationBuilder {
         self.configuration_token = t.into();
         self
     }
-    pub fn with_configuration_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_configuration_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.configuration_token.set_leading_trivia(trivia);
         self
     }
@@ -7451,7 +7451,7 @@ impl InstantiatedEntityBuilder {
         self.entity_token = t.into();
         self
     }
-    pub fn with_entity_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_entity_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.entity_token.set_leading_trivia(trivia);
         self
     }
@@ -7489,7 +7489,7 @@ impl InstantiationListAllBuilder {
         self.all_token = t.into();
         self
     }
-    pub fn with_all_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_all_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.all_token.set_leading_trivia(trivia);
         self
     }
@@ -7520,7 +7520,7 @@ impl InstantiationListOthersBuilder {
         self.others_token = t.into();
         self
     }
-    pub fn with_others_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_others_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.others_token.set_leading_trivia(trivia);
         self
     }
@@ -7555,7 +7555,7 @@ impl InterfaceFileDeclarationBuilder {
         self.file_token = t.into();
         self
     }
-    pub fn with_file_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_file_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.file_token.set_leading_trivia(trivia);
         self
     }
@@ -7567,7 +7567,7 @@ impl InterfaceFileDeclarationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -7616,7 +7616,7 @@ impl InterfaceFunctionSpecificationBuilder {
         self.function_token = t.into();
         self
     }
-    pub fn with_function_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_function_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.function_token.set_leading_trivia(trivia);
         self
     }
@@ -7632,7 +7632,7 @@ impl InterfaceFunctionSpecificationBuilder {
         self.return_token = t.into();
         self
     }
-    pub fn with_return_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_return_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.return_token.set_leading_trivia(trivia);
         self
     }
@@ -7671,7 +7671,7 @@ impl InterfaceIncompleteTypeDeclarationBuilder {
         self.type_token = t.into();
         self
     }
-    pub fn with_type_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_type_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.type_token.set_leading_trivia(trivia);
         self
     }
@@ -7679,7 +7679,7 @@ impl InterfaceIncompleteTypeDeclarationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -7731,7 +7731,7 @@ impl InterfaceObjectDeclarationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -7747,7 +7747,7 @@ impl InterfaceObjectDeclarationBuilder {
         self.bus_token = Some(t.into());
         self
     }
-    pub fn with_bus_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_bus_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .bus_token
             .get_or_insert_with(|| Kw::Bus.canonical_token());
@@ -7805,7 +7805,7 @@ impl InterfacePackageDeclarationBuilder {
         self.new_token = t.into();
         self
     }
-    pub fn with_new_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_new_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.new_token.set_leading_trivia(trivia);
         self
     }
@@ -7851,7 +7851,7 @@ impl InterfacePackageDeclarationPreambleBuilder {
         self.package_token = t.into();
         self
     }
-    pub fn with_package_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_package_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.package_token.set_leading_trivia(trivia);
         self
     }
@@ -7859,7 +7859,7 @@ impl InterfacePackageDeclarationPreambleBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -7867,7 +7867,7 @@ impl InterfacePackageDeclarationPreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -7912,7 +7912,7 @@ impl InterfacePackageGenericMapAspectBuilder {
         self.generic_token = t.into();
         self
     }
-    pub fn with_generic_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generic_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generic_token.set_leading_trivia(trivia);
         self
     }
@@ -7920,7 +7920,7 @@ impl InterfacePackageGenericMapAspectBuilder {
         self.map_token = t.into();
         self
     }
-    pub fn with_map_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_map_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.map_token.set_leading_trivia(trivia);
         self
     }
@@ -7928,7 +7928,7 @@ impl InterfacePackageGenericMapAspectBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -7943,7 +7943,7 @@ impl InterfacePackageGenericMapAspectBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -8006,7 +8006,7 @@ impl InterfacePackageGenericMapAspectBoxBuilder {
         self.box_token = t.into();
         self
     }
-    pub fn with_box_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_box_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.box_token.set_leading_trivia(trivia);
         self
     }
@@ -8039,7 +8039,7 @@ impl InterfacePackageGenericMapAspectDefaultBuilder {
         self.default_token = t.into();
         self
     }
-    pub fn with_default_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_default_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.default_token.set_leading_trivia(trivia);
         self
     }
@@ -8073,7 +8073,7 @@ impl InterfaceProcedureSpecificationBuilder {
         self.procedure_token = t.into();
         self
     }
-    pub fn with_procedure_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_procedure_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.procedure_token.set_leading_trivia(trivia);
         self
     }
@@ -8152,7 +8152,7 @@ impl InterfaceSubprogramDefaultBoxBuilder {
         self.box_token = t.into();
         self
     }
-    pub fn with_box_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_box_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.box_token.set_leading_trivia(trivia);
         self
     }
@@ -8202,7 +8202,7 @@ impl LibraryClauseBuilder {
         self.library_token = t.into();
         self
     }
-    pub fn with_library_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_library_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.library_token.set_leading_trivia(trivia);
         self
     }
@@ -8214,7 +8214,7 @@ impl LibraryClauseBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -8326,7 +8326,7 @@ impl LoopStatementEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -8334,7 +8334,7 @@ impl LoopStatementEpilogueBuilder {
         self.loop_token = t.into();
         self
     }
-    pub fn with_loop_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_loop_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.loop_token.set_leading_trivia(trivia);
         self
     }
@@ -8342,7 +8342,7 @@ impl LoopStatementEpilogueBuilder {
         self.label = Some(t.into().into());
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
@@ -8352,7 +8352,7 @@ impl LoopStatementEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -8400,7 +8400,7 @@ impl LoopStatementPreambleBuilder {
         self.loop_token = t.into();
         self
     }
-    pub fn with_loop_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_loop_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.loop_token.set_leading_trivia(trivia);
         self
     }
@@ -8569,7 +8569,7 @@ impl NextStatementBuilder {
         self.next_token = t.into();
         self
     }
-    pub fn with_next_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_next_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.next_token.set_leading_trivia(trivia);
         self
     }
@@ -8577,7 +8577,7 @@ impl NextStatementBuilder {
         self.label = Some(t.into().into());
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
@@ -8591,7 +8591,7 @@ impl NextStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -8636,7 +8636,7 @@ impl NullStatementBuilder {
         self.null_token = t.into();
         self
     }
-    pub fn with_null_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_null_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.null_token.set_leading_trivia(trivia);
         self
     }
@@ -8644,7 +8644,7 @@ impl NullStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -8703,7 +8703,7 @@ impl OthersChoiceBuilder {
         self.others_token = t.into();
         self
     }
-    pub fn with_others_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_others_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.others_token.set_leading_trivia(trivia);
         self
     }
@@ -8835,7 +8835,7 @@ impl PackageBodyEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -8847,7 +8847,7 @@ impl PackageBodyEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -8857,7 +8857,7 @@ impl PackageBodyEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -8894,7 +8894,7 @@ impl PackageBodyPreambleBuilder {
         self.package_token = t.into();
         self
     }
-    pub fn with_package_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_package_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.package_token.set_leading_trivia(trivia);
         self
     }
@@ -8902,7 +8902,7 @@ impl PackageBodyPreambleBuilder {
         self.body_token = t.into();
         self
     }
-    pub fn with_body_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_body_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.body_token.set_leading_trivia(trivia);
         self
     }
@@ -8910,7 +8910,7 @@ impl PackageBodyPreambleBuilder {
         self.simple_name = t.into().into();
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.simple_name.set_leading_trivia(trivia);
         self
     }
@@ -8918,7 +8918,7 @@ impl PackageBodyPreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -9064,7 +9064,7 @@ impl PackageEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -9072,7 +9072,7 @@ impl PackageEpilogueBuilder {
         self.package_token = Some(t.into());
         self
     }
-    pub fn with_package_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_package_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .package_token
             .get_or_insert_with(|| Kw::Package.canonical_token());
@@ -9083,7 +9083,7 @@ impl PackageEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -9093,7 +9093,7 @@ impl PackageEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -9172,7 +9172,7 @@ impl PackageInstantiationDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -9275,7 +9275,7 @@ impl PackageInstantiationPreambleBuilder {
         self.package_token = t.into();
         self
     }
-    pub fn with_package_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_package_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.package_token.set_leading_trivia(trivia);
         self
     }
@@ -9283,7 +9283,7 @@ impl PackageInstantiationPreambleBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -9291,7 +9291,7 @@ impl PackageInstantiationPreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -9299,7 +9299,7 @@ impl PackageInstantiationPreambleBuilder {
         self.new_token = t.into();
         self
     }
-    pub fn with_new_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_new_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.new_token.set_leading_trivia(trivia);
         self
     }
@@ -9337,7 +9337,7 @@ impl PackagePathnameBuilder {
         self.comm_at_token = t.into();
         self
     }
-    pub fn with_comm_at_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_comm_at_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.comm_at_token.set_leading_trivia(trivia);
         self
     }
@@ -9374,7 +9374,7 @@ impl PackagePreambleBuilder {
         self.package_token = t.into();
         self
     }
-    pub fn with_package_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_package_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.package_token.set_leading_trivia(trivia);
         self
     }
@@ -9382,7 +9382,7 @@ impl PackagePreambleBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -9390,7 +9390,7 @@ impl PackagePreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -9422,7 +9422,7 @@ impl ParameterListBuilder {
         self.parameter_token = Some(t.into());
         self
     }
-    pub fn with_parameter_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_parameter_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .parameter_token
             .get_or_insert_with(|| Kw::Parameter.canonical_token());
@@ -9468,7 +9468,7 @@ impl ParameterSpecificationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -9476,7 +9476,7 @@ impl ParameterSpecificationBuilder {
         self.in_token = t.into();
         self
     }
-    pub fn with_in_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_in_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.in_token.set_leading_trivia(trivia);
         self
     }
@@ -9514,7 +9514,7 @@ impl ParenthesizedConditionBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9526,7 +9526,7 @@ impl ParenthesizedConditionBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9563,7 +9563,7 @@ impl ParenthesizedElementResolutionBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9578,7 +9578,7 @@ impl ParenthesizedElementResolutionBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9612,7 +9612,7 @@ impl ParenthesizedExpressionBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9624,7 +9624,7 @@ impl ParenthesizedExpressionBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9658,7 +9658,7 @@ impl ParenthesizedExpressionOrAggregateBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9673,7 +9673,7 @@ impl ParenthesizedExpressionOrAggregateBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9707,7 +9707,7 @@ impl ParenthesizedInterfaceListBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9719,7 +9719,7 @@ impl ParenthesizedInterfaceListBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9753,7 +9753,7 @@ impl ParenthesizedNameBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9765,7 +9765,7 @@ impl ParenthesizedNameBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9799,7 +9799,7 @@ impl ParenthesizedProcessSensitivityListBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9814,7 +9814,7 @@ impl ParenthesizedProcessSensitivityListBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -9848,7 +9848,7 @@ impl PathnameElementBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -9889,7 +9889,7 @@ impl PhysicalLiteralBuilder {
         self.abstract_literal_token = Some(t.into().into());
         self
     }
-    pub fn with_abstract_literal_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_abstract_literal_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.abstract_literal_token {
             t.set_leading_trivia(trivia);
         }
@@ -10002,7 +10002,7 @@ impl PhysicalTypeDefinitionEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -10010,7 +10010,7 @@ impl PhysicalTypeDefinitionEpilogueBuilder {
         self.units_token = t.into();
         self
     }
-    pub fn with_units_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_units_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.units_token.set_leading_trivia(trivia);
         self
     }
@@ -10018,7 +10018,7 @@ impl PhysicalTypeDefinitionEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -10058,7 +10058,7 @@ impl PortClauseBuilder {
         self.port_token = t.into();
         self
     }
-    pub fn with_port_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_port_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.port_token.set_leading_trivia(trivia);
         self
     }
@@ -10066,7 +10066,7 @@ impl PortClauseBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -10078,7 +10078,7 @@ impl PortClauseBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -10086,7 +10086,7 @@ impl PortClauseBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -10124,7 +10124,7 @@ impl PortMapBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -10161,7 +10161,7 @@ impl PortMapAspectBuilder {
         self.port_token = t.into();
         self
     }
-    pub fn with_port_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_port_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.port_token.set_leading_trivia(trivia);
         self
     }
@@ -10169,7 +10169,7 @@ impl PortMapAspectBuilder {
         self.map_token = t.into();
         self
     }
-    pub fn with_map_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_map_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.map_token.set_leading_trivia(trivia);
         self
     }
@@ -10177,7 +10177,7 @@ impl PortMapAspectBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -10189,7 +10189,7 @@ impl PortMapAspectBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -10254,7 +10254,7 @@ impl PrimaryUnitDeclarationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -10262,7 +10262,7 @@ impl PrimaryUnitDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -10327,7 +10327,7 @@ impl ProcedureCallStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -10363,7 +10363,7 @@ impl ProcedureSpecificationBuilder {
         self.procedure_token = t.into();
         self
     }
-    pub fn with_procedure_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_procedure_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.procedure_token.set_leading_trivia(trivia);
         self
     }
@@ -10451,7 +10451,7 @@ impl ProcessEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -10459,7 +10459,7 @@ impl ProcessEpilogueBuilder {
         self.postponed_token = Some(t.into());
         self
     }
-    pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_postponed_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .postponed_token
             .get_or_insert_with(|| Kw::Postponed.canonical_token());
@@ -10470,7 +10470,7 @@ impl ProcessEpilogueBuilder {
         self.process_token = t.into();
         self
     }
-    pub fn with_process_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_process_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.process_token.set_leading_trivia(trivia);
         self
     }
@@ -10478,7 +10478,7 @@ impl ProcessEpilogueBuilder {
         self.label = Some(t.into().into());
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.label {
             t.set_leading_trivia(trivia);
         }
@@ -10488,7 +10488,7 @@ impl ProcessEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -10531,7 +10531,7 @@ impl ProcessPreambleBuilder {
         self.postponed_token = Some(t.into());
         self
     }
-    pub fn with_postponed_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_postponed_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .postponed_token
             .get_or_insert_with(|| Kw::Postponed.canonical_token());
@@ -10542,7 +10542,7 @@ impl ProcessPreambleBuilder {
         self.process_token = t.into();
         self
     }
-    pub fn with_process_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_process_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.process_token.set_leading_trivia(trivia);
         self
     }
@@ -10557,7 +10557,7 @@ impl ProcessPreambleBuilder {
         self.is_token = Some(t.into());
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .is_token
             .get_or_insert_with(|| Kw::Is.canonical_token());
@@ -10696,7 +10696,7 @@ impl ProtectedPreambleBuilder {
         self.protected_token = t.into();
         self
     }
-    pub fn with_protected_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_protected_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.protected_token.set_leading_trivia(trivia);
         self
     }
@@ -10819,7 +10819,7 @@ impl ProtectedTypeBodyEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -10827,7 +10827,7 @@ impl ProtectedTypeBodyEpilogueBuilder {
         self.protected_token = t.into();
         self
     }
-    pub fn with_protected_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_protected_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.protected_token.set_leading_trivia(trivia);
         self
     }
@@ -10835,7 +10835,7 @@ impl ProtectedTypeBodyEpilogueBuilder {
         self.body_token = t.into();
         self
     }
-    pub fn with_body_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_body_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.body_token.set_leading_trivia(trivia);
         self
     }
@@ -10843,7 +10843,7 @@ impl ProtectedTypeBodyEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -10883,7 +10883,7 @@ impl ProtectedTypeBodyPreambleBuilder {
         self.protected_token = t.into();
         self
     }
-    pub fn with_protected_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_protected_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.protected_token.set_leading_trivia(trivia);
         self
     }
@@ -10891,7 +10891,7 @@ impl ProtectedTypeBodyPreambleBuilder {
         self.body_token = t.into();
         self
     }
-    pub fn with_body_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_body_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.body_token.set_leading_trivia(trivia);
         self
     }
@@ -10979,7 +10979,7 @@ impl ProtectedTypeDeclarationEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -10987,7 +10987,7 @@ impl ProtectedTypeDeclarationEpilogueBuilder {
         self.protected_token = t.into();
         self
     }
-    pub fn with_protected_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_protected_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.protected_token.set_leading_trivia(trivia);
         self
     }
@@ -10995,7 +10995,7 @@ impl ProtectedTypeDeclarationEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -11070,7 +11070,7 @@ impl QualifiedExpressionBuilder {
         self.tick_token = t.into();
         self
     }
-    pub fn with_tick_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_tick_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.tick_token.set_leading_trivia(trivia);
         self
     }
@@ -11109,7 +11109,7 @@ impl RangeConstraintBuilder {
         self.range_token = t.into();
         self
     }
-    pub fn with_range_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_range_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.range_token.set_leading_trivia(trivia);
         self
     }
@@ -11171,7 +11171,7 @@ impl RecordElementResolutionBuilder {
         self.simple_name = t.into().into();
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.simple_name.set_leading_trivia(trivia);
         self
     }
@@ -11284,7 +11284,7 @@ impl RecordTypeDefinitionEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -11292,7 +11292,7 @@ impl RecordTypeDefinitionEpilogueBuilder {
         self.record_token = t.into();
         self
     }
-    pub fn with_record_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_record_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.record_token.set_leading_trivia(trivia);
         self
     }
@@ -11300,7 +11300,7 @@ impl RecordTypeDefinitionEpilogueBuilder {
         self.simple_name = Some(t.into().into());
         self
     }
-    pub fn with_simple_name_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_simple_name_trivia(mut self, trivia: TriviaBuf) -> Self {
         if let Some(ref mut t) = self.simple_name {
             t.set_leading_trivia(trivia);
         }
@@ -11337,7 +11337,7 @@ impl RecordTypeDefinitionPreambleBuilder {
         self.record_token = t.into();
         self
     }
-    pub fn with_record_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_record_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.record_token.set_leading_trivia(trivia);
         self
     }
@@ -11365,7 +11365,7 @@ impl RejectClauseBuilder {
         self.reject_token = t.into();
         self
     }
-    pub fn with_reject_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_reject_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.reject_token.set_leading_trivia(trivia);
         self
     }
@@ -11431,7 +11431,7 @@ impl ReportClauseBuilder {
         self.report_token = t.into();
         self
     }
-    pub fn with_report_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_report_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.report_token.set_leading_trivia(trivia);
         self
     }
@@ -11476,7 +11476,7 @@ impl ReportStatementBuilder {
         self.report_token = t.into();
         self
     }
-    pub fn with_report_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_report_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.report_token.set_leading_trivia(trivia);
         self
     }
@@ -11492,7 +11492,7 @@ impl ReportStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -11539,7 +11539,7 @@ impl ReturnStatementBuilder {
         self.return_token = t.into();
         self
     }
-    pub fn with_return_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_return_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.return_token.set_leading_trivia(trivia);
         self
     }
@@ -11551,7 +11551,7 @@ impl ReturnStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -11584,7 +11584,7 @@ impl ReturnTypeBuilder {
         self.return_token = t.into();
         self
     }
-    pub fn with_return_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_return_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.return_token.set_leading_trivia(trivia);
         self
     }
@@ -11626,7 +11626,7 @@ impl SecondaryUnitDeclarationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -11634,7 +11634,7 @@ impl SecondaryUnitDeclarationBuilder {
         self.eq_token = t.into();
         self
     }
-    pub fn with_eq_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_eq_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.eq_token.set_leading_trivia(trivia);
         self
     }
@@ -11646,7 +11646,7 @@ impl SecondaryUnitDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -11705,7 +11705,7 @@ impl SelectedAssignmentPreambleBuilder {
         self.with_token = t.into();
         self
     }
-    pub fn with_with_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_with_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.with_token.set_leading_trivia(trivia);
         self
     }
@@ -11717,7 +11717,7 @@ impl SelectedAssignmentPreambleBuilder {
         self.select_token = t.into();
         self
     }
-    pub fn with_select_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_select_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.select_token.set_leading_trivia(trivia);
         self
     }
@@ -11725,7 +11725,7 @@ impl SelectedAssignmentPreambleBuilder {
         self.que_token = Some(t.into());
         self
     }
-    pub fn with_que_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_que_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .que_token
             .get_or_insert_with(|| TokenKind::Que.canonical_token().unwrap());
@@ -11767,7 +11767,7 @@ impl SelectedExpressionItemBuilder {
         self.when_token = t.into();
         self
     }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_when_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.when_token.set_leading_trivia(trivia);
         self
     }
@@ -11834,7 +11834,7 @@ impl SelectedForceAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -11842,7 +11842,7 @@ impl SelectedForceAssignmentBuilder {
         self.force_token = t.into();
         self
     }
-    pub fn with_force_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_force_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.force_token.set_leading_trivia(trivia);
         self
     }
@@ -11858,7 +11858,7 @@ impl SelectedForceAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -11895,7 +11895,7 @@ impl SelectedNameBuilder {
         self.dot_token = t.into();
         self
     }
-    pub fn with_dot_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_dot_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.dot_token.set_leading_trivia(trivia);
         self
     }
@@ -11957,7 +11957,7 @@ impl SelectedVariableAssignmentBuilder {
         self.colon_eq_token = t.into();
         self
     }
-    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_eq_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_eq_token.set_leading_trivia(trivia);
         self
     }
@@ -11969,7 +11969,7 @@ impl SelectedVariableAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12033,7 +12033,7 @@ impl SelectedWaveformAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -12049,7 +12049,7 @@ impl SelectedWaveformAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12091,7 +12091,7 @@ impl SelectedWaveformItemBuilder {
         self.when_token = t.into();
         self
     }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_when_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.when_token.set_leading_trivia(trivia);
         self
     }
@@ -12127,7 +12127,7 @@ impl SensitivityClauseBuilder {
         self.on_token = t.into();
         self
     }
-    pub fn with_on_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_on_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.on_token.set_leading_trivia(trivia);
         self
     }
@@ -12191,7 +12191,7 @@ impl SeverityClauseBuilder {
         self.severity_token = t.into();
         self
     }
-    pub fn with_severity_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_severity_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.severity_token.set_leading_trivia(trivia);
         self
     }
@@ -12239,7 +12239,7 @@ impl SignalDeclarationBuilder {
         self.signal_token = t.into();
         self
     }
-    pub fn with_signal_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_signal_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.signal_token.set_leading_trivia(trivia);
         self
     }
@@ -12251,7 +12251,7 @@ impl SignalDeclarationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12271,7 +12271,7 @@ impl SignalDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12310,7 +12310,7 @@ impl SignalListAllBuilder {
         self.all_token = t.into();
         self
     }
-    pub fn with_all_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_all_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.all_token.set_leading_trivia(trivia);
         self
     }
@@ -12341,7 +12341,7 @@ impl SignalListOthersBuilder {
         self.others_token = t.into();
         self
     }
-    pub fn with_others_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_others_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.others_token.set_leading_trivia(trivia);
         self
     }
@@ -12378,7 +12378,7 @@ impl SignatureBuilder {
         self.left_square_token = t.into();
         self
     }
-    pub fn with_left_square_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_square_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_square_token.set_leading_trivia(trivia);
         self
     }
@@ -12394,7 +12394,7 @@ impl SignatureBuilder {
         self.right_square_token = t.into();
         self
     }
-    pub fn with_right_square_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_square_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_square_token.set_leading_trivia(trivia);
         self
     }
@@ -12444,7 +12444,7 @@ impl SimpleConfigurationSpecificationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12502,7 +12502,7 @@ impl SimpleForceAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -12510,7 +12510,7 @@ impl SimpleForceAssignmentBuilder {
         self.force_token = t.into();
         self
     }
-    pub fn with_force_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_force_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.force_token.set_leading_trivia(trivia);
         self
     }
@@ -12526,7 +12526,7 @@ impl SimpleForceAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12578,7 +12578,7 @@ impl SimpleReleaseAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -12586,7 +12586,7 @@ impl SimpleReleaseAssignmentBuilder {
         self.release_token = t.into();
         self
     }
-    pub fn with_release_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_release_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.release_token.set_leading_trivia(trivia);
         self
     }
@@ -12598,7 +12598,7 @@ impl SimpleReleaseAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12647,7 +12647,7 @@ impl SimpleVariableAssignmentBuilder {
         self.colon_eq_token = t.into();
         self
     }
-    pub fn with_colon_eq_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_eq_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_eq_token.set_leading_trivia(trivia);
         self
     }
@@ -12659,7 +12659,7 @@ impl SimpleVariableAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12709,7 +12709,7 @@ impl SimpleWaveformAssignmentBuilder {
         self.lte_token = t.into();
         self
     }
-    pub fn with_lte_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_lte_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.lte_token.set_leading_trivia(trivia);
         self
     }
@@ -12725,7 +12725,7 @@ impl SimpleWaveformAssignmentBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12760,7 +12760,7 @@ impl StmtLabelBuilder {
         self.label = t.into().into();
         self
     }
-    pub fn with_label_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_label_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.label.set_leading_trivia(trivia);
         self
     }
@@ -12768,7 +12768,7 @@ impl StmtLabelBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12876,7 +12876,7 @@ impl SubprogramBodyEpilogueBuilder {
         self.end_token = t.into();
         self
     }
-    pub fn with_end_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_end_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.end_token.set_leading_trivia(trivia);
         self
     }
@@ -12892,7 +12892,7 @@ impl SubprogramBodyEpilogueBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -12932,7 +12932,7 @@ impl SubprogramBodyPreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -12970,7 +12970,7 @@ impl SubprogramDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -13033,7 +13033,7 @@ impl SubprogramDefaultBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -13111,7 +13111,7 @@ impl SubprogramHeaderGenericClauseBuilder {
         self.generic_token = t.into();
         self
     }
-    pub fn with_generic_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_generic_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.generic_token.set_leading_trivia(trivia);
         self
     }
@@ -13119,7 +13119,7 @@ impl SubprogramHeaderGenericClauseBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -13131,7 +13131,7 @@ impl SubprogramHeaderGenericClauseBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -13182,7 +13182,7 @@ impl SubprogramInstantiationDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -13230,7 +13230,7 @@ impl SubprogramInstantiationDeclarationPreambleBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -13238,7 +13238,7 @@ impl SubprogramInstantiationDeclarationPreambleBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -13246,7 +13246,7 @@ impl SubprogramInstantiationDeclarationPreambleBuilder {
         self.new_token = t.into();
         self
     }
-    pub fn with_new_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_new_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.new_token.set_leading_trivia(trivia);
         self
     }
@@ -13329,7 +13329,7 @@ impl SubtypeDeclarationBuilder {
         self.subtype_token = t.into();
         self
     }
-    pub fn with_subtype_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_subtype_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.subtype_token.set_leading_trivia(trivia);
         self
     }
@@ -13337,7 +13337,7 @@ impl SubtypeDeclarationBuilder {
         self.identifier_token = t.into().into();
         self
     }
-    pub fn with_identifier_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_identifier_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.identifier_token.set_leading_trivia(trivia);
         self
     }
@@ -13345,7 +13345,7 @@ impl SubtypeDeclarationBuilder {
         self.is_token = t.into();
         self
     }
-    pub fn with_is_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_is_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.is_token.set_leading_trivia(trivia);
         self
     }
@@ -13357,7 +13357,7 @@ impl SubtypeDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -13422,7 +13422,7 @@ impl TimeoutClauseBuilder {
         self.for_token = t.into();
         self
     }
-    pub fn with_for_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_for_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.for_token.set_leading_trivia(trivia);
         self
     }
@@ -13460,7 +13460,7 @@ impl TransportDelayMechanismBuilder {
         self.transport_token = t.into();
         self
     }
-    pub fn with_transport_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_transport_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.transport_token.set_leading_trivia(trivia);
         self
     }
@@ -13493,7 +13493,7 @@ impl UnaffectedWaveformBuilder {
         self.unaffected_token = t.into();
         self
     }
-    pub fn with_unaffected_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_unaffected_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.unaffected_token.set_leading_trivia(trivia);
         self
     }
@@ -13568,7 +13568,7 @@ impl UnboundedArrayDefinitionBuilder {
         self.array_token = t.into();
         self
     }
-    pub fn with_array_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_array_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.array_token.set_leading_trivia(trivia);
         self
     }
@@ -13576,7 +13576,7 @@ impl UnboundedArrayDefinitionBuilder {
         self.left_par_token = t.into();
         self
     }
-    pub fn with_left_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_left_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.left_par_token.set_leading_trivia(trivia);
         self
     }
@@ -13591,7 +13591,7 @@ impl UnboundedArrayDefinitionBuilder {
         self.right_par_token = t.into();
         self
     }
-    pub fn with_right_par_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_right_par_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.right_par_token.set_leading_trivia(trivia);
         self
     }
@@ -13599,7 +13599,7 @@ impl UnboundedArrayDefinitionBuilder {
         self.of_token = t.into();
         self
     }
-    pub fn with_of_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_of_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.of_token.set_leading_trivia(trivia);
         self
     }
@@ -13640,7 +13640,7 @@ impl UnitDeclarationsBuilder {
         self.units_token = t.into();
         self
     }
-    pub fn with_units_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_units_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.units_token.set_leading_trivia(trivia);
         self
     }
@@ -13691,7 +13691,7 @@ impl UpLevelBuilder {
         self.circ_token = t.into();
         self
     }
-    pub fn with_circ_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_circ_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.circ_token.set_leading_trivia(trivia);
         self
     }
@@ -13699,7 +13699,7 @@ impl UpLevelBuilder {
         self.dot_token = t.into();
         self
     }
-    pub fn with_dot_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_dot_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.dot_token.set_leading_trivia(trivia);
         self
     }
@@ -13732,7 +13732,7 @@ impl UseClauseBuilder {
         self.use_token = t.into();
         self
     }
-    pub fn with_use_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_use_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.use_token.set_leading_trivia(trivia);
         self
     }
@@ -13744,7 +13744,7 @@ impl UseClauseBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -13833,7 +13833,7 @@ impl VariableDeclarationBuilder {
         self.shared_token = Some(t.into());
         self
     }
-    pub fn with_shared_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_shared_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         let tok = self
             .shared_token
             .get_or_insert_with(|| Kw::Shared.canonical_token());
@@ -13844,7 +13844,7 @@ impl VariableDeclarationBuilder {
         self.variable_token = t.into();
         self
     }
-    pub fn with_variable_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_variable_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.variable_token.set_leading_trivia(trivia);
         self
     }
@@ -13856,7 +13856,7 @@ impl VariableDeclarationBuilder {
         self.colon_token = t.into();
         self
     }
-    pub fn with_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.colon_token.set_leading_trivia(trivia);
         self
     }
@@ -13872,7 +13872,7 @@ impl VariableDeclarationBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -13917,7 +13917,7 @@ impl VerificationUnitBindingBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -13950,7 +13950,7 @@ impl VerificationUnitBindingIndicationBuilder {
         self.use_token = t.into();
         self
     }
-    pub fn with_use_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_use_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.use_token.set_leading_trivia(trivia);
         self
     }
@@ -13958,7 +13958,7 @@ impl VerificationUnitBindingIndicationBuilder {
         self.vunit_token = t.into();
         self
     }
-    pub fn with_vunit_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_vunit_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.vunit_token.set_leading_trivia(trivia);
         self
     }
@@ -14011,7 +14011,7 @@ impl WaitStatementBuilder {
         self.wait_token = t.into();
         self
     }
-    pub fn with_wait_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_wait_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.wait_token.set_leading_trivia(trivia);
         self
     }
@@ -14031,7 +14031,7 @@ impl WaitStatementBuilder {
         self.semi_colon_token = t.into();
         self
     }
-    pub fn with_semi_colon_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_semi_colon_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.semi_colon_token.set_leading_trivia(trivia);
         self
     }
@@ -14097,7 +14097,7 @@ impl WhenClauseBuilder {
         self.when_token = t.into();
         self
     }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_when_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.when_token.set_leading_trivia(trivia);
         self
     }
@@ -14141,7 +14141,7 @@ impl WhenExpressionBuilder {
         self.when_token = t.into();
         self
     }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_when_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.when_token.set_leading_trivia(trivia);
         self
     }
@@ -14186,7 +14186,7 @@ impl WhenWaveformBuilder {
         self.when_token = t.into();
         self
     }
-    pub fn with_when_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_when_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.when_token.set_leading_trivia(trivia);
         self
     }
@@ -14222,7 +14222,7 @@ impl WhileSchemeBuilder {
         self.while_token = t.into();
         self
     }
-    pub fn with_while_token_trivia(mut self, trivia: Trivia) -> Self {
+    pub fn with_while_token_trivia(mut self, trivia: TriviaBuf) -> Self {
         self.while_token.set_leading_trivia(trivia);
         self
     }
@@ -14268,7 +14268,7 @@ impl AssociationListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14305,7 +14305,7 @@ impl ChoicesBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Bar.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14345,7 +14345,7 @@ impl ElementAssociationListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14385,7 +14385,7 @@ impl EntityClassEntryListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14425,7 +14425,7 @@ impl EntityDesignatorListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14465,7 +14465,7 @@ impl EnumerationListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14505,7 +14505,7 @@ impl ExpressionListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14545,7 +14545,7 @@ impl IdentifierListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14585,7 +14585,7 @@ impl IndexSubtypeDefinitionListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14625,7 +14625,7 @@ impl InstantiationListListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14665,7 +14665,7 @@ impl InterfaceListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::SemiColon.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14705,7 +14705,7 @@ impl LogicalNameListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14742,7 +14742,7 @@ impl NameListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14782,7 +14782,7 @@ impl PackagePathBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Dot.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14822,7 +14822,7 @@ impl PartialPathnameBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Dot.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14862,7 +14862,7 @@ impl RecordResolutionBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14902,7 +14902,7 @@ impl SelectedExpressionsBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14942,7 +14942,7 @@ impl SelectedWaveformsBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -14979,7 +14979,7 @@ impl SensitivityListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -15016,7 +15016,7 @@ impl SignalListListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -15053,7 +15053,7 @@ impl TypeMarkListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -15090,7 +15090,7 @@ impl VerificationUnitListBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
@@ -15130,7 +15130,7 @@ impl WaveformElementsBuilder {
         for element in self.elements {
             if !first {
                 let mut separator = TokenKind::Comma.canonical_token().unwrap();
-                separator.set_leading_trivia(Trivia::default());
+                separator.set_leading_trivia(TriviaBuf::default());
                 builder = builder.push_token(separator);
             }
             first = false;
