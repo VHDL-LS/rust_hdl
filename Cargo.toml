@@ -35,6 +35,9 @@ rust-version = "1.95"
 repository = "https://github.com/VHDL-LS/rust_hdl"
 readme = "README.md"
 
+[profile.bench]
+debug = "line-tables-only"   # symbols + line numbers
+
 [workspace.dependencies]
 # Workspace crates
 vhdl_lang = { version = "^0.88.0", path = "vhdl_lang" }
