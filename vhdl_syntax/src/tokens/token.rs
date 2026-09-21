@@ -10,9 +10,8 @@ use crate::standard::VHDLStandard;
 use crate::tokens::{TokenKind, TokenStream, Tokenizer, Trivia, TriviaBuf};
 use std::fmt::Debug;
 use std::io::{self, Write};
-use std::sync::RwLock;
 
-static STR_INTERNER: RwLock<Interner<Latin1Str>> = RwLock::new(Interner::new());
+static STR_INTERNER: Interner<Latin1Str> = Interner::new();
 
 /// A source-code token.
 #[derive(Clone, Eq, PartialEq)]

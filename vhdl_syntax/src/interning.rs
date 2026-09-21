@@ -58,8 +58,9 @@ where
     T: ?Sized + Hash + Eq,
     for<'a> Box<T>: From<&'a T>,
 {
-    pub fn get(interner: &RwLock<Interner<T>>, value: &T) -> Interned<T> {
+    pub fn get(interner: &Interner<T>, value: &T) -> Interned<T> {
         if let Some(sym) = interner
+            .0
             .read()
             .unwrap_or_else(|e| e.into_inner())
             .get_sym(value)
@@ -67,18 +68,33 @@ where
             return sym;
         }
         interner
+            .0
             .write()
             .unwrap_or_else(|e| e.into_inner())
             .get_or_alloc(value)
     }
 
-    pub fn value(&self, interner: &RwLock<Interner<T>>) -> &'static T {
+    pub fn value(&self, interner: &Interner<T>) -> &'static T {
         // Note: this could avoid the lock since strings are pushed to an append-only collection
         // Re-evaluate this when considering optimization
         interner
+            .0
             .read()
             .unwrap_or_else(|e| e.into_inner())
             .get_value(self)
+    }
+}
+
+pub(crate) struct Interner<T: ?Sized + 'static>(RwLock<InternerInner<T>>);
+
+impl<T: ?Sized + 'static> Interner<T> {
+    pub const fn new() -> Interner<T> {
+        Interner(RwLock::new(InternerInner::new()))
+    }
+
+    #[cfg(test)]
+    pub fn entry_count(&self) -> usize {
+        self.0.read().unwrap().entries.len()
     }
 }
 
@@ -86,24 +102,26 @@ where
 ///
 /// Currently implemented in a simplistic way:
 /// symbols are allocated globally and leaked; no re-allocation / drop is forseen
-pub(crate) struct Interner<T: ?Sized + 'static> {
+struct InternerInner<T: ?Sized + 'static> {
     // lookup T -> Interned<T>
     lookup: HashMap<&'static T, Interned<T>, FxBuildHasher>,
     // Interned<T> -> T
     entries: Vec<&'static T>,
 }
 
-impl<T: ?Sized + Hash + Eq + 'static> Interner<T>
-where
-    for<'a> Box<T>: From<&'a T>,
-{
-    pub(crate) const fn new() -> Interner<T> {
-        Interner {
+impl<T: ?Sized + 'static> InternerInner<T> {
+    pub(crate) const fn new() -> InternerInner<T> {
+        InternerInner {
             lookup: HashMap::with_hasher(FxBuildHasher),
             entries: Vec::new(),
         }
     }
+}
 
+impl<T: ?Sized + Hash + Eq + 'static> InternerInner<T>
+where
+    for<'a> Box<T>: From<&'a T>,
+{
     fn get_sym(&self, value: &T) -> Option<Interned<T>> {
         self.lookup.get(value).copied()
     }
@@ -132,32 +150,20 @@ mod tests {
     use std::collections::HashSet;
     use std::thread;
 
-    fn interner<T>() -> RwLock<Interner<T>>
-    where
-        T: ?Sized + Hash + Eq + 'static,
-        for<'a> Box<T>: From<&'a T>,
-    {
-        RwLock::new(Interner::new())
-    }
-
-    fn entry_count<T: ?Sized>(interner: &RwLock<Interner<T>>) -> usize {
-        interner.read().unwrap().entries.len()
-    }
-
     #[test]
     fn equal_values_share_a_symbol() {
-        let interner = interner::<[u8]>();
+        let interner = Interner::<[u8]>::new();
         let first = Interned::get(&interner, b"entity".as_slice());
         let second = Interned::get(&interner, b"entity".as_slice());
 
         assert_eq!(first, second);
         // the second `get` must not allocate a new entry
-        assert_eq!(entry_count(&interner), 1);
+        assert_eq!(interner.entry_count(), 1);
     }
 
     #[test]
     fn distinct_values_get_distinct_symbols() {
-        let interner = interner::<[u8]>();
+        let interner = Interner::<[u8]>::new();
         let values: [&[u8]; 4] = [b"entity", b"architecture", b"", b"Entity"];
         let symbols: Vec<_> = values
             .iter()
@@ -165,12 +171,12 @@ mod tests {
             .collect();
 
         assert_eq!(symbols.iter().collect::<HashSet<_>>().len(), values.len());
-        assert_eq!(entry_count(&interner), values.len());
+        assert_eq!(interner.entry_count(), values.len());
     }
 
     #[test]
     fn symbols_round_trip_to_their_value() {
-        let interner = interner::<[u8]>();
+        let interner = Interner::<[u8]>::new();
         for value in [b"entity".as_slice(), b"architecture".as_slice(), b""] {
             let symbol = Interned::get(&interner, value);
             assert_eq!(symbol.value(&interner), value);
@@ -179,7 +185,7 @@ mod tests {
 
     #[test]
     fn interning_is_case_sensitive() {
-        let interner = interner::<Latin1Str>();
+        let interner = Interner::<Latin1Str>::new();
         let lower = Interned::get(&interner, Latin1Str::new(b"entity"));
         let upper = Interned::get(&interner, Latin1Str::new(b"ENTITY"));
 
@@ -190,8 +196,8 @@ mod tests {
 
     #[test]
     fn two_interners_of_the_same_type_are_independent() {
-        let first = interner::<[u8]>();
-        let second = interner::<[u8]>();
+        let first = Interner::<[u8]>::new();
+        let second = Interner::<[u8]>::new();
 
         Interned::get(&first, b"entity".as_slice());
         let a = Interned::get(&first, b"architecture".as_slice());
@@ -199,13 +205,13 @@ mod tests {
 
         assert_eq!(a.value(&first), b"architecture".as_slice());
         assert_eq!(b.value(&second), b"architecture".as_slice());
-        assert_eq!(entry_count(&first), 2);
-        assert_eq!(entry_count(&second), 1);
+        assert_eq!(first.entry_count(), 2);
+        assert_eq!(second.entry_count(), 1);
     }
 
     #[test]
     fn concurrent_interning_of_one_value_yields_one_symbol() {
-        let interner = interner::<[u8]>();
+        let interner = Interner::<[u8]>::new();
 
         let symbols: Vec<_> = thread::scope(|scope| {
             let handles: Vec<_> = (0..8)
@@ -215,6 +221,6 @@ mod tests {
         });
 
         assert!(symbols.iter().all(|symbol| *symbol == symbols[0]));
-        assert_eq!(entry_count(&interner), 1);
+        assert_eq!(interner.entry_count(), 1);
     }
 }
