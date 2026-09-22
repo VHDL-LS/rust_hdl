@@ -90,17 +90,7 @@ impl Generator for BuilderGenerator {
 /// Returns true if this token kind has a fixed canonical text representation.
 /// Returns false for tokens whose text depends on user input (identifiers, literals, etc.).
 fn has_canonical_text(kind: &TokenKind) -> bool {
-    !matches!(
-        kind,
-        TokenKind::Identifier
-            | TokenKind::AbstractLiteral
-            | TokenKind::StringLiteral
-            | TokenKind::BitStringLiteral
-            | TokenKind::CharacterLiteral
-            | TokenKind::ToolDirective
-            | TokenKind::Unterminated
-            | TokenKind::Unknown
-    )
+    kind.canonical_text().is_some()
 }
 
 /// Maps a `TokenKind` to its domain type path for builder method signatures.

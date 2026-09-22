@@ -11,6 +11,8 @@ pub mod meta;
 pub use meta::MetaGenerator;
 pub mod syntax_nodes;
 pub use syntax_nodes::SyntaxNodeGenerator;
+pub mod token_kind;
+pub use token_kind::TokenKindGenerator;
 pub mod valid_nodes;
 pub use valid_nodes::ValidNodeGenerator;
 
@@ -25,6 +27,10 @@ use std::process::{Command, Stdio};
 /// A code generator that transforms a [`Model`] into one or more Rust source files.
 pub trait Generator {
     fn name(&self) -> &str;
+    /// The directory the files are written to, relative to `vhdl_syntax/src`.
+    fn output_dir(&self) -> &str {
+        "syntax/generated"
+    }
     /// Returns `(file_stem, token_stream)` pairs — one entry per output file.
     fn generate_files(&self, model: &Model) -> Vec<(String, TokenStream)>;
 }
@@ -69,16 +75,12 @@ fn generate_file_content(token_stream: &TokenStream) -> Result<String> {
     rustfmt_code(&code)
 }
 
-/// Run all generators, write output to `output_dir`, format each file with rustfmt.
-pub fn run_generators(
-    generators: &[&dyn Generator],
-    model: &Model,
-    output_dir: &Path,
-) -> Result<()> {
-    std::fs::create_dir_all(output_dir)?;
-
+/// Run all generators, write output below `src_dir`, format each file with rustfmt.
+pub fn run_generators(generators: &[&dyn Generator], model: &Model, src_dir: &Path) -> Result<()> {
     for generator in generators {
         println!("Running generator: {}", generator.name());
+        let output_dir = src_dir.join(generator.output_dir());
+        std::fs::create_dir_all(&output_dir)?;
         for (stem, token_stream) in generator.generate_files(model) {
             let content = generate_file_content(&token_stream)?;
             let path = output_dir.join(format!("{stem}.rs"));
@@ -91,11 +93,11 @@ pub fn run_generators(
 }
 
 /// Same as `run_generators` but compare to existing files instead of writing.
-/// Returns a list of file stems that would change.
+/// Returns the paths (relative to `src_dir`) of the files that would change.
 pub fn check_generators(
     generators: &[&dyn Generator],
     model: &Model,
-    output_dir: &Path,
+    src_dir: &Path,
 ) -> Result<Vec<String>> {
     let mut stale = Vec::new();
 
@@ -103,14 +105,15 @@ pub fn check_generators(
         for (stem, token_stream) in generator.generate_files(model) {
             let generated_content = generate_file_content(&token_stream)
                 .map_err(|e| anyhow::anyhow!("[{}] {e}", generator.name()))?;
-            let path = output_dir.join(format!("{stem}.rs"));
+            let file = format!("{}/{stem}.rs", generator.output_dir());
+            let path = src_dir.join(&file);
 
             let existing_content = std::fs::read_to_string(&path).unwrap_or_default();
 
             if existing_content != generated_content {
                 let diff = TextDiff::from_lines(&existing_content, &generated_content);
-                eprintln!("--- {stem}.rs (on disk)");
-                eprintln!("+++ {stem}.rs (would be generated)");
+                eprintln!("--- {file} (on disk)");
+                eprintln!("+++ {file} (would be generated)");
                 for change in diff.iter_all_changes() {
                     let sign = match change.tag() {
                         ChangeTag::Delete => "-",
@@ -119,7 +122,7 @@ pub fn check_generators(
                     };
                     eprint!("{sign}{change}");
                 }
-                stale.push(stem);
+                stale.push(file);
             }
         }
     }

@@ -4,63 +4,23 @@
 //
 // Copyright (c) 2025, Lukas Scheller lukasscheller@icloud.com
 
-// NOTE: TokenKind and Keyword are duplicated in vhdl_syntax/src/tokens/token_kind.rs.
-// Making xtask depend on vhdl_syntax would create a chicken-and-egg issue (generated files
-// may be absent or broken). Keep the two definitions in sync manually.
+// `TokenKind` and `Keyword` are the source of truth for the enums of the same name in
+// `vhdl_syntax/src/tokens/generated.rs`, which `TokenKindGenerator` emits from them.
 
 use convert_case::{Case, Casing};
 use std::str::FromStr;
+use strum::IntoEnumIterator;
 
 pub fn str_to_token_kind(s: &str) -> Result<TokenKind, strum::ParseError> {
-    use TokenKind::*;
-    Ok(match s {
-        "+" => Plus,
-        "-" => Minus,
-        "=" => EQ,
-        "/=" => NE,
-        "<" => LT,
-        ">" => GT,
-        "<=" => LTE,
-        ">=" => GTE,
-        "?=" => QueEQ,
-        "?/=" => QueNE,
-        "?<" => QueLT,
-        "?>" => QueGT,
-        "?<=" => QueLTE,
-        "?>=" => QueGTE,
-        "?" => Que,
-        "??" => QueQue,
-        "*" => Times,
-        "**" => Pow,
-        "/" => Div,
-        "'" => Tick,
-        "(" => LeftPar,
-        ")" => RightPar,
-        "[" => LeftSquare,
-        "]" => RightSquare,
-        ";" => SemiColon,
-        ":" => Colon,
-        "|" => Bar,
-        "." => Dot,
-        "<>" => BOX,
-        "<<" => LtLt,
-        ">>" => GtGt,
-        "^" => Circ,
-        "@" => CommAt,
-        "&" => Concat,
-        "," => Comma,
-        ":=" => ColonEq,
-        "=>" => RightArrow,
-        _ => {
-            return TokenKind::from_str(&s.to_case(Case::UpperCamel)).or_else(|_| {
-                super::Keyword::from_str(&s.to_case(Case::UpperCamel)).map(TokenKind::Keyword)
-            })
-        }
-    })
+    if let Some(kind) = TokenKind::iter().find(|kind| kind.canonical_text().as_deref() == Some(s)) {
+        return Ok(kind);
+    }
+    TokenKind::from_str(&s.to_case(Case::UpperCamel))
+        .or_else(|_| Keyword::from_str(&s.to_case(Case::UpperCamel)).map(TokenKind::Keyword))
 }
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(PartialEq, Eq, Copy, Clone, Debug, strum::Display, strum::EnumString)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, strum::Display, strum::EnumString, strum::EnumIter)]
 pub enum TokenKind {
     /// A keyword, such as `entity`, `architecture` or `abs`.
     #[strum(disabled)]
@@ -115,15 +75,13 @@ pub enum TokenKind {
     CharacterLiteral,
     ToolDirective,
 
-    // Erroneous input
-    /// String, extended identifier or based integer without final quotation char
-    Unterminated,
-
     /// Unknown input
     ///
     /// Produced, for example, when there is an unknown char or illegal bit string
     Unknown,
 
+    /// Special End of File token.
+    /// Has no source representation but may carry trivia
     Eof,
 }
 
@@ -137,10 +95,75 @@ impl TokenKind {
             other => other.to_string(),
         }
     }
+
+    /// The text every token of this kind is spelled with, or `None` if the text depends on the
+    /// input (identifiers, literals, ...). Keywords are spelled in lowercase.
+    pub fn canonical_text(&self) -> Option<String> {
+        use TokenKind::*;
+        let text = match self {
+            Keyword(kw) => return Some(kw.canonical_text()),
+            Plus => "+",
+            Minus => "-",
+            EQ => "=",
+            NE => "/=",
+            LT => "<",
+            LTE => "<=",
+            GT => ">",
+            GTE => ">=",
+            QueEQ => "?=",
+            QueNE => "?/=",
+            QueLT => "?<",
+            QueLTE => "?<=",
+            QueGT => "?>",
+            QueGTE => "?>=",
+            Que => "?",
+            QueQue => "??",
+            Times => "*",
+            Pow => "**",
+            Div => "/",
+            Tick => "'",
+            LeftPar => "(",
+            RightPar => ")",
+            LeftSquare => "[",
+            RightSquare => "]",
+            SemiColon => ";",
+            Colon => ":",
+            Bar => "|",
+            Dot => ".",
+            BOX => "<>",
+            LtLt => "<<",
+            GtGt => ">>",
+            Circ => "^",
+            CommAt => "@",
+            Concat => "&",
+            Comma => ",",
+            ColonEq => ":=",
+            RightArrow => "=>",
+            Eof => "",
+            Identifier | AbstractLiteral | StringLiteral | BitStringLiteral | CharacterLiteral
+            | ToolDirective | Unknown => return None,
+        };
+        Some(text.to_string())
+    }
+
+    /// Documentation for the variant, rendered onto the generated enum.
+    pub fn doc(&self) -> Option<String> {
+        match self {
+            TokenKind::Keyword(_) => Some("A keyword, such as `entity`, `architecture` or `abs`.".to_string()),
+            TokenKind::Unknown => Some(
+                "Unknown input\n\nProduced, for example, when there is an unknown char or illegal bit string"
+                    .to_string(),
+            ),
+            TokenKind::Eof => Some(
+                "Special End of File token.\nHas no source representation but may carry trivia".to_string(),
+            ),
+            other => other.canonical_text().map(|text| format!("`{text}`")),
+        }
+    }
 }
 
 /// All available keywords in the latest (VHDL 2019) edition of VHDL
-#[derive(PartialEq, Eq, Clone, Copy, Debug, strum::Display, strum::EnumString)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, strum::Display, strum::EnumString, strum::EnumIter)]
 pub enum Keyword {
     Abs,
     Access,
@@ -258,4 +281,11 @@ pub enum Keyword {
     With,
     Xnor,
     Xor,
+}
+
+impl Keyword {
+    /// The canonical (lowercase) text of this keyword.
+    pub fn canonical_text(&self) -> String {
+        self.to_string().to_lowercase()
+    }
 }

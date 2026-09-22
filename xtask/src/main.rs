@@ -7,7 +7,7 @@
 use clap::{Parser, Subcommand};
 use generate::{
     check_generators, run_generators, BuilderGenerator, Generator, MetaGenerator,
-    SyntaxNodeGenerator, ValidNodeGenerator,
+    SyntaxNodeGenerator, TokenKindGenerator, ValidNodeGenerator,
 };
 use model::load_model;
 use std::path::Path;
@@ -56,7 +56,7 @@ fn main() {
 
     match cli.command {
         Commands::Codegen { check } => {
-            let output_dir = workspace_root.join("vhdl_syntax/src/syntax/generated");
+            let src_dir = workspace_root.join("vhdl_syntax/src");
             let file = workspace_root.join("xtask/doc/vhdl-08-modified.ungram");
             let model = load_model(&file);
             let generators: &[&dyn Generator] = &[
@@ -64,24 +64,25 @@ fn main() {
                 &BuilderGenerator,
                 &MetaGenerator,
                 &ValidNodeGenerator,
+                &TokenKindGenerator,
             ];
 
             if check {
-                let stale = check_generators(generators, &model, &output_dir)
+                let stale = check_generators(generators, &model, &src_dir)
                     .expect("failed to check generators");
                 if stale.is_empty() {
                     println!("All generated files are up-to-date.");
                 } else {
                     eprintln!("The following generated files are out of date:");
-                    for stem in &stale {
-                        eprintln!("  {stem}.rs");
+                    for file in &stale {
+                        eprintln!("  {file}");
                     }
                     eprintln!("Run `cargo xtask codegen` to regenerate.");
                     process::exit(1);
                 }
             } else {
-                run_generators(generators, &model, &output_dir).expect("failed to run generators");
-                println!("Generated files written to {}", output_dir.display());
+                run_generators(generators, &model, &src_dir).expect("failed to run generators");
+                println!("Generated files written below {}", src_dir.display());
             }
         }
         Commands::DiffGrammar { production, exact } => {
