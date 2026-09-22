@@ -61,6 +61,14 @@ fn generate_token_kind() -> TokenStream {
         .iter()
         .map(|kind| format_ident!("{}", kind.to_string()));
 
+    let keywords: Vec<_> = Keyword::iter()
+        .map(|kw| format_ident!("{}", kw.to_string()))
+        .collect();
+    let others: Vec<_> = TokenKind::iter()
+        .map(|kind| format_ident!("{}", kind.to_string()))
+        .collect();
+    let count = Literal::usize_unsuffixed(keywords.len() + others.len());
+
     quote! {
         #[allow(clippy::upper_case_acronyms)]
         #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -72,6 +80,12 @@ fn generate_token_kind() -> TokenStream {
         }
 
         impl TokenKind {
+            /// Every token kind, with `Keyword` expanded to one entry per keyword
+            pub const ALL: [TokenKind; #count] = [
+                #(Self::Keyword(Keyword::#keywords),)*
+                #(Self::#others,)*
+            ];
+
             /// Returns the canonical text representation of this token kind, or `None` if the token
             /// kind has no fixed text (e.g. identifiers or literals).
             pub fn canonical_text(&self) -> Option<&'static Latin1Str> {
@@ -92,6 +106,7 @@ fn generate_keyword() -> TokenStream {
     let texts: Vec<_> = Keyword::iter()
         .map(|kw| Literal::byte_string(kw.canonical_text().as_bytes()))
         .collect();
+    let count = Literal::usize_unsuffixed(idents.len());
 
     quote! {
         /// All available keywords in the latest (VHDL 2019) edition of VHDL
@@ -102,6 +117,9 @@ fn generate_keyword() -> TokenStream {
         }
 
         impl Keyword {
+            /// Every keyword, in alphabetical order
+            pub const ALL: [Keyword; #count] = [#(Self::#idents,)*];
+
             /// Returns the canonical (lowercase) text for this keyword.
             pub fn canonical_text(&self) -> &'static Latin1Str {
                 match self {

@@ -70,3 +70,36 @@ impl Keyword {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::latin_1::Latin1String;
+
+    #[test]
+    fn keyword_text_round_trips() {
+        for kw in Keyword::ALL {
+            let text = kw.canonical_text();
+            assert_eq!(Keyword::from_latin1(text), Some(kw));
+            assert_eq!(Keyword::from_latin1(&text.to_uppercase()), Some(kw));
+        }
+    }
+
+    #[test]
+    fn all_token_kinds_are_distinct() {
+        for (i, kind) in TokenKind::ALL.iter().enumerate() {
+            assert!(!TokenKind::ALL[..i].contains(kind), "{kind:?} listed twice");
+        }
+        let texts: Vec<Latin1String> = TokenKind::ALL
+            .iter()
+            .filter_map(|kind| kind.canonical_text())
+            .map(|text| text.to_owned())
+            .collect();
+        for (i, text) in texts.iter().enumerate() {
+            assert!(
+                !texts[..i].contains(text),
+                "{text} is the text of two kinds"
+            );
+        }
+    }
+}
