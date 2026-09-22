@@ -11,10 +11,14 @@ use std::collections::VecDeque;
 
 /// Returns `true` if `text` is a valid VHDL bit-string base specifier.
 fn is_base_specifier(text: &Latin1Str) -> bool {
-    matches!(
-        text.to_lowercase().as_bytes(),
-        b"b" | b"o" | b"x" | b"d" | b"sb" | b"ub" | b"so" | b"uo" | b"sx" | b"ux"
-    )
+    match text.as_bytes() {
+        [base] => matches!(base.to_ascii_lowercase(), b'b' | b'o' | b'x' | b'd'),
+        [signed, base] => {
+            matches!(base.to_ascii_lowercase(), b'b' | b'o' | b'x')
+                && matches!(signed.to_ascii_lowercase(), b'u' | b's')
+        }
+        _ => false,
+    }
 }
 
 /// Merge adjacent tokens that form a bit-string literal.
