@@ -2,7 +2,7 @@ mod common;
 
 use std::time::Duration;
 
-use brunch::{benches, Bench};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use vhdl_syntax::parser::error::SyntaxErr;
 use vhdl_syntax::parser::parse;
 use vhdl_syntax::syntax::DesignFileSyntax;
@@ -14,24 +14,23 @@ fn parse_all(sources: &[Vec<u8>]) -> Vec<(DesignFileSyntax, Vec<SyntaxErr>)> {
         .collect()
 }
 
-fn main() {
-    let vhdl_libraries = common::corpus("vhdl_libraries");
-    let neorv32 = common::corpus("example_project/neorv32");
+fn parse_corpora(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Tokenize + Parse");
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(30));
 
-    // Warm up the interner and allocate all symbols:
-    // we only want to measure parse time here.
-    drop(parse_all(&vhdl_libraries));
-    drop(parse_all(&neorv32));
+    for (name, dir) in [
+        ("vhdl_libraries", "vhdl_libraries"),
+        ("neorv32", "example_project/neorv32"),
+    ] {
+        let sources = common::corpus(dir);
 
-    benches!(
-        inline:
+        group.throughput(Throughput::Bytes(common::total_bytes(&sources)));
+        group.bench_function(name, |b| b.iter(|| parse_all(&sources)));
+    }
 
-        Bench::new("Tokenize + Parse: vhdl_libraries")
-            .with_timeout(Duration::from_secs(30))
-            .run(|| parse_all(&vhdl_libraries)),
-
-        Bench::new("Tokenize + Parse: neorv32")
-            .with_timeout(Duration::from_secs(30))
-            .run(|| parse_all(&neorv32)),
-    );
+    group.finish();
 }
+
+criterion_group!(benches, parse_corpora);
+criterion_main!(benches);

@@ -2,7 +2,7 @@ mod common;
 
 use std::time::Duration;
 
-use brunch::{benches, Bench};
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use vhdl_syntax::tokens::tokenizer::{LexErr, Tokenize};
 use vhdl_syntax::tokens::Token;
 
@@ -13,24 +13,23 @@ fn tokenize_all(sources: &[Vec<u8>]) -> Vec<Vec<(Token, Option<LexErr>)>> {
         .collect()
 }
 
-fn main() {
-    let vhdl_libraries = common::corpus("vhdl_libraries");
-    let neorv32 = common::corpus("example_project/neorv32");
+fn tokenize_corpora(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Tokenizer");
+    group.sample_size(10);
+    group.measurement_time(Duration::from_secs(30));
 
-    // Warm up the interner and allocate all symbols:
-    // we only want to measure tokenization time here.
-    drop(tokenize_all(&vhdl_libraries));
-    drop(tokenize_all(&neorv32));
+    for (name, dir) in [
+        ("vhdl_libraries", "vhdl_libraries"),
+        ("neorv32", "example_project/neorv32"),
+    ] {
+        let sources = common::corpus(dir);
 
-    benches!(
-        inline:
+        group.throughput(Throughput::Bytes(common::total_bytes(&sources)));
+        group.bench_function(name, |b| b.iter(|| tokenize_all(&sources)));
+    }
 
-        Bench::new("Tokenizer: vhdl_libraries")
-            .with_timeout(Duration::from_secs(30))
-            .run(|| tokenize_all(&vhdl_libraries)),
-
-        Bench::new("Tokenizer: neorv32")
-            .with_timeout(Duration::from_secs(30))
-            .run(|| tokenize_all(&neorv32)),
-    );
+    group.finish();
 }
+
+criterion_group!(benches, tokenize_corpora);
+criterion_main!(benches);

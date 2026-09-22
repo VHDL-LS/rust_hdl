@@ -26,3 +26,7 @@ pub fn corpus(dir: &str) -> Vec<Vec<u8>> {
     .map(|p| std::fs::read(&p).unwrap_or_else(|e| panic!("failed to read {}: {e}", p.display())))
     .collect()
 }
+
+pub fn total_bytes(sources: &[Vec<u8>]) -> u64 {
+    sources.iter().map(|source| source.len() as u64).sum()
+}

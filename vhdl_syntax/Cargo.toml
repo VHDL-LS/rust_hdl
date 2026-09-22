@@ -24,7 +24,7 @@ assert_matches.workspace = true
 pretty_assertions.workspace = true
 insta = { workspace = true, features = ["redactions"] }
 similar = { workspace = true, features = ["bytes"] }
-brunch.workspace = true
+criterion.workspace = true
 
 [features]
 serde = ["dep:serde"]
