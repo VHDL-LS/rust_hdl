@@ -130,10 +130,7 @@ fn generate_keyword() -> TokenStream {
             /// Returns the keyword corresponding to the given Latin-1 string, or `None` if the string
             /// is not a keyword. The comparison is case-insensitive.
             pub fn from_latin1(s: &Latin1Str) -> Option<Self> {
-                Some(match s.to_lowercase().as_bytes() {
-                    #(#texts => Self::#idents,)*
-                    _ => return None,
-                })
+                keyword_map!(s.as_bytes(), [#((#texts, #idents),)*]).copied()
             }
         }
     }

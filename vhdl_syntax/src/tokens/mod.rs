@@ -39,6 +39,15 @@
 #[macro_use]
 pub mod token;
 pub mod comment;
+
+/// Forwards to `hashify::map_ignore_case!`, whose `key => value` input rustfmt cannot format.
+/// Taking an array of tuples instead keeps the generated keyword table readable.
+macro_rules! keyword_map {
+    ($s:expr, [$(($text:tt, $kw:ident)),* $(,)?]) => {
+        hashify::map_ignore_case! { $s, Keyword, $($text => Keyword::$kw,)* }
+    };
+}
+
 mod generated;
 pub mod token_kind;
 pub mod token_stream;

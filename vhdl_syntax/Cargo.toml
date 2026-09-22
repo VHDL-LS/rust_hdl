@@ -15,6 +15,7 @@ rust-version.workspace = true
 publish = true
 
 [dependencies]
+hashify.workspace = true
 nonzero_ext.workspace = true
 rustc-hash.workspace = true
 serde = { workspace = true, optional = true, features = ["derive"] }
@@ -39,4 +40,8 @@ harness = false
 
 [[bench]]
 name = "parse"
+harness = false
+
+[[bench]]
+name = "keyword_from_latin1"
 harness = false
