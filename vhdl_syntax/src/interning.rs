@@ -59,82 +59,59 @@ where
     for<'a> Box<T>: From<&'a T>,
 {
     pub fn get(interner: &Interner<T>, value: &T) -> Interned<T> {
-        if let Some(sym) = interner
-            .0
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .get_sym(value)
-        {
+        if let Some(sym) = interner.get_sym(value) {
             return sym;
         }
-        interner
-            .0
-            .write()
-            .unwrap_or_else(|e| e.into_inner())
-            .get_or_alloc(value)
+        interner.get_or_alloc(value)
     }
 
     pub fn value(&self, interner: &Interner<T>) -> &'static T {
-        // Note: this could avoid the lock since strings are pushed to an append-only collection
-        // Re-evaluate this when considering optimization
-        interner
-            .0
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .get_value(self)
+        interner.get_value(self)
     }
 }
 
-pub(crate) struct Interner<T: ?Sized + 'static>(RwLock<InternerInner<T>>);
+pub(crate) struct Interner<T: ?Sized + 'static> {
+    // lookup T -> Interned<T>
+    lookup: RwLock<HashMap<&'static T, Interned<T>, FxBuildHasher>>,
+    // Interned<T> -> T
+    entries: boxcar::Vec<&'static T>,
+}
 
 impl<T: ?Sized + 'static> Interner<T> {
     pub const fn new() -> Interner<T> {
-        Interner(RwLock::new(InternerInner::new()))
+        Interner {
+            lookup: RwLock::new(HashMap::with_hasher(FxBuildHasher)),
+            entries: boxcar::Vec::new(),
+        }
     }
 
     #[cfg(test)]
     pub fn entry_count(&self) -> usize {
-        self.0.read().unwrap().entries.len()
+        self.entries.count()
     }
 }
 
-/// global interner implementation
-///
-/// Currently implemented in a simplistic way:
-/// symbols are allocated globally and leaked; no re-allocation / drop is forseen
-struct InternerInner<T: ?Sized + 'static> {
-    // lookup T -> Interned<T>
-    lookup: HashMap<&'static T, Interned<T>, FxBuildHasher>,
-    // Interned<T> -> T
-    entries: Vec<&'static T>,
-}
-
-impl<T: ?Sized + 'static> InternerInner<T> {
-    pub(crate) const fn new() -> InternerInner<T> {
-        InternerInner {
-            lookup: HashMap::with_hasher(FxBuildHasher),
-            entries: Vec::new(),
-        }
-    }
-}
-
-impl<T: ?Sized + Hash + Eq + 'static> InternerInner<T>
+impl<T: ?Sized + Hash + Eq + 'static> Interner<T>
 where
     for<'a> Box<T>: From<&'a T>,
 {
     fn get_sym(&self, value: &T) -> Option<Interned<T>> {
-        self.lookup.get(value).copied()
+        self.lookup
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(value)
+            .copied()
     }
 
-    fn get_or_alloc(&mut self, symbol: &T) -> Interned<T> {
-        if let Some(sym) = self.get_sym(symbol) {
-            return sym;
+    fn get_or_alloc(&self, symbol: &T) -> Interned<T> {
+        let mut lookup = self.lookup.write().unwrap_or_else(|e| e.into_inner());
+        if let Some(sym) = lookup.get(symbol) {
+            return *sym;
         }
         // each value is heap-allocated and lives forever.
         let val: &'static T = Box::leak(Box::<T>::from(symbol));
-        let id = Interned::new(self.entries.len() as u32);
-        self.entries.push(val);
-        self.lookup.insert(val, id);
+        let id = Interned::new(self.entries.push(val) as u32);
+        lookup.insert(val, id);
         id
     }
 
