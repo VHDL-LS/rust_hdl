@@ -70,7 +70,7 @@ fn terminal_token(path: &str, name: &str) -> Token {
             _ => panic!("{path}: unhandled token class `{name}`"),
         };
     }
-    let (token, err) = Tokenizer::new(name.bytes())
+    let (token, err) = Tokenizer::new(name.as_bytes().iter())
         .next()
         .unwrap_or_else(|| panic!("{path}: terminal `{name}` tokenizes to nothing"));
     assert!(

@@ -151,8 +151,9 @@ pub(crate) fn parse_syntax_with_standard<T>(
     input: impl IntoIterator<Item = u8>,
     parser_fn: impl FnOnce(&mut Parser) -> T,
 ) -> (SyntaxNode, Vec<error::SyntaxErr>) {
+    let bytes = input.into_iter().collect::<Vec<_>>();
     let token_stream: TokenStream =
-        crate::tokens::Tokenizer::with_standard(standard, input.into_iter()).collect();
+        crate::tokens::Tokenizer::with_standard(standard, bytes.iter()).collect();
     let mut parser = Parser::new(token_stream, standard);
     parser_fn(&mut parser);
     let (green, diagnostics) = parser.end();
