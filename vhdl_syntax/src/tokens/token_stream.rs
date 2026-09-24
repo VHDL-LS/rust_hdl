@@ -161,31 +161,31 @@ impl FromIterator<(Token, Option<LexErr>)> for TokenStream {
 
 impl From<Vec<u8>> for TokenStream {
     fn from(value: Vec<u8>) -> Self {
-        Tokenizer::new(value.into_iter()).collect()
+        Tokenizer::new(value.iter()).collect()
     }
 }
 
 impl From<&[u8]> for TokenStream {
     fn from(value: &[u8]) -> Self {
-        Tokenizer::new(value.iter().copied()).collect()
+        Tokenizer::new(value.iter()).collect()
     }
 }
 
 impl<const N: usize> From<&[u8; N]> for TokenStream {
     fn from(value: &[u8; N]) -> Self {
-        Tokenizer::new(value.iter().copied()).collect()
+        Tokenizer::new(value.iter()).collect()
     }
 }
 
 impl<const N: usize> From<[u8; N]> for TokenStream {
     fn from(value: [u8; N]) -> Self {
-        Tokenizer::new(value.into_iter()).collect()
+        Tokenizer::new(value.iter()).collect()
     }
 }
 
 impl From<&str> for TokenStream {
     fn from(value: &str) -> Self {
-        Tokenizer::new(value.bytes()).collect()
+        Tokenizer::new(value.as_bytes().iter()).collect()
     }
 }
 

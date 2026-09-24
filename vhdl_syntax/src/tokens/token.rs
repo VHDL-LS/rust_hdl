@@ -131,9 +131,13 @@ pub fn requires_separator(t1: &Token, t2: &Token, standard: VHDLStandard) -> boo
     }
 
     // Collecting into a `TokenStream` to merge bit-string literals
-    let mut tokens: TokenStream =
-        Tokenizer::with_standard(standard, t1.text().into_iter().chain(t2.text()).copied())
-            .collect();
+    let text = t1
+        .text()
+        .into_iter()
+        .chain(t2.text())
+        .copied()
+        .collect::<Vec<_>>();
+    let mut tokens: TokenStream = Tokenizer::with_standard(standard, text.iter()).collect();
     let Some((first_tokenized, None)) = tokens.next() else {
         return true;
     };
