@@ -6,7 +6,7 @@
 
 //! Interning facilities for storing reoccuring values efficiently
 
-use std::{collections::HashMap, hash::Hash, marker::PhantomData, sync::RwLock};
+use std::{hash::Hash, marker::PhantomData, sync::Mutex};
 
 use rustc_hash::FxBuildHasher;
 
@@ -72,16 +72,19 @@ where
 
 pub(crate) struct Interner<T: ?Sized + 'static> {
     // lookup T -> Interned<T>
-    lookup: RwLock<HashMap<&'static T, Interned<T>, FxBuildHasher>>,
+    lookup: papaya::HashMap<&'static T, Interned<T>, FxBuildHasher>,
+    // protects concurrent writes to the hash-map + entries vec
+    insert_lock: Mutex<()>,
     // Interned<T> -> T
     entries: boxcar::Vec<&'static T>,
 }
 
 impl<T: ?Sized + 'static> Interner<T> {
-    pub const fn new() -> Interner<T> {
+    pub fn new() -> Interner<T> {
         Interner {
-            lookup: RwLock::new(HashMap::with_hasher(FxBuildHasher)),
+            lookup: papaya::HashMap::with_hasher(FxBuildHasher),
             entries: boxcar::Vec::new(),
+            insert_lock: Mutex::new(()),
         }
     }
 
@@ -96,15 +99,12 @@ where
     for<'a> Box<T>: From<&'a T>,
 {
     fn get_sym(&self, value: &T) -> Option<Interned<T>> {
-        self.lookup
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .get(value)
-            .copied()
+        self.lookup.pin().get(value).copied()
     }
 
     fn get_or_alloc(&self, symbol: &T) -> Interned<T> {
-        let mut lookup = self.lookup.write().unwrap_or_else(|e| e.into_inner());
+        let _guard = self.insert_lock.lock().unwrap_or_else(|e| e.into_inner());
+        let lookup = self.lookup.pin();
         if let Some(sym) = lookup.get(symbol) {
             return *sym;
         }

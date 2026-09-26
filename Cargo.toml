@@ -79,6 +79,7 @@ ungrammar = "1.16.1"
 globset = "0.4.20"
 hashify = "0.3.0"
 boxcar = "0.2.14"
+papaya = "0.2.5"
 
 # Dev dependencies
 assert_cmd = "2.0.17"
