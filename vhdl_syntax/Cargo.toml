@@ -18,6 +18,7 @@ publish = true
 boxcar.workspace = true
 hashify.workspace = true
 nonzero_ext.workspace = true
+papaya.workspace = true
 rustc-hash.workspace = true
 serde = { workspace = true, optional = true, features = ["derive"] }
 

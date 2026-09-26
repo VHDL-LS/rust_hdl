@@ -10,8 +10,9 @@ use crate::standard::VHDLStandard;
 use crate::tokens::{TokenKind, TokenStream, Tokenizer, Trivia, TriviaBuf};
 use std::fmt::Debug;
 use std::io::{self, Write};
+use std::sync::LazyLock;
 
-static STR_INTERNER: Interner<Latin1Str> = Interner::new();
+static STR_INTERNER: LazyLock<Interner<Latin1Str>> = LazyLock::new(Interner::new);
 
 /// A source-code token.
 #[derive(Clone, Eq, PartialEq)]
