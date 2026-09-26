@@ -137,15 +137,19 @@ impl FileStore {
         FileStore::default()
     }
 
+    pub fn insert_file(&mut self, file: File) -> FileId {
+        let len = self.files.len();
+        self.files.push(file);
+        FileId(len as u32)
+    }
+
     pub fn insert(
         &mut self,
         path: impl Into<PathBuf>,
         file: Vec<u8>,
         settings: FileSettings,
     ) -> FileId {
-        let len = self.files.len();
-        self.files.push(File::new(path, file, settings));
-        FileId(len as u32)
+        self.insert_file(File::new(path, file, settings))
     }
 
     pub fn get(&self, id: FileId) -> &File {

@@ -3,7 +3,7 @@ use clap::Parser;
 use ignore::{
     overrides::{Override, OverrideBuilder},
     types::TypesBuilder,
-    WalkBuilder,
+    ParallelVisitor, ParallelVisitorBuilder, WalkBuilder, WalkState,
 };
 use itertools::Itertools;
 use rayon::iter::ParallelIterator;
@@ -13,6 +13,7 @@ use std::{
     io::{self, Write},
     path::{Path, PathBuf},
     process::ExitCode,
+    sync::Mutex,
 };
 use vhdl_lint::{
     config::{Config, ConfigFile, Layer},
@@ -26,7 +27,7 @@ use vhdl_lint::{
         selection::{RuleOverrides, RuleSelector},
         RuleRegistry,
     },
-    Encoding, FileStore, FixErrKind, FixOutcome,
+    Encoding, File, FileStore, FixErrKind, FixOutcome,
 };
 use vhdl_syntax::standard::VHDLStandard;
 
@@ -57,10 +58,7 @@ fn resolve(args: &Args) -> Result<WalkBuilder, ignore::Error> {
         .filter(|path| !is_excluded(&overrides, &cwd, path));
     let mut builder = WalkBuilder::from_iter(roots);
     let types = TypesBuilder::new().add_defaults().select("vhdl").build()?;
-    builder
-        .overrides(overrides)
-        .types(types)
-        .sort_by_file_path(Path::cmp);
+    builder.overrides(overrides).types(types);
     if args.file_selection.no_respect_gitignore {
         builder.standard_filters(false);
     }
@@ -186,6 +184,90 @@ fn load_config(args: &Args, cwd: &Path) -> Result<Config, String> {
         .map_err(|e| format!("invalid config: {e}"))
 }
 
+#[derive(Default)]
+struct Walk {
+    files: FileStore,
+    skipped: Vec<String>,
+}
+
+type Out = Result<Walk, ignore::Error>;
+
+struct CollectorBuilder<'a, 's> {
+    out: &'s Mutex<Out>,
+    config: &'a Config,
+}
+
+struct Collector<'a, 's> {
+    files: Vec<File>,
+    skipped: Vec<String>,
+    err: Option<ignore::Error>,
+    config: &'a Config,
+    out: &'s Mutex<Out>,
+}
+
+impl Drop for Collector<'_, '_> {
+    fn drop(&mut self) {
+        let mut out = self.out.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(err) = self.err.take() {
+            *out = Err(err);
+            return;
+        }
+        if let Ok(walk) = out.as_mut() {
+            for file in std::mem::take(&mut self.files) {
+                walk.files.insert_file(file);
+            }
+            walk.skipped.append(&mut self.skipped);
+        }
+    }
+}
+
+impl<'a, 's> ParallelVisitorBuilder<'s> for CollectorBuilder<'a, 's>
+where
+    'a: 's,
+{
+    fn build(&mut self) -> Box<dyn ParallelVisitor + 's> {
+        Box::new(Collector {
+            files: Vec::new(),
+            skipped: Vec::new(),
+            err: None,
+            out: self.out,
+            config: self.config,
+        })
+    }
+}
+
+impl<'a, 's> ParallelVisitor for Collector<'a, 's>
+where
+    'a: 's,
+{
+    fn visit(&mut self, entry: Result<ignore::DirEntry, ignore::Error>) -> ignore::WalkState {
+        match entry {
+            Ok(entry) => {
+                if entry.file_type().is_some_and(|typ| typ.is_file()) {
+                    let path = entry.path();
+                    let read = fs::canonicalize(path)
+                        .and_then(|canonical| Ok((fs::read(path)?, canonical)));
+                    match read {
+                        Ok((data, canonical)) => {
+                            let settings = self.config.settings(&canonical);
+                            self.files.push(File::new(path, data, settings));
+                        }
+                        Err(e) => self
+                            .skipped
+                            .push(format!("could not read {}: {e}", path.display())),
+                    }
+                }
+            }
+            Err(e) if e.depth() == Some(0) => {
+                self.err = Some(e);
+                return WalkState::Quit;
+            }
+            Err(e) => self.skipped.push(e.to_string()),
+        }
+        WalkState::Continue
+    }
+}
+
 /// The analyzed sources have diagnostics.
 const EXIT_DIAGNOSTICS: u8 = 1;
 /// The tool could not do its job (bad arguments, unreadable paths).
@@ -229,36 +311,24 @@ fn main() -> ExitCode {
             return ExitCode::from(EXIT_TOOL_FAILURE);
         }
     };
-    let mut files = FileStore::new();
-    let mut skipped: Vec<String> = Vec::new();
-    for entry in builder.build() {
-        match entry {
-            Ok(entry) => {
-                if entry.file_type().is_some_and(|typ| typ.is_file()) {
-                    let path = entry.path();
-                    let read = fs::canonicalize(path)
-                        .and_then(|canonical| Ok((fs::read(path)?, canonical)));
-                    match read {
-                        Ok((data, canonical)) => {
-                            let settings = config.settings(&canonical);
-                            files.insert(path, data, settings);
-                        }
-                        Err(e) => skipped.push(format!("could not read {}: {e}", path.display())),
-                    }
-                }
-            }
-            Err(e) if e.depth() == Some(0) => {
-                anstream::eprintln!("error: {e}");
-                return ExitCode::from(EXIT_TOOL_FAILURE);
-            }
-            Err(e) => skipped.push(e.to_string()),
+    let out = Mutex::new(Ok(Walk::default()));
+    let mut collector = CollectorBuilder {
+        config: &config,
+        out: &out,
+    };
+    builder.build_parallel().visit(&mut collector);
+    let (mut files, mut skipped) = match out.into_inner().unwrap() {
+        Ok(Walk { files, skipped }) => (files, skipped),
+        Err(e) => {
+            anstream::eprintln!("error: {e}");
+            return ExitCode::from(EXIT_TOOL_FAILURE);
         }
-    }
+    };
 
     let overrides = args.rule_selection.overrides();
 
     let mut total_fixes = 0usize;
-    let errors = if args.fix {
+    let mut errors = if args.fix {
         let outcomes = files
             .par_iter()
             .map(|(file_id, file)| {
@@ -334,6 +404,15 @@ fn main() -> ExitCode {
     };
 
     if !errors.is_empty() || !skipped.is_empty() {
+        errors.sort_by_key(|diag| {
+            let loc = diag.loc();
+            (
+                files.get(loc.file()).path(),
+                loc.span().start,
+                loc.span().end,
+            )
+        });
+        skipped.sort();
         let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
 
         let report = render_diagnostics(&errors, &files)
