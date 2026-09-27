@@ -80,19 +80,13 @@ mod tests {
     use crate::{
         diagnostic::render_diagnostics,
         parse_and_analyze_file,
-        rule::{
-            explicit_port_mode::ExplicitPortMode,
-            selection::{RuleOverrides, RuleSelector},
-            AstRule, RuleRegistry,
-        },
+        rule::{explicit_port_mode::ExplicitPortMode, registry::ActiveRules},
         AnalysisResult, File, FileId, FileSettings, FileStore,
     };
 
     // TODO: generalize the lint and assert_no_diagnostics function once more rules want tests.
 
     fn lint(expr: &str) -> String {
-        let mut registry = RuleRegistry::new();
-        registry.register(ExplicitPortMode).unwrap();
         let file = format!(
             "\
         entity foo is
@@ -106,18 +100,15 @@ mod tests {
             file.as_bytes().to_vec(),
             FileSettings::default(),
         );
-        let overrides =
-            RuleOverrides::new(vec![RuleSelector::Code(ExplicitPortMode::CODE)], vec![]);
         let diagnostics =
-            parse_and_analyze_file(files.get(id), id, &registry, &overrides).into_diagnostics();
+            parse_and_analyze_file(files.get(id), id, &ActiveRules::single(&ExplicitPortMode))
+                .into_diagnostics();
         let rendered = render_diagnostics(&diagnostics, &files).collect::<Vec<_>>();
         let renderer = Renderer::plain().anonymized_line_numbers(true);
         renderer.render(&rendered)
     }
 
     fn assert_no_diagnostics(expr: &str) {
-        let mut registry = RuleRegistry::new();
-        registry.register(ExplicitPortMode).unwrap();
         let file = format!(
             "\
         entity foo is
@@ -127,9 +118,7 @@ mod tests {
         );
         let id = FileId(0);
         let file = File::new("<inline>", file.into_bytes(), FileSettings::default());
-        let overrides =
-            RuleOverrides::new(vec![RuleSelector::Code(ExplicitPortMode::CODE)], vec![]);
-        match parse_and_analyze_file(&file, id, &registry, &overrides) {
+        match parse_and_analyze_file(&file, id, &ActiveRules::single(&ExplicitPortMode)) {
             AnalysisResult::Lints(diagnostics) => assert!(
                 diagnostics.is_empty(),
                 "Unexpectedly got lints: {:#?}",

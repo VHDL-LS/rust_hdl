@@ -10,6 +10,7 @@ use std::fmt;
 use vhdl_syntax::syntax::NodeKind;
 
 use crate::error_code::ErrorCode;
+use crate::rule::selection::RuleOverrides;
 use crate::rule::{AstRule, ErasedAstRule};
 
 /// The ways registering a rule can fail.
@@ -40,6 +41,36 @@ impl fmt::Display for RegisterError {
 
 impl std::error::Error for RegisterError {}
 
+/// Holds a set of the active rules for each node.
+pub struct ActiveRules<'a> {
+    by_kind: HashMap<NodeKind, Box<[&'a dyn ErasedAstRule]>>,
+}
+
+impl<'a> ActiveRules<'a> {
+    pub fn new(rules: impl IntoIterator<Item = &'a dyn ErasedAstRule>) -> ActiveRules<'a> {
+        let mut by_kind: HashMap<NodeKind, Vec<&'a dyn ErasedAstRule>> = HashMap::new();
+        for rule in rules {
+            for kind in rule.applies_to() {
+                by_kind.entry(*kind).or_default().push(rule);
+            }
+        }
+        let by_kind = by_kind
+            .into_iter()
+            .map(|(kind, rules)| (kind, rules.into_boxed_slice()))
+            .collect();
+        ActiveRules { by_kind }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn single(rule: &'a dyn ErasedAstRule) -> ActiveRules<'a> {
+        ActiveRules::new([rule])
+    }
+
+    pub fn get(&self, kind: NodeKind) -> &[&'a dyn ErasedAstRule] {
+        self.by_kind.get(&kind).map(Box::as_ref).unwrap_or_default()
+    }
+}
+
 /// A set of rules, indexed by the node kinds they apply to.
 #[derive(Default)]
 pub struct RuleRegistry {
@@ -51,6 +82,10 @@ pub struct RuleRegistry {
 impl RuleRegistry {
     pub fn new() -> RuleRegistry {
         RuleRegistry::default()
+    }
+
+    fn get_rule(&self, index: usize) -> &dyn ErasedAstRule {
+        self.rules[index].as_ref()
     }
 
     /// Add a rule.
@@ -90,12 +125,21 @@ impl RuleRegistry {
             .map(Vec::as_slice)
             .unwrap_or_default()
             .iter()
-            .map(|&index| self.rules[index].as_ref())
+            .map(|&idx| self.get_rule(idx))
     }
 
     /// Look a rule up by its code, e.g. `IDM010`.
     pub fn by_code(&self, code: &ErrorCode) -> Option<&dyn ErasedAstRule> {
-        self.by_code.get(code).map(|&i| self.rules[i].as_ref())
+        self.by_code.get(code).map(|&idx| self.get_rule(idx))
+    }
+
+    pub fn get_active_rules(&self, overrides: &RuleOverrides) -> ActiveRules<'_> {
+        ActiveRules::new(
+            self.rules
+                .iter()
+                .map(Box::as_ref)
+                .filter(|&rule| overrides.get(rule.code()).is_active(rule)),
+        )
     }
 }
 

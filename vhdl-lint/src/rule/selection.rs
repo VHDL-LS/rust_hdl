@@ -3,7 +3,10 @@ use std::str::FromStr;
 
 use itertools::Itertools;
 
-use crate::error_code::{Category, ErrorCode, ParseErrorCodeErr};
+use crate::{
+    error_code::{Category, ErrorCode, ParseErrorCodeErr},
+    rule::ErasedAstRule,
+};
 
 /// The set of rules an `--select` or `--ignore` argument refers to.
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -134,6 +137,16 @@ pub enum OverwriteResult {
     Ignore,
     Select,
     Default,
+}
+
+impl OverwriteResult {
+    pub fn is_active(&self, rule: &dyn ErasedAstRule) -> bool {
+        match self {
+            OverwriteResult::Ignore => false,
+            OverwriteResult::Select => true,
+            OverwriteResult::Default => rule.is_enabled_by_default(),
+        }
+    }
 }
 
 /// Resolved rule overrides.

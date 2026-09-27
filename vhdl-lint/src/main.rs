@@ -326,13 +326,14 @@ fn main() -> ExitCode {
     };
 
     let overrides = args.rule_selection.overrides();
+    let rules = registry.get_active_rules(&overrides);
 
     let mut total_fixes = 0usize;
     let mut errors = if args.fix {
         let outcomes = files
             .par_iter()
             .map(|(file_id, file)| {
-                let outcome = fix_file(file, file_id, &registry, &overrides);
+                let outcome = fix_file(file, file_id, &rules);
                 (file_id, outcome)
             })
             .collect::<Vec<_>>();
@@ -358,13 +359,9 @@ fn main() -> ExitCode {
                                 files.get(file_id).path().display()
                             ));
                             // The fixed text never reached the disk, so report against the original
-                            diagnostics = parse_and_analyze_file(
-                                files.get(file_id),
-                                file_id,
-                                &registry,
-                                &overrides,
-                            )
-                            .into_diagnostics();
+                            diagnostics =
+                                parse_and_analyze_file(files.get(file_id), file_id, &rules)
+                                    .into_diagnostics();
                         }
                     }
                     errors.extend(diagnostics);
@@ -387,7 +384,7 @@ fn main() -> ExitCode {
                     skipped.push(msg);
                     // re-report the old diagnostics
                     let old_diagnostics =
-                        parse_and_analyze_file(files.get(file_id), file_id, &registry, &overrides)
+                        parse_and_analyze_file(files.get(file_id), file_id, &rules)
                             .into_diagnostics();
                     errors.extend(old_diagnostics);
                 }
@@ -398,7 +395,7 @@ fn main() -> ExitCode {
         files
             .par_iter()
             .flat_map(|(file_id, file)| {
-                parse_and_analyze_file(file, file_id, &registry, &overrides).into_diagnostics()
+                parse_and_analyze_file(file, file_id, &rules).into_diagnostics()
             })
             .collect::<Vec<_>>()
     };

@@ -28,10 +28,7 @@ use vhdl_syntax::{
 use crate::{
     diagnostic::Diagnostic,
     fix::{apply_fixes, Fix},
-    rule::{
-        selection::{OverwriteResult, RuleOverrides},
-        AstRuleCtx, ErasedAstRule, RuleRegistry,
-    },
+    rule::{registry::ActiveRules, AstRuleCtx},
 };
 
 /// ID that points to a file on disk
@@ -177,14 +174,6 @@ impl FileStore {
     }
 }
 
-fn is_rule_active(rule: &dyn ErasedAstRule, overrides: &RuleOverrides) -> bool {
-    match overrides.get(rule.code()) {
-        OverwriteResult::Ignore => false,
-        OverwriteResult::Select => true,
-        OverwriteResult::Default => rule.is_enabled_by_default(),
-    }
-}
-
 /// Outcome of analyzing a single file
 #[derive(Debug)]
 pub enum AnalysisResult {
@@ -206,17 +195,13 @@ fn analyze(
     contents: &[u8],
     settings: FileSettings,
     file_id: FileId,
-    rules: &RuleRegistry,
-    overrides: &RuleOverrides,
+    rules: &ActiveRules<'_>,
 ) -> AnalysisResult {
     match parse_valid_with_standard(settings.standard, contents) {
         Ok(design) => {
             let mut diagnostics = Vec::new();
             for node in design.descendants() {
-                for rule in rules.for_kind(node.kind()) {
-                    if !is_rule_active(rule, overrides) {
-                        continue;
-                    }
+                for rule in rules.get(node.kind()) {
                     let mut ctx = AstRuleCtx::new(
                         &mut diagnostics,
                         rule.severity(),
@@ -245,10 +230,9 @@ fn analyze(
 pub fn parse_and_analyze_file(
     file: &File,
     file_id: FileId,
-    rules: &RuleRegistry,
-    overrides: &RuleOverrides,
+    rules: &ActiveRules<'_>,
 ) -> AnalysisResult {
-    analyze(file.contents(), file.settings(), file_id, rules, overrides)
+    analyze(file.contents(), file.settings(), file_id, rules)
 }
 
 fn get_fixes(diagnostics: &[Diagnostic]) -> Vec<&Fix> {
@@ -318,11 +302,9 @@ pub struct FixErr {
 pub fn fix_file(
     file: &File,
     file_id: FileId,
-    rules: &RuleRegistry,
-    overrides: &RuleOverrides,
+    rules: &ActiveRules<'_>,
 ) -> Result<FixOutcome, FixErr> {
-    let mut diagnostics = match analyze(file.contents(), file.settings(), file_id, rules, overrides)
-    {
+    let mut diagnostics = match analyze(file.contents(), file.settings(), file_id, rules) {
         AnalysisResult::Lints(diagnostics) => diagnostics,
         AnalysisResult::SyntaxErrs(diagnostics) => {
             return Ok(FixOutcome::Unchanged {
@@ -365,7 +347,7 @@ pub fn fix_file(
             });
         }
         output_file = next;
-        diagnostics = match analyze(&output_file, file.settings(), file_id, rules, overrides) {
+        diagnostics = match analyze(&output_file, file.settings(), file_id, rules) {
             AnalysisResult::Lints(diagnostics) => diagnostics,
             AnalysisResult::SyntaxErrs(diagnostics) => {
                 return Err(FixErr {
@@ -392,7 +374,11 @@ mod tests {
     use crate::{
         error_code::{Category, ErrorCode},
         fix::Edit,
-        rule::{no_parens_around_if::NoParensAroundIf, selection::RuleSelector, AstRule},
+        rule::{
+            no_parens_around_if::NoParensAroundIf,
+            selection::{RuleOverrides, RuleSelector},
+            AstRule, ErasedAstRule, RuleRegistry,
+        },
     };
 
     fn in_procedure(statements: &str) -> String {
@@ -409,18 +395,8 @@ end;
         )
     }
 
-    fn registry<R: AstRule>(rule: R) -> RuleRegistry {
-        let mut registry = RuleRegistry::new();
-        registry.register(rule).unwrap();
-        registry
-    }
-
-    fn select_all() -> RuleOverrides {
-        RuleOverrides::new(vec![RuleSelector::All], vec![])
-    }
-
-    fn fix(source: &str, rules: &RuleRegistry) -> Result<FixOutcome, FixErr> {
-        fix_file(&file(source), FileId(0), rules, &select_all())
+    fn fix(source: &str, rule: &dyn ErasedAstRule) -> Result<FixOutcome, FixErr> {
+        fix_file(&file(source), FileId(0), &ActiveRules::single(rule))
     }
 
     fn file(source: &str) -> File {
@@ -477,8 +453,7 @@ end;
         let result = parse_and_analyze_file(
             &file(&source),
             FileId(3),
-            &registry(NoParensAroundIf),
-            &select_all(),
+            &ActiveRules::single(&NoParensAroundIf),
         );
         match result {
             AnalysisResult::SyntaxErrs(errors) => {
@@ -495,18 +470,21 @@ end;
     #[test]
     fn a_rule_disabled_by_default_only_runs_when_selected() {
         let source = file(&in_procedure("if (a) then end if;"));
-        let rules = registry(NoParensAroundIf);
+        let mut rules = RuleRegistry::new();
+        rules.register(NoParensAroundIf).unwrap();
         let analyze = |overrides: &RuleOverrides| match parse_and_analyze_file(
             &source,
             FileId(0),
-            &rules,
-            overrides,
+            &rules.get_active_rules(overrides),
         ) {
             AnalysisResult::SyntaxErrs(_) => panic!("Unexpected syntax errors"),
             AnalysisResult::Lints(diagnostics) => diagnostics.len(),
         };
         assert_eq!(analyze(&RuleOverrides::default()), 0);
-        assert_eq!(analyze(&select_all()), 1);
+        assert_eq!(
+            analyze(&RuleOverrides::new(vec![RuleSelector::All], vec![])),
+            1
+        );
         assert_eq!(
             analyze(&RuleOverrides::new(
                 vec![RuleSelector::All],
@@ -518,10 +496,7 @@ end;
 
     #[test]
     fn fixing_a_file_with_syntax_errors_does_nothing() {
-        let result = fix(
-            &in_procedure("if (a) then end;"),
-            &registry(NoParensAroundIf),
-        );
+        let result = fix(&in_procedure("if (a) then end;"), &NoParensAroundIf);
         assert!(matches!(
             result,
             Ok(FixOutcome::Unchanged {
@@ -533,10 +508,7 @@ end;
 
     #[test]
     fn a_file_without_fixes_is_not_fixed() {
-        let result = fix(
-            &in_procedure("if a then end if;"),
-            &registry(NoParensAroundIf),
-        );
+        let result = fix(&in_procedure("if a then end if;"), &NoParensAroundIf);
         assert!(matches!(
             result,
             Ok(FixOutcome::Unchanged {
@@ -554,7 +526,7 @@ end;
             file,
             applied_fixes,
             diagnostics,
-        }) = fix(&source, &registry(NoParensAroundIf))
+        }) = fix(&source, &NoParensAroundIf)
         else {
             panic!("expected the file to be fixed");
         };
@@ -573,7 +545,7 @@ end;
             diagnostics,
             partial_file,
             kind: FixErrKind::ErrAfterFixing,
-        }) = fix(&source, &registry(BreaksSyntax))
+        }) = fix(&source, &BreaksSyntax)
         else {
             panic!("expected a syntax error after fixing");
         };
@@ -588,7 +560,7 @@ end;
             diagnostics,
             partial_file,
             kind: FixErrKind::TooManyTries,
-        }) = fix(&source, &registry(NeverConverges))
+        }) = fix(&source, &NeverConverges)
         else {
             panic!("expected fixing to give up");
         };
@@ -603,7 +575,7 @@ end;
             diagnostics,
             partial_file,
             kind: FixErrKind::NoProgress,
-        }) = fix(&source, &registry(ChangesNothing))
+        }) = fix(&source, &ChangesNothing)
         else {
             panic!("expected fixing to make no progress");
         };
@@ -719,8 +691,7 @@ end;
                 let Ok(FixOutcome::Changed { file, .. }) = fix_file(
                     &encoded_file(&procedure("(a)"), encoding),
                     FileId(0),
-                    &registry(NoParensAroundIf),
-                    &select_all(),
+                    &ActiveRules::single(&NoParensAroundIf),
                 ) else {
                     panic!("expected the file to be fixed");
                 };
