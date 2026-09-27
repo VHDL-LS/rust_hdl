@@ -62,7 +62,6 @@ The feature set is minimal. Currently, this crate offers only marginal improveme
 
 ### Limitations
 
-- Rule configuration files are not supported.
 - Rules only have an error code, but no user-facing documentation.
 - There are no machine-readable output formats, e.g., for CI.
 
@@ -105,7 +104,8 @@ A selector is one of:
 - a category (e.g., `IDM`), which matches all rules in that category,
 - an error code (e.g., `IDM001`), which matches a single rule.
 
-More specific selectors take precedence over less specific ones (see the examples below).
+Rules specified in the config are overridden by the per-file overrides which are overridden by CLI arguments.
+If multiple selectors still apply, more specific selectors take precedence over less specific ones (see the examples below).
 
 **Examples**
 
@@ -145,16 +145,18 @@ If no config is specified, `vhdl-lint` will search for the nearest config from t
 ```toml
 standard = 2008
 encoding = "latin-1"
+select = ["IDM"]
 
 [[overrides]]
 files = ["legacy/**"]
 standard = 1993
+ignore = ["IDM001"]
 ```
 
 ### Configuration options
 
 Currently, the file allows specifying the VHDL standard under which to parse the files and the comment-encoding.
-It's possible to overwrite these values for a specific set of files using the `overrides` key.
+It's possible to override these values for a specific set of files using the `overrides` key.
 If two overrides clash, the one specified later takes precedence.
 
 Each override must list at least one glob pattern in `files`.

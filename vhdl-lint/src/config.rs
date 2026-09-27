@@ -10,7 +10,11 @@ use globset::{Candidate, GlobBuilder, GlobSet, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
 use vhdl_syntax::standard::VHDLStandard;
 
-use crate::{Encoding, FileSettings};
+use crate::{
+    error_code::ErrorCode,
+    rule::selection::{Override, RuleOverrides, RuleSelector},
+    Encoding, FileSettings,
+};
 
 /// Global overrides that allow narrowing configuration options
 /// based on a set of files
@@ -24,6 +28,12 @@ pub struct FileOverride {
     standard: Option<VHDLStandard>,
     /// The comment-encoding
     encoding: Option<Encoding>,
+    /// Rules to enable for this file-set
+    #[serde(default)]
+    select: Vec<RuleSelector>,
+    /// Rules to disable for this file-set
+    #[serde(default)]
+    ignore: Vec<RuleSelector>,
 }
 
 fn non_empty<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
@@ -49,6 +59,7 @@ impl FileOverride {
             Layer {
                 standard: self.standard,
                 encoding: self.encoding,
+                rules: RuleOverrides::new(self.select, self.ignore),
             },
         ))
     }
@@ -64,9 +75,25 @@ pub struct ConfigFile {
     encoding: Option<Encoding>,
     /// Overrides that apply to a specific set of file-patterns
     overrides: Vec<FileOverride>,
+    /// Rules to enable
+    #[serde(default)]
+    select: Vec<RuleSelector>,
+    /// Rules to disable
+    #[serde(default)]
+    ignore: Vec<RuleSelector>,
 }
 
 impl ConfigFile {
+    /// Every rule selector in the file
+    pub fn selectors(&self) -> impl Iterator<Item = &RuleSelector> {
+        let top_level = self.select.iter().chain(&self.ignore);
+        let overrides = self
+            .overrides
+            .iter()
+            .flat_map(|ovr| ovr.select.iter().chain(&ovr.ignore));
+        top_level.chain(overrides)
+    }
+
     pub fn into_config(self, root: PathBuf, cli: Layer) -> Result<Config, globset::Error> {
         // Resolution is CLI -> overrides -> config
         let mut layers = vec![(LayerScope::All, cli)];
@@ -79,6 +106,7 @@ impl ConfigFile {
             Layer {
                 standard: self.standard,
                 encoding: self.encoding,
+                rules: RuleOverrides::new(self.select, self.ignore),
             },
         ));
         Ok(Config { root, layers })
@@ -215,6 +243,8 @@ pub struct Layer {
     pub standard: Option<VHDLStandard>,
     /// The encoding to parse this layer under
     pub encoding: Option<Encoding>,
+    /// Any rule overrides
+    pub rules: RuleOverrides,
 }
 
 #[derive(Debug, Clone)]
@@ -263,11 +293,19 @@ impl Config {
                 .unwrap_or_default(),
         }
     }
+
+    pub fn rule_state(&self, path: &Path, code: ErrorCode) -> Override {
+        self.layers_for(path)
+            .map(|layer| layer.rules.get(code))
+            .find(|r| r != &Override::Default)
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error_code::{Category, ErrorCode};
 
     #[test]
     fn empty_config_is_default() {
@@ -318,6 +356,100 @@ mod tests {
         let text = toml::to_string(&config).unwrap();
         let again: ConfigFile = toml::from_str(&text).unwrap();
         assert_eq!(format!("{config:?}"), format!("{again:?}"));
+    }
+
+    #[test]
+    fn rule_selectors_default_to_empty() {
+        let config: ConfigFile = toml::from_str("[[overrides]]\nfiles = [\"a.vhd\"]").unwrap();
+        assert!(config.select.is_empty());
+        assert!(config.ignore.is_empty());
+        assert!(config.overrides[0].select.is_empty());
+        assert!(config.overrides[0].ignore.is_empty());
+    }
+
+    #[test]
+    fn deserialize_rule_selectors() {
+        let config: ConfigFile = toml::from_str(
+            r#"
+            select = ["ALL"]
+            ignore = ["IDM", "IDM002"]
+
+            [[overrides]]
+            files = ["legacy/**"]
+            select = ["idm1"]
+            ignore = ["all"]
+            "#,
+        )
+        .unwrap();
+        assert_eq!(config.select, [RuleSelector::All]);
+        assert_eq!(
+            config.ignore,
+            [
+                RuleSelector::Category(Category::Idiom),
+                RuleSelector::Code(ErrorCode::new(Category::Idiom, 2))
+            ]
+        );
+        let file_override = &config.overrides[0];
+        assert_eq!(
+            file_override.select,
+            [RuleSelector::Code(ErrorCode::new(Category::Idiom, 1))]
+        );
+        assert_eq!(file_override.ignore, [RuleSelector::All]);
+    }
+
+    #[test]
+    fn rejects_invalid_rule_selectors() {
+        assert!(toml::from_str::<ConfigFile>(r#"select = ["XYZ"]"#).is_err());
+        assert!(toml::from_str::<ConfigFile>(r#"ignore = [""]"#).is_err());
+        assert!(toml::from_str::<ConfigFile>(r#"select = "ALL""#).is_err());
+        assert!(toml::from_str::<ConfigFile>(
+            "[[overrides]]\nfiles = [\"a.vhd\"]\nignore = [\"SYX\"]"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn rule_selectors_round_trip() {
+        let config: ConfigFile = toml::from_str(
+            r#"
+            select = ["all", "idm1"]
+            ignore = ["IDM"]
+
+            [[overrides]]
+            files = ["a.vhd"]
+            ignore = ["IDM001"]
+            "#,
+        )
+        .unwrap();
+        let text = toml::to_string(&config).unwrap();
+        let again: ConfigFile = toml::from_str(&text).unwrap();
+        assert_eq!(again.select, config.select);
+        assert_eq!(again.ignore, config.ignore);
+        assert_eq!(again.overrides[0].ignore, config.overrides[0].ignore);
+    }
+
+    #[test]
+    fn selectors_include_those_of_every_override() {
+        let config: ConfigFile = toml::from_str(
+            r#"
+            select = ["IDM001"]
+            ignore = ["IDM002"]
+
+            [[overrides]]
+            files = ["a.vhd"]
+            select = ["IDM003"]
+
+            [[overrides]]
+            files = ["b.vhd"]
+            ignore = ["IDM004"]
+            "#,
+        )
+        .unwrap();
+        let selectors = config
+            .selectors()
+            .map(RuleSelector::to_string)
+            .collect::<Vec<_>>();
+        assert_eq!(selectors, ["IDM001", "IDM002", "IDM003", "IDM004"]);
     }
 
     #[test]
@@ -399,11 +531,150 @@ mod tests {
             Layer {
                 standard: Some(VHDLStandard::VHDL2008),
                 encoding: None,
+                rules: RuleOverrides::default(),
             },
         );
         let settings = config.settings(Path::new("/project/a.vhd"));
         assert_eq!(settings.standard, VHDLStandard::VHDL2008);
         assert_eq!(settings.encoding, Encoding::Latin1);
+    }
+
+    const IDM001: ErrorCode = ErrorCode::new(Category::Idiom, 1);
+    const IDM002: ErrorCode = ErrorCode::new(Category::Idiom, 2);
+
+    fn cli_rules(select: &[&str], ignore: &[&str]) -> Layer {
+        let parse = |selectors: &[&str]| selectors.iter().map(|s| s.parse().unwrap()).collect();
+        Layer {
+            rules: RuleOverrides::new(parse(select), parse(ignore)),
+            ..Layer::default()
+        }
+    }
+
+    fn rule_state(config: &Config, path: &str, code: ErrorCode) -> Override {
+        config.rule_state(Path::new(path), code)
+    }
+
+    #[test]
+    fn rule_state_is_default_without_any_selection() {
+        let config = config("", Layer::default());
+        assert_eq!(
+            rule_state(&config, "/project/a.vhd", IDM001),
+            Override::Default
+        );
+    }
+
+    #[test]
+    fn rule_selection_in_config_applies_to_every_file() {
+        let config = config(
+            r#"
+            select = ["IDM"]
+            ignore = ["IDM002"]
+            "#,
+            Layer::default(),
+        );
+        for path in ["/project/a.vhd", "/project/src/b.vhd"] {
+            assert_eq!(rule_state(&config, path, IDM001), Override::Select);
+            assert_eq!(rule_state(&config, path, IDM002), Override::Ignore);
+        }
+    }
+
+    #[test]
+    fn rule_override_applies_only_to_matching_files() {
+        let config = config(
+            r#"
+            select = ["IDM"]
+            [[overrides]]
+            files = ["legacy/**"]
+            ignore = ["IDM001"]
+            "#,
+            Layer::default(),
+        );
+        assert_eq!(
+            rule_state(&config, "/project/legacy/a.vhd", IDM001),
+            Override::Ignore
+        );
+        assert_eq!(
+            rule_state(&config, "/project/src/a.vhd", IDM001),
+            Override::Select
+        );
+    }
+
+    #[test]
+    fn rule_override_takes_precedence_over_a_more_specific_config_selector() {
+        let config = config(
+            r#"
+            select = ["IDM001"]
+            [[overrides]]
+            files = ["**"]
+            ignore = ["IDM"]
+            "#,
+            Layer::default(),
+        );
+        assert_eq!(
+            rule_state(&config, "/project/a.vhd", IDM001),
+            Override::Ignore
+        );
+    }
+
+    #[test]
+    fn later_rule_override_takes_precedence() {
+        let config = config(
+            r#"
+            [[overrides]]
+            files = ["**"]
+            ignore = ["IDM001"]
+            [[overrides]]
+            files = ["legacy/*.vhd"]
+            select = ["IDM001"]
+            "#,
+            Layer::default(),
+        );
+        assert_eq!(
+            rule_state(&config, "/project/legacy/a.vhd", IDM001),
+            Override::Select
+        );
+        assert_eq!(
+            rule_state(&config, "/project/src/a.vhd", IDM001),
+            Override::Ignore
+        );
+    }
+
+    #[test]
+    fn cli_rule_selection_takes_precedence_over_config_and_overrides() {
+        let config = config(
+            r#"
+            select = ["IDM001"]
+            [[overrides]]
+            files = ["**"]
+            select = ["IDM001"]
+            "#,
+            cli_rules(&[], &["IDM"]),
+        );
+        assert_eq!(
+            rule_state(&config, "/project/a.vhd", IDM001),
+            Override::Ignore
+        );
+    }
+
+    #[test]
+    fn a_layer_without_an_opinion_defers_to_the_next() {
+        let config = config(
+            r#"
+            ignore = ["IDM002"]
+            [[overrides]]
+            files = ["**"]
+            select = ["IDM001"]
+            "#,
+            cli_rules(&[], &["IDM003"]),
+        );
+        assert_eq!(
+            rule_state(&config, "/project/a.vhd", IDM001),
+            Override::Select
+        );
+        assert_eq!(
+            rule_state(&config, "/project/a.vhd", IDM002),
+            Override::Ignore
+        );
     }
 
     #[test]

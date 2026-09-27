@@ -8,6 +8,7 @@ use ignore::{
 use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use std::{
+    collections::HashMap,
     env::current_dir,
     fs,
     io::{self, Write},
@@ -16,7 +17,7 @@ use std::{
     sync::Mutex,
 };
 use vhdl_lint::{
-    config::{Config, ConfigFile, Layer},
+    config::{Config, ConfigFile, Layer, CONFIG_NAME},
     diagnostic::{render_diagnostics, Diagnostic},
     error_code::ErrorCode,
     fix::Fix,
@@ -27,7 +28,7 @@ use vhdl_lint::{
         selection::{RuleOverrides, RuleSelector},
         RuleRegistry,
     },
-    Encoding, File, FileStore, FixErrKind, FixOutcome,
+    Encoding, File, FileId, FileStore, FixErrKind, FixOutcome,
 };
 use vhdl_syntax::standard::VHDLStandard;
 
@@ -138,6 +139,7 @@ impl Args {
         Layer {
             standard: self.std,
             encoding: self.encoding,
+            rules: self.rule_selection.overrides(),
         }
     }
 }
@@ -171,13 +173,23 @@ fn save_file_atomically(file: &Path, buf: &[u8]) -> io::Result<()> {
     Ok(())
 }
 
-fn load_config(args: &Args, cwd: &Path) -> Result<Config, String> {
-    let file = match &args.config {
-        Some(path) => Some(ConfigFile::from_file(path).map_err(|e| e.to_string())?),
-        None => ConfigFile::resolve(cwd).map_err(|e| e.to_string())?,
+fn load_config(args: &Args, cwd: &Path, registry: &RuleRegistry) -> Result<Config, String> {
+    // The path of the config file alongside its directory and contents
+    let found = match &args.config {
+        Some(path) => Some((
+            path.clone(),
+            ConfigFile::from_file(path).map_err(|e| e.to_string())?,
+        )),
+        None => ConfigFile::resolve(cwd)
+            .map_err(|e| e.to_string())?
+            .map(|(dir, file)| (dir.join(CONFIG_NAME), (dir, file))),
     };
-    let (dir, file) = match file {
-        Some(file) => file,
+    let (dir, file) = match found {
+        Some((path, (dir, file))) => {
+            check_codes_exist(registry, file.selectors())
+                .map_err(|e| format!("{}: {e}", path.display()))?;
+            (dir, file)
+        }
         None => (cwd.to_owned(), ConfigFile::default()),
     };
     file.into_config(dir, args.layer())
@@ -187,6 +199,8 @@ fn load_config(args: &Args, cwd: &Path) -> Result<Config, String> {
 #[derive(Default)]
 struct Walk {
     files: FileStore,
+    /// The canonical path of every file
+    canonical: HashMap<FileId, PathBuf>,
     skipped: Vec<String>,
 }
 
@@ -198,7 +212,7 @@ struct CollectorBuilder<'a, 's> {
 }
 
 struct Collector<'a, 's> {
-    files: Vec<File>,
+    files: Vec<(File, PathBuf)>,
     skipped: Vec<String>,
     err: Option<ignore::Error>,
     config: &'a Config,
@@ -213,8 +227,9 @@ impl Drop for Collector<'_, '_> {
             return;
         }
         if let Ok(walk) = out.as_mut() {
-            for file in std::mem::take(&mut self.files) {
-                walk.files.insert_file(file);
+            for (file, canonical) in std::mem::take(&mut self.files) {
+                let id = walk.files.insert_file(file);
+                walk.canonical.insert(id, canonical);
             }
             walk.skipped.append(&mut self.skipped);
         }
@@ -250,7 +265,8 @@ where
                     match read {
                         Ok((data, canonical)) => {
                             let settings = self.config.settings(&canonical);
-                            self.files.push(File::new(path, data, settings));
+                            self.files
+                                .push((File::new(path, data, settings), canonical));
                         }
                         Err(e) => self
                             .skipped
@@ -284,25 +300,22 @@ fn main() -> ExitCode {
         }
     };
 
-    let config = match load_config(&args, &cwd) {
+    let mut registry = RuleRegistry::new();
+    registry.register(NoParensAroundIf).unwrap();
+    registry.register(ExplicitPortMode).unwrap();
+
+    if let Err(e) = check_codes_exist(&registry, args.rule_selection.selectors()) {
+        anstream::eprintln!("error: {e}");
+        return ExitCode::from(EXIT_TOOL_FAILURE);
+    }
+
+    let config = match load_config(&args, &cwd, &registry) {
         Ok(config) => config,
         Err(e) => {
             anstream::eprintln!("Cannot load config: {e}");
             return ExitCode::from(EXIT_TOOL_FAILURE);
         }
     };
-
-    let mut registry = RuleRegistry::new();
-    registry.register(NoParensAroundIf).unwrap();
-    registry.register(ExplicitPortMode).unwrap();
-
-    let unknown = unknown_codes(&registry, args.rule_selection.selectors());
-    if !unknown.is_empty() {
-        let codes = unknown.iter().map(|code| format!("'{code}'")).join(", ");
-        let verb = if unknown.len() == 1 { "does" } else { "do" };
-        anstream::eprintln!("error: {codes} {verb} not exist");
-        return ExitCode::from(EXIT_TOOL_FAILURE);
-    }
 
     let builder = match resolve(&args) {
         Ok(builder) => builder,
@@ -317,22 +330,24 @@ fn main() -> ExitCode {
         out: &out,
     };
     builder.build_parallel().visit(&mut collector);
-    let (mut files, mut skipped) = match out.into_inner().unwrap() {
-        Ok(Walk { files, skipped }) => (files, skipped),
+    let (mut files, canonical, mut skipped) = match out.into_inner().unwrap() {
+        Ok(Walk {
+            files,
+            canonical,
+            skipped,
+        }) => (files, canonical, skipped),
         Err(e) => {
             anstream::eprintln!("error: {e}");
             return ExitCode::from(EXIT_TOOL_FAILURE);
         }
     };
 
-    let overrides = args.rule_selection.overrides();
-    let rules = registry.get_active_rules(&overrides);
-
     let mut total_fixes = 0usize;
     let mut errors = if args.fix {
         let outcomes = files
             .par_iter()
             .map(|(file_id, file)| {
+                let rules = registry.get_active_rules(&config, &canonical[&file_id]);
                 let outcome = fix_file(file, file_id, &rules);
                 (file_id, outcome)
             })
@@ -340,6 +355,7 @@ fn main() -> ExitCode {
 
         let mut errors = Vec::new();
         for (file_id, outcome) in outcomes {
+            let rules = registry.get_active_rules(&config, &canonical[&file_id]);
             match outcome {
                 Ok(FixOutcome::Unchanged { diagnostics, .. }) => errors.extend(diagnostics),
                 Ok(FixOutcome::Changed {
@@ -395,6 +411,7 @@ fn main() -> ExitCode {
         files
             .par_iter()
             .flat_map(|(file_id, file)| {
+                let rules = registry.get_active_rules(&config, &canonical[&file_id]);
                 parse_and_analyze_file(file, file_id, &rules).into_diagnostics()
             })
             .collect::<Vec<_>>()
@@ -474,10 +491,23 @@ fn unknown_codes<'a>(
         .collect()
 }
 
+fn check_codes_exist<'a>(
+    registry: &RuleRegistry,
+    selectors: impl Iterator<Item = &'a RuleSelector>,
+) -> Result<(), String> {
+    let unknown = unknown_codes(registry, selectors);
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    let codes = unknown.iter().map(|code| format!("'{code}'")).join(", ");
+    let verb = if unknown.len() == 1 { "does" } else { "do" };
+    Err(format!("{codes} {verb} not exist"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vhdl_lint::FileSettings;
+    use vhdl_lint::{rule::AstRule, FileSettings};
 
     #[test]
     fn only_a_fix_that_fix_applies_counts_as_fixable() {
@@ -509,6 +539,47 @@ mod tests {
             ]),
             1
         );
+    }
+
+    #[test]
+    fn check_codes_exist_reports_only_unregistered_codes() {
+        let mut registry = RuleRegistry::new();
+        registry.register(NoParensAroundIf).unwrap();
+        let selectors = |selectors: &[&str]| -> Vec<RuleSelector> {
+            selectors.iter().map(|s| s.parse().unwrap()).collect()
+        };
+
+        let registered = NoParensAroundIf::CODE.to_string();
+        assert_eq!(
+            check_codes_exist(&registry, selectors(&["ALL", "IDM", &registered]).iter()),
+            Ok(())
+        );
+        assert_eq!(
+            check_codes_exist(&registry, selectors(&["IDM999"]).iter()),
+            Err("'IDM999' does not exist".to_owned())
+        );
+        assert_eq!(
+            check_codes_exist(&registry, selectors(&["IDM998", "IDM999"]).iter()),
+            Err("'IDM998', 'IDM999' do not exist".to_owned())
+        );
+    }
+
+    #[test]
+    fn load_config_rejects_unknown_codes_in_the_config_file() {
+        let dir = std::env::temp_dir().join(format!("vhdl-lint-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(CONFIG_NAME);
+        fs::write(
+            &path,
+            "[[overrides]]\nfiles = [\"a.vhd\"]\nignore = [\"IDM999\"]",
+        )
+        .unwrap();
+        let registry = RuleRegistry::new();
+        let args = Args::parse_from(["vhdl-lint", "--config", path.to_str().unwrap()]);
+
+        let err = load_config(&args, &dir, &registry).unwrap_err();
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(err, format!("{}: 'IDM999' does not exist", path.display()));
     }
 
     fn overrides(cwd: &Path, patterns: &[&str]) -> Override {

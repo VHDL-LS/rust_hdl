@@ -7,9 +7,11 @@ use crate::{
     error_code::{Category, ErrorCode, ParseErrorCodeErr},
     rule::ErasedAstRule,
 };
+use serde::{Deserialize, Serialize};
 
 /// The set of rules an `--select` or `--ignore` argument refers to.
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub enum RuleSelector {
     All,
     Category(Category),
@@ -30,6 +32,20 @@ pub enum ParseRuleSelectorErr {
     NotConfigurable(Category),
     /// The selector looks like an error code, but is not one.
     Code(ParseErrorCodeErr),
+}
+
+impl TryFrom<String> for RuleSelector {
+    type Error = ParseRuleSelectorErr;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl From<RuleSelector> for String {
+    fn from(value: RuleSelector) -> Self {
+        value.to_string()
+    }
 }
 
 impl fmt::Display for ParseRuleSelectorErr {
@@ -133,18 +149,20 @@ impl RuleSelector {
     }
 }
 
-pub enum OverwriteResult {
+#[derive(PartialEq, Eq, Debug, Default)]
+pub enum Override {
     Ignore,
     Select,
+    #[default]
     Default,
 }
 
-impl OverwriteResult {
+impl Override {
     pub fn is_active(&self, rule: &dyn ErasedAstRule) -> bool {
         match self {
-            OverwriteResult::Ignore => false,
-            OverwriteResult::Select => true,
-            OverwriteResult::Default => rule.is_enabled_by_default(),
+            Override::Ignore => false,
+            Override::Select => true,
+            Override::Default => rule.is_enabled_by_default(),
         }
     }
 }
@@ -179,26 +197,26 @@ impl RuleOverrides {
     }
 
     /// Get the action to be performed when applying the given rules.
-    /// - [OverwriteResult::Ignore] -> Ignore the error specified via the code
-    /// - [OverwriteResult::Select] -> Select the rules
-    /// - [OverwriteResult::Default] -> Use whatever the default is
-    pub fn get(&self, code: ErrorCode) -> OverwriteResult {
+    /// - [Override::Ignore] -> Ignore the error specified via the code
+    /// - [Override::Select] -> Select the rules
+    /// - [Override::Default] -> Use whatever the default is
+    pub fn get(&self, code: ErrorCode) -> Override {
         if !code.category().is_configurable() {
-            return OverwriteResult::Default;
+            return Override::Default;
         }
         let ignore = RuleOverrides::best_match(&self.ignores, code);
         let select = RuleOverrides::best_match(&self.selections, code);
         match (ignore, select) {
             (Some(ignore), Some(select)) => {
                 if select > ignore {
-                    OverwriteResult::Select
+                    Override::Select
                 } else {
-                    OverwriteResult::Ignore
+                    Override::Ignore
                 }
             }
-            (Some(_), None) => OverwriteResult::Ignore,
-            (None, Some(_)) => OverwriteResult::Select,
-            (None, None) => OverwriteResult::Default,
+            (Some(_), None) => Override::Ignore,
+            (None, Some(_)) => Override::Select,
+            (None, None) => Override::Default,
         }
     }
 }
@@ -284,30 +302,30 @@ mod tests {
     #[test]
     fn nothing_matching_leaves_the_rule_at_its_default() {
         let overrides = from_args(&["IDM002"], &["IDM002"]);
-        assert!(matches!(overrides.get(IDM001), OverwriteResult::Default));
+        assert!(matches!(overrides.get(IDM001), Override::Default));
     }
 
     #[test]
     fn a_lone_selection_or_ignore_wins() {
         assert!(matches!(
             from_args(&["IDM001"], &[]).get(IDM001),
-            OverwriteResult::Select
+            Override::Select
         ));
         assert!(matches!(
             from_args(&[], &["IDM001"]).get(IDM001),
-            OverwriteResult::Ignore
+            Override::Ignore
         ));
     }
 
     #[test]
     fn the_more_specific_selector_wins_in_either_direction() {
         let overrides = from_args(&["ALL", "IDM001"], &["IDM"]);
-        assert!(matches!(overrides.get(IDM001), OverwriteResult::Select));
-        assert!(matches!(overrides.get(IDM002), OverwriteResult::Ignore));
+        assert!(matches!(overrides.get(IDM001), Override::Select));
+        assert!(matches!(overrides.get(IDM002), Override::Ignore));
 
         let overrides = from_args(&["IDM"], &["IDM001"]);
-        assert!(matches!(overrides.get(IDM001), OverwriteResult::Ignore));
-        assert!(matches!(overrides.get(IDM002), OverwriteResult::Select));
+        assert!(matches!(overrides.get(IDM001), Override::Ignore));
+        assert!(matches!(overrides.get(IDM002), Override::Select));
     }
 
     #[test]
@@ -319,7 +337,7 @@ mod tests {
         ] {
             let overrides = from_args(selections, ignores);
             assert!(
-                matches!(overrides.get(IDM001), OverwriteResult::Ignore),
+                matches!(overrides.get(IDM001), Override::Ignore),
                 "{selections:?} vs {ignores:?}"
             );
         }
@@ -328,7 +346,50 @@ mod tests {
     #[test]
     fn a_non_configurable_code_is_left_at_its_default_even_under_ignore_all() {
         let overrides = from_args(&[], &["ALL"]);
-        assert!(matches!(overrides.get(SYX001), OverwriteResult::Default));
-        assert!(matches!(overrides.get(IDM001), OverwriteResult::Ignore));
+        assert!(matches!(overrides.get(SYX001), Override::Default));
+        assert!(matches!(overrides.get(IDM001), Override::Ignore));
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Selectors {
+        select: Vec<RuleSelector>,
+    }
+
+    #[test]
+    fn a_selector_deserializes_from_its_spelling() {
+        let selectors: Selectors = toml::from_str(r#"select = ["all", "IDM", "idm1"]"#).unwrap();
+        assert_eq!(
+            selectors.select,
+            [
+                RuleSelector::All,
+                RuleSelector::Category(Category::Idiom),
+                RuleSelector::Code(IDM001)
+            ]
+        );
+    }
+
+    #[test]
+    fn a_selector_serializes_to_its_displayed_form() {
+        let selectors = Selectors {
+            select: vec![RuleSelector::All, RuleSelector::Code(IDM001)],
+        };
+        assert_eq!(
+            toml::to_string(&selectors).unwrap().trim(),
+            r#"select = ["ALL", "IDM001"]"#
+        );
+    }
+
+    #[test]
+    fn deserializing_an_invalid_selector_reports_the_parse_error() {
+        for (input, expected) in [
+            ("XYZ", parse("XYZ").unwrap_err()),
+            ("SYX", parse("SYX").unwrap_err()),
+            ("", ParseRuleSelectorErr::Empty),
+        ] {
+            let err = toml::from_str::<Selectors>(&format!(r#"select = ["{input}"]"#))
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains(&expected.to_string()), "{err}");
+        }
     }
 }
