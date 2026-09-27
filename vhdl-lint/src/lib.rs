@@ -371,7 +371,10 @@ mod tests {
     use vhdl_syntax::syntax::{validate::valid_node::Valid, AstNode, IfStatementSyntax};
 
     use super::*;
+    use std::path::{Path, PathBuf};
+
     use crate::{
+        config::{ConfigFile, Layer},
         error_code::{Category, ErrorCode},
         fix::Edit,
         rule::{
@@ -472,21 +475,32 @@ end;
         let source = file(&in_procedure("if (a) then end if;"));
         let mut rules = RuleRegistry::new();
         rules.register(NoParensAroundIf).unwrap();
-        let analyze = |overrides: &RuleOverrides| match parse_and_analyze_file(
-            &source,
-            FileId(0),
-            &rules.get_active_rules(overrides),
-        ) {
-            AnalysisResult::SyntaxErrs(_) => panic!("Unexpected syntax errors"),
-            AnalysisResult::Lints(diagnostics) => diagnostics.len(),
+        let analyze = |overrides: RuleOverrides| {
+            let config = ConfigFile::default()
+                .into_config(
+                    PathBuf::from("/project"),
+                    Layer {
+                        rules: overrides,
+                        ..Layer::default()
+                    },
+                )
+                .unwrap();
+            match parse_and_analyze_file(
+                &source,
+                FileId(0),
+                &rules.get_active_rules(&config, Path::new("/project/a.vhd")),
+            ) {
+                AnalysisResult::SyntaxErrs(_) => panic!("Unexpected syntax errors"),
+                AnalysisResult::Lints(diagnostics) => diagnostics.len(),
+            }
         };
-        assert_eq!(analyze(&RuleOverrides::default()), 0);
+        assert_eq!(analyze(RuleOverrides::default()), 0);
         assert_eq!(
-            analyze(&RuleOverrides::new(vec![RuleSelector::All], vec![])),
+            analyze(RuleOverrides::new(vec![RuleSelector::All], vec![])),
             1
         );
         assert_eq!(
-            analyze(&RuleOverrides::new(
+            analyze(RuleOverrides::new(
                 vec![RuleSelector::All],
                 vec![RuleSelector::Code(NoParensAroundIf::CODE)]
             )),

@@ -6,11 +6,12 @@
 
 use std::collections::HashMap;
 use std::fmt;
+use std::path::Path;
 
 use vhdl_syntax::syntax::NodeKind;
 
+use crate::config::Config;
 use crate::error_code::ErrorCode;
-use crate::rule::selection::RuleOverrides;
 use crate::rule::{AstRule, ErasedAstRule};
 
 /// The ways registering a rule can fail.
@@ -133,12 +134,12 @@ impl RuleRegistry {
         self.by_code.get(code).map(|&idx| self.get_rule(idx))
     }
 
-    pub fn get_active_rules(&self, overrides: &RuleOverrides) -> ActiveRules<'_> {
+    pub fn get_active_rules(&self, config: &Config, file: &Path) -> ActiveRules<'_> {
         ActiveRules::new(
             self.rules
                 .iter()
                 .map(Box::as_ref)
-                .filter(|&rule| overrides.get(rule.code()).is_active(rule)),
+                .filter(|&rule| config.rule_state(file, rule.code()).is_active(rule)),
         )
     }
 }
