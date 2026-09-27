@@ -23,10 +23,9 @@ use vhdl_lint::{
     fix::Fix,
     fix_file, parse_and_analyze_file,
     rule::{
-        explicit_port_mode::ExplicitPortMode,
-        no_parens_around_if::NoParensAroundIf,
+        register_builtin_rules,
         selection::{RuleOverrides, RuleSelector},
-        RuleRegistry,
+        ErasedAstRule, RuleRegistry,
     },
     Encoding, File, FileId, FileStore, FixErrKind, FixOutcome,
 };
@@ -132,6 +131,10 @@ struct Args {
     /// Exit with status code "0", even upon detecting lint violations
     #[arg(short, long, help_heading = "Miscellaneous")]
     exit_zero: bool,
+
+    /// Print the documentation of a rule and exit
+    #[arg(long, value_name = "CODE", help_heading = "Miscellaneous")]
+    explain: Option<ErrorCode>,
 }
 
 impl Args {
@@ -301,8 +304,20 @@ fn main() -> ExitCode {
     };
 
     let mut registry = RuleRegistry::new();
-    registry.register(NoParensAroundIf).unwrap();
-    registry.register(ExplicitPortMode).unwrap();
+    register_builtin_rules(&mut registry);
+
+    if let Some(code) = args.explain {
+        return match registry.by_code(&code) {
+            Some(rule) => {
+                anstream::println!("{}", explain(rule));
+                ExitCode::SUCCESS
+            }
+            None => {
+                anstream::eprintln!("error: '{code}' does not exist");
+                ExitCode::from(EXIT_TOOL_FAILURE)
+            }
+        };
+    }
 
     if let Err(e) = check_codes_exist(&registry, args.rule_selection.selectors()) {
         anstream::eprintln!("error: {e}");
@@ -476,6 +491,21 @@ fn main() -> ExitCode {
     }
 }
 
+fn explain(rule: &dyn ErasedAstRule) -> String {
+    format!(
+        "# {} ({})\n\nSeverity: {}\nEnabled by default: {}\n\n{}",
+        rule.code(),
+        rule.docs().name,
+        rule.severity(),
+        if rule.is_enabled_by_default() {
+            "yes"
+        } else {
+            "no"
+        },
+        rule.docs().text
+    )
+}
+
 /// Every code among `selectors` that no registered rule uses, in the order the
 /// user spelled them and without repeats.
 fn unknown_codes<'a>(
@@ -507,7 +537,10 @@ fn check_codes_exist<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vhdl_lint::{rule::AstRule, FileSettings};
+    use vhdl_lint::{
+        rule::{no_parens_around_if::NoParensAroundIf, AstRule},
+        FileSettings,
+    };
 
     #[test]
     fn only_a_fix_that_fix_applies_counts_as_fixable() {
@@ -538,6 +571,20 @@ mod tests {
                 diagnostic(None),
             ]),
             1
+        );
+    }
+
+    #[test]
+    fn explain_heads_the_documentation_with_the_rule_and_its_defaults() {
+        let explained = explain(&NoParensAroundIf);
+        assert!(
+            explained.starts_with(
+                "# IDM001 (no-parens-around-if)\n\n\
+                 Severity: warning\n\
+                 Enabled by default: no\n\n\
+                 Checks that the conditions of an `if` statement have no parenthesis."
+            ),
+            "{explained}"
         );
     }
 

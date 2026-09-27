@@ -1,0 +1,73 @@
+name: Publish the vhdl-lint book
+
+# Builds `vhdl-lint/book` with mdBook and deploys it to GitHub Pages under
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "vhdl-lint/book/**"
+      - ".github/workflows/lint-book.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push supersedes a queued one, but a running
+# deployment is allowed to finish
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  MDBOOK_VERSION: v0.5.4
+
+jobs:
+  build:
+    name: Build the book
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Install mdBook
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL "https://github.com/rust-lang/mdBook/releases/download/${MDBOOK_VERSION}/mdbook-${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
+
+      - name: Build
+        env:
+          MDBOOK_OUTPUT__HTML__SITE_URL: ${{ steps.pages.outputs.base_path }}/vhdl-lint/
+        run: |
+          mdbook build vhdl-lint/book --dest-dir "$GITHUB_WORKSPACE/_site/vhdl-lint"
+          # The site's root is not a book of its own (yet); send visitors to this one
+          cat > _site/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Redirecting to the vhdl-lint book</title>
+          <meta http-equiv="refresh" content="0; url=vhdl-lint/">
+          <link rel="canonical" href="vhdl-lint/">
+          <a href="vhdl-lint/">The vhdl-lint book</a>
+          EOF
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}vhdl-lint/
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1

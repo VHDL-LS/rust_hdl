@@ -1,3 +1,5 @@
+use std::fmt;
+
 use annotate_snippets::Level;
 
 #[derive(Copy, Clone, Debug)]
@@ -16,5 +18,16 @@ impl Severity {
             Severity::Info => Level::INFO,
             Severity::Note => Level::NOTE,
         }
+    }
+}
+
+impl fmt::Display for Severity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Severity::Warning => "warning",
+            Severity::Error => "error",
+            Severity::Info => "info",
+            Severity::Note => "note",
+        })
     }
 }

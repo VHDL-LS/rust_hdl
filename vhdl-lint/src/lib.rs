@@ -1,3 +1,6 @@
+// Lets the paths that `vhdl_lint_macros` generate resolve inside this crate too
+extern crate self as vhdl_lint;
+
 pub mod config;
 pub mod diagnostic;
 pub mod error_code;
@@ -380,7 +383,7 @@ mod tests {
         rule::{
             no_parens_around_if::NoParensAroundIf,
             selection::{RuleOverrides, RuleSelector},
-            AstRule, ErasedAstRule, RuleRegistry,
+            AstRule, Documented, ErasedAstRule, RuleRegistry,
         },
     };
 
@@ -411,6 +414,7 @@ end;
     }
 
     /// Replaces every `if` statement with text that does not parse.
+    #[derive(Documented)]
     struct BreaksSyntax;
 
     impl AstRule for BreaksSyntax {
@@ -424,6 +428,7 @@ end;
     }
 
     /// Inserts a space before every `if` statement, which it then reports again.
+    #[derive(Documented)]
     struct NeverConverges;
 
     impl AstRule for NeverConverges {
@@ -437,6 +442,7 @@ end;
     }
 
     /// Replaces the `if` keyword of every `if` statement with itself.
+    #[derive(Documented)]
     struct ChangesNothing;
 
     impl AstRule for ChangesNothing {
