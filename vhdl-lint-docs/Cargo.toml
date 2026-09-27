@@ -1,0 +1,16 @@
+[package]
+name = "vhdl-lint-docs"
+version = "0.1.0"
+authors = ["Lukas Scheller"]
+description = "Generates the rule pages of the vhdl-lint book; run through `cargo xtask lint-docs`"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+pulldown-cmark.workspace = true
+vhdl-lint.workspace = true

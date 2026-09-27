@@ -8,14 +8,14 @@ use vhdl_syntax::{
 use crate::{
     error_code::{Category, ErrorCode},
     fix::Fix,
-    rule::AstRule,
+    rule::{AstRule, Documented},
 };
 
 /// Checks that port clauses have an explicit mode set.
 ///
 /// # Non-compliant example
 ///
-/// ```vhdl,design-unit
+/// ```vhdl,design-unit,non-compliant
 /// entity foo is
 ///     port (
 ///         clk : std_logic
@@ -25,13 +25,14 @@ use crate::{
 ///
 /// # Compliant example
 ///
-/// ```vhdl,design-unit
+/// ```vhdl,design-unit,compliant
 /// entity foo is
 ///     port (
 ///         clk : in std_logic
 ///     );
 /// end foo;
 /// ```
+#[derive(Documented)]
 pub struct ExplicitPortMode;
 
 impl AstRule for ExplicitPortMode {

@@ -11,7 +11,7 @@ use generate::{
 };
 use model::load_model;
 use std::path::Path;
-use std::process;
+use std::process::{self, Command};
 
 mod diff;
 mod generate;
@@ -45,6 +45,12 @@ enum Commands {
         /// deviations -- this shows them anyway.
         #[arg(long)]
         exact: bool,
+    },
+    /// Generate the rule pages of the vhdl-lint book from the rules' doc comments.
+    LintDocs {
+        /// Check that the generated pages are up-to-date; exit 1 if any differ
+        #[arg(long)]
+        check: bool,
     },
 }
 
@@ -102,6 +108,23 @@ fn main() {
                 nesting,
             )
             .expect("failed to diff the grammars");
+        }
+        Commands::LintDocs { check } => {
+            // Runs via cargo, so that xtask itself does not depend on `vhdl_syntax`
+            let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+            let mut command = Command::new(cargo);
+            command.current_dir(workspace_root).args([
+                "run",
+                "--quiet",
+                "--package",
+                "vhdl-lint-docs",
+                "--",
+            ]);
+            if check {
+                command.arg("--check");
+            }
+            let status = command.status().expect("failed to run vhdl-lint-docs");
+            process::exit(status.code().unwrap_or(1));
         }
     }
 }

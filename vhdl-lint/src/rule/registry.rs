@@ -19,6 +19,8 @@ use crate::rule::{AstRule, ErasedAstRule};
 pub enum RegisterError {
     /// A rule with this code is already registered.
     DuplicateCode(ErrorCode),
+    /// A rule with this name is already registered.
+    DuplicateName(&'static str),
     /// the error code is not configurable
     NotConfigurable(ErrorCode),
 }
@@ -28,6 +30,9 @@ impl fmt::Display for RegisterError {
         match self {
             RegisterError::DuplicateCode(code) => {
                 write!(f, "a rule with code {code} is already registered")
+            }
+            RegisterError::DuplicateName(name) => {
+                write!(f, "a rule named '{name}' is already registered")
             }
             RegisterError::NotConfigurable(code) => {
                 write!(
@@ -78,6 +83,7 @@ pub struct RuleRegistry {
     rules: Vec<Box<dyn ErasedAstRule>>,
     by_kind: HashMap<NodeKind, Vec<usize>>,
     by_code: HashMap<ErrorCode, usize>,
+    by_name: HashMap<&'static str, usize>,
 }
 
 impl RuleRegistry {
@@ -91,7 +97,7 @@ impl RuleRegistry {
 
     /// Add a rule.
     ///
-    /// Fails if another rule already uses the same code, or if the
+    /// Fails if another rule already uses the same code or name, or if the
     /// code cannot be configured. In that case the registry is left unchanged.
     pub fn register<R: AstRule>(&mut self, rule: R) -> Result<(), RegisterError> {
         self.register_erased(Box::new(rule))
@@ -110,13 +116,24 @@ impl RuleRegistry {
             return Err(RegisterError::DuplicateCode(code));
         }
 
+        let name = rule.docs().name;
+        if self.by_name.contains_key(name) {
+            return Err(RegisterError::DuplicateName(name));
+        }
+
         let index = self.rules.len();
         for kind in rule.applies_to() {
             self.by_kind.entry(*kind).or_default().push(index);
         }
         self.by_code.insert(code, index);
+        self.by_name.insert(name, index);
         self.rules.push(rule);
         Ok(())
+    }
+
+    /// Every rule, in registration order.
+    pub fn rules(&self) -> impl Iterator<Item = &dyn ErasedAstRule> {
+        self.rules.iter().map(Box::as_ref)
     }
 
     /// The rules that apply to `kind`, in registration order.
@@ -148,11 +165,13 @@ impl RuleRegistry {
 mod tests {
     use super::*;
     use crate::error_code::Category;
-    use crate::rule::AstRuleCtx;
+    use crate::rule::{AstRuleCtx, Documented};
     use vhdl_syntax::syntax::{
         validate::valid_node::Valid, IfStatementSyntax, SequentialStatementSyntax,
     };
 
+    /// Applies to `if` statements.
+    #[derive(Documented)]
     struct IfRule;
 
     impl AstRule for IfRule {
@@ -161,6 +180,8 @@ mod tests {
         fn check(&self, _node: &Valid<Self::Node>, _ctx: &mut AstRuleCtx<'_>) {}
     }
 
+    /// Also applies to `if` statements.
+    #[derive(Documented)]
     struct OtherIfRule;
 
     impl AstRule for OtherIfRule {
@@ -169,6 +190,8 @@ mod tests {
         fn check(&self, _node: &Valid<Self::Node>, _ctx: &mut AstRuleCtx<'_>) {}
     }
 
+    /// Applies to every sequential statement.
+    #[derive(Documented)]
     struct SequentialStatementRule;
 
     impl AstRule for SequentialStatementRule {
@@ -228,6 +251,8 @@ mod tests {
         let mut registry = RuleRegistry::new();
         registry.register(IfRule).unwrap();
 
+        /// Uses the code of [`IfRule`].
+        #[derive(Documented)]
         struct Clashing;
         impl AstRule for Clashing {
             type Node = SequentialStatementSyntax;
@@ -243,7 +268,35 @@ mod tests {
     }
 
     #[test]
+    fn registering_a_duplicate_name_fails_and_changes_nothing() {
+        let mut registry = RuleRegistry::new();
+        registry.register(IfRule).unwrap();
+
+        mod other {
+            use super::*;
+
+            /// Has the name of [`IfRule`](super::IfRule).
+            #[derive(Documented)]
+            pub struct IfRule;
+            impl AstRule for IfRule {
+                type Node = IfStatementSyntax;
+                const CODE: ErrorCode = ErrorCode::new(Category::Idiom, 903);
+                fn check(&self, _node: &Valid<Self::Node>, _ctx: &mut AstRuleCtx<'_>) {}
+            }
+        }
+
+        assert_eq!(
+            registry.register(other::IfRule),
+            Err(RegisterError::DuplicateName("if-rule"))
+        );
+        assert_eq!(codes_for(&registry, NodeKind::IfStatement), [IfRule::CODE]);
+        assert!(registry.by_code(&other::IfRule::CODE).is_none());
+    }
+
+    #[test]
     fn a_non_configurable_rule_is_rejected() {
+        /// Uses a code of a category that cannot be configured.
+        #[derive(Documented)]
         struct SyntaxCoded;
         impl AstRule for SyntaxCoded {
             type Node = IfStatementSyntax;

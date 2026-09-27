@@ -6,25 +6,27 @@ use vhdl_syntax::syntax::{
 use crate::{
     error_code::{Category, ErrorCode},
     fix::Fix,
-    rule::AstRule,
+    rule::{AstRule, Documented},
 };
 
 /// Checks that the conditions of an `if` statement have no parenthesis.
 ///
 /// # Non-compliant example
 ///
-/// ```vhdl,sequential_statement
+/// ```vhdl,sequential-statement,non-compliant
 /// if (condition) then
 ///     foo <= bar;
 /// end if;
 /// ```
 ///
 /// # Compliant example
-/// ```vhdl,sequential_statement
+///
+/// ```vhdl,sequential-statement,compliant
 /// if condition then
 ///     foo <= bar;
 /// end if;
 /// ```
+#[derive(Documented)]
 pub struct NoParensAroundIf;
 
 fn emit_redundant_parens(
