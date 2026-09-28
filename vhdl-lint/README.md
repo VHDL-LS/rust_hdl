@@ -30,7 +30,3 @@ cargo add vhdl-lint
 > Bugs are to be expected.
 
 The feature set is minimal. Currently, this crate offers only marginal improvements over pretty-printing the diagnostics reported by its backend, the [vhdl_syntax](https://github.com/VHDL-LS/rust_hdl) library.
-
-### Limitations
-
-- There are no machine-readable output formats, e.g., for CI.

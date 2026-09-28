@@ -1763,6 +1763,7 @@ dependencies = [
  "itertools 0.15.0",
  "rayon",
  "serde",
+ "serde_json",
  "strum",
  "tempfile",
  "toml",

@@ -122,7 +122,8 @@ pub struct Fix {
     applicability: Applicability,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Applicability {
     /// Can be automatically applied when using `--fix`
     Safe,
@@ -188,6 +189,10 @@ impl Fix {
 
     pub fn title(&self) -> &str {
         &self.title
+    }
+
+    pub fn applicability(&self) -> Applicability {
+        self.applicability
     }
 }
 
