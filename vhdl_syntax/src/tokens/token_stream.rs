@@ -159,39 +159,9 @@ impl FromIterator<(Token, Option<LexErr>)> for TokenStream {
     }
 }
 
-impl From<Vec<u8>> for TokenStream {
-    fn from(value: Vec<u8>) -> Self {
-        Tokenizer::new(value.iter()).collect()
-    }
-}
-
-impl From<&[u8]> for TokenStream {
-    fn from(value: &[u8]) -> Self {
-        Tokenizer::new(value.iter()).collect()
-    }
-}
-
-impl<const N: usize> From<&[u8; N]> for TokenStream {
-    fn from(value: &[u8; N]) -> Self {
-        Tokenizer::new(value.iter()).collect()
-    }
-}
-
-impl<const N: usize> From<[u8; N]> for TokenStream {
-    fn from(value: [u8; N]) -> Self {
-        Tokenizer::new(value.iter()).collect()
-    }
-}
-
-impl From<&str> for TokenStream {
-    fn from(value: &str) -> Self {
-        Tokenizer::new(value.as_bytes().iter()).collect()
-    }
-}
-
-impl From<String> for TokenStream {
-    fn from(value: String) -> Self {
-        TokenStream::from(value.as_str())
+impl From<Tokenizer<'_>> for TokenStream {
+    fn from(value: Tokenizer) -> Self {
+        TokenStream::new(value.collect())
     }
 }
 
@@ -200,12 +170,12 @@ mod tests {
     use super::*;
 
     fn stream_kinds(input: &str) -> Vec<TokenKind> {
-        let stream = TokenStream::from(input);
+        let stream = TokenStream::from(Tokenizer::new(input.as_bytes().iter()));
         stream.inner.iter().map(|(tok, _)| tok.kind()).collect()
     }
 
     fn stream_first_text(input: &str) -> String {
-        let stream = TokenStream::from(input);
+        let stream = TokenStream::from(Tokenizer::new(input.as_bytes().iter()));
         stream.inner[0].0.text().to_string()
     }
 

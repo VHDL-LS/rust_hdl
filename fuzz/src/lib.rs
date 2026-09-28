@@ -9,7 +9,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::str::FromStr;
-use vhdl_syntax::tokens::{Token, TokenKind, Tokenizer, TriviaBuf};
+use vhdl_syntax::standard::VHDLStandard;
+use vhdl_syntax::tokens::{Token, TokenKind, TokenStream, Tokenizer, TriviaBuf};
 
 /// Upper bound on the number of repetitions generated for a `Rep` rule.
 const MAX_REPETITIONS: usize = 8;
@@ -70,7 +71,7 @@ fn terminal_token(path: &str, name: &str) -> Token {
             _ => panic!("{path}: unhandled token class `{name}`"),
         };
     }
-    let (token, err) = Tokenizer::new(name.as_bytes().iter())
+    let (token, err) = Tokenizer::with_standard(VHDLStandard::VHDL2008, name.as_bytes().iter())
         .next()
         .unwrap_or_else(|| panic!("{path}: terminal `{name}` tokenizes to nothing"));
     assert!(
@@ -184,7 +185,9 @@ impl Generator<'_> {
 }
 
 pub fn assert_parses<G: GrammarSource>(design: Design<G>) {
-    let (_file, diagnostics) =
-        vhdl_syntax::parser::parse(vhdl_syntax::tokens::TokenStream::from_tokens(design.tokens));
+    let (_file, diagnostics) = vhdl_syntax::parser::parse_tokens(
+        VHDLStandard::VHDL2008,
+        TokenStream::from_tokens(design.tokens),
+    );
     assert!(diagnostics.is_empty(), "got diagnostics:\n{diagnostics:?}");
 }

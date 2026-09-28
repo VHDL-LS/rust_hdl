@@ -409,10 +409,9 @@ mod tests {
     use crate::fmt::encoding::{Latin1Encoder, LossyUtf8Encoder, Utf8Encoder};
     use crate::parser::parse;
     use crate::text::char_encoding::{Utf16, Utf32, Utf8};
-    use crate::tokens::TokenStream;
 
     fn converter<E: BytePreservingEncoder, C: CharEncoding>(
-        input: impl Into<TokenStream>,
+        input: impl AsRef<[u8]>,
     ) -> SourceLocConverter
     where
         for<'a> E::Str<'a>: CharIter,
@@ -423,7 +422,7 @@ mod tests {
     }
 
     fn lossy_converter<E: LossyEncoder, C: CharEncoding>(
-        input: impl Into<TokenStream>,
+        input: impl AsRef<[u8]>,
     ) -> SourceLocConverter
     where
         for<'a> E::Str<'a>: CharIter,

@@ -40,7 +40,7 @@ use crate::standard::VHDLStandard;
 use crate::syntax::node::SyntaxNode;
 use crate::syntax::validate::valid_node::Valid;
 use crate::syntax::{DesignFileSyntax, NodeKind};
-use crate::tokens::TokenStream;
+use crate::tokens::{TokenStream, Tokenizer};
 
 pub(crate) mod builder;
 pub mod error;
@@ -88,8 +88,8 @@ impl Parser {
 /// Parse and return a VHDL file using the default VHDL standard.
 ///
 /// Use [`parse_with_standard`] to use a non-default VHDL standard.
-pub fn parse(token_stream: impl Into<TokenStream>) -> (DesignFileSyntax, Vec<error::SyntaxErr>) {
-    parse_with_standard(VHDLStandard::default(), token_stream)
+pub fn parse(bytes: impl AsRef<[u8]>) -> (DesignFileSyntax, Vec<error::SyntaxErr>) {
+    parse_with_standard(VHDLStandard::default(), bytes)
 }
 
 pub struct ParseError {
@@ -101,7 +101,7 @@ pub struct ParseError {
 /// As opposed to `parse`, this function returns a validated file or an error.
 ///
 /// Use [`parse_valid_with_standard`] to use a non-default VHDL standard.
-pub fn parse_valid(input: impl Into<TokenStream>) -> Result<Valid<DesignFileSyntax>, ParseError> {
+pub fn parse_valid(input: impl AsRef<[u8]>) -> Result<Valid<DesignFileSyntax>, ParseError> {
     parse_valid_with_standard(VHDLStandard::default(), input)
 }
 
@@ -111,9 +111,20 @@ pub fn parse_valid(input: impl Into<TokenStream>) -> Result<Valid<DesignFileSynt
 /// for anything other than VHDL-2008.
 pub fn parse_with_standard(
     standard: VHDLStandard,
-    input: impl Into<TokenStream>,
+    input: impl AsRef<[u8]>,
 ) -> (DesignFileSyntax, Vec<error::SyntaxErr>) {
-    let mut parser = Parser::new(input.into(), standard);
+    let tokens = Tokenizer::with_standard(standard, input.as_ref().iter());
+    parse_tokens(standard, tokens.into())
+}
+
+/// Parse and return a VHDL file from an already tokenized stream.
+///
+/// `standard` should be the standard that `tokens` were produced with.
+pub fn parse_tokens(
+    standard: VHDLStandard,
+    tokens: TokenStream,
+) -> (DesignFileSyntax, Vec<error::SyntaxErr>) {
+    let mut parser = Parser::new(tokens, standard);
     parser.design_file();
     let (syntax_node, diagnostics) = parser.into_root();
     debug_assert!(syntax_node.kind() == NodeKind::DesignFile);
@@ -123,7 +134,7 @@ pub fn parse_with_standard(
 /// Like [parse_with_standard], but returns a validated fle or an error.
 pub fn parse_valid_with_standard(
     standard: VHDLStandard,
-    input: impl Into<TokenStream>,
+    input: impl AsRef<[u8]>,
 ) -> Result<Valid<DesignFileSyntax>, ParseError> {
     let (file, errors) = parse_with_standard(standard, input);
     if errors.is_empty() {
@@ -136,25 +147,20 @@ pub fn parse_valid_with_standard(
 
 #[cfg(test)]
 pub(crate) fn parse_syntax<T>(
-    token_stream: impl Into<TokenStream>,
+    bytes: impl AsRef<[u8]>,
     parser_fn: impl FnOnce(&mut Parser) -> T,
 ) -> (SyntaxNode, Vec<error::SyntaxErr>) {
-    let mut parser = Parser::new(token_stream.into(), VHDLStandard::default());
-    parser_fn(&mut parser);
-    let (green, diagnostics) = parser.end();
-    (SyntaxNode::new_root(green), diagnostics)
+    parse_syntax_with_standard(VHDLStandard::default(), bytes, parser_fn)
 }
 
 #[cfg(test)]
 pub(crate) fn parse_syntax_with_standard<T>(
     standard: VHDLStandard,
-    input: impl IntoIterator<Item = u8>,
+    input: impl AsRef<[u8]>,
     parser_fn: impl FnOnce(&mut Parser) -> T,
 ) -> (SyntaxNode, Vec<error::SyntaxErr>) {
-    let bytes = input.into_iter().collect::<Vec<_>>();
-    let token_stream: TokenStream =
-        crate::tokens::Tokenizer::with_standard(standard, bytes.iter()).collect();
-    let mut parser = Parser::new(token_stream, standard);
+    let tokenizer = Tokenizer::with_standard(standard, input.as_ref().iter());
+    let mut parser = Parser::new(tokenizer.into(), standard);
     parser_fn(&mut parser);
     let (green, diagnostics) = parser.end();
     (SyntaxNode::new_root(green), diagnostics)

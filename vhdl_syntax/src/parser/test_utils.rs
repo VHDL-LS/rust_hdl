@@ -95,7 +95,7 @@ pub fn to_test_text_with_standard<T>(
     func: impl FnOnce(&mut Parser) -> T,
     input: &str,
 ) -> String {
-    let (entity, diagnostics) = parse_syntax_with_standard(standard, input.bytes(), func);
+    let (entity, diagnostics) = parse_syntax_with_standard(standard, input.as_bytes(), func);
     assert!(
         diagnostics.is_empty(),
         "got diagnostics:\n{}",

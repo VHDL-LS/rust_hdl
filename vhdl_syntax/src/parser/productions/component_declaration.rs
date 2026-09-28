@@ -129,7 +129,7 @@ end foo;
         // Omitting the trailing `component` keyword must produce a diagnostic under VHDL-2008.
         let (_, diagnostics) = parse_syntax_with_standard(
             VHDLStandard::VHDL2008,
-            "component foo is\nend;\n".bytes(),
+            "component foo is\nend;\n".as_bytes(),
             Parser::component_declaration,
         );
         assert!(
