@@ -134,10 +134,12 @@ impl Parser {
                             p.signature();
                         }
                         p.expect_token(Tick);
-                        // Either an identifier or a keyword (e.g., `range`, `subtype`).
-                        if matches!(p.peek_token(), Keyword(_) | Identifier) {
-                            p.skip();
-                        }
+                        // attribute_designator ::= attribute_simple_name
+                        p.expect_one_of_tokens([
+                            Identifier,
+                            Keyword(Kw::Range),
+                            Keyword(Kw::Subtype),
+                        ]);
                     });
                     true
                 } else {
@@ -363,5 +365,10 @@ mod tests {
     #[test]
     fn empty_association_list() {
         assert_recovery_snapshot!("foo()", Parser::name);
+    }
+
+    #[test]
+    fn attribute_name_with_invalid_keyword_designator() {
+        assert_recovery_snapshot!("foo'map", Parser::name);
     }
 }

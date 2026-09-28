@@ -1,0 +1,17 @@
+---
+source: vhdl_syntax/src/parser/productions/names.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+foo'map
+
+== tree ==
+Name
+  NameDesignatorPrefix
+    Identifier 'foo'
+  AttributeName
+    Tick
+    Keyword(Map)
+
+== diagnostics ==
+1:5..1:8 unexpected 'map'
