@@ -39,6 +39,9 @@ pub enum LexErrKind {
     /// A token (string, comment, e.t.c.) was not terminated properly
     Unterminated(UnterminatedKind),
     IllegalInput,
+    /// A string where the quotation marks ('"') are replaced by percent signs ('%')
+    /// contains a quotation mark, which is illegal
+    ReplacedStringContainsQuote,
 }
 
 /// Token errors are always attached to raw tokens.
@@ -167,23 +170,24 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum QuoteKind {
     QuotationMark,      // "
+    PercentSign,        // %
     ExtendedIdentifier, // \
 }
 
 impl QuoteKind {
     pub fn unterminated_kind(&self) -> UnterminatedKind {
         match self {
-            QuoteKind::QuotationMark => UnterminatedKind::StringLiteral,
+            QuoteKind::QuotationMark | QuoteKind::PercentSign => UnterminatedKind::StringLiteral,
             QuoteKind::ExtendedIdentifier => UnterminatedKind::ExtendedIdentifier,
         }
     }
 
     pub fn token_kind(&self) -> TokenKind {
         match self {
-            QuoteKind::QuotationMark => StringLiteral,
+            QuoteKind::QuotationMark | QuoteKind::PercentSign => StringLiteral,
             QuoteKind::ExtendedIdentifier => Identifier,
         }
     }
@@ -288,7 +292,7 @@ impl<'a> Tokenizer<'a> {
                 offset += integer(&slice[offset..]).len();
                 offset += opt_exponent(&slice[offset..]).len()
             }
-            Some(ch @ b'#' | ch @ b':') => {
+            Some(ch @ b'#' | ch @ b':') if ch == b'#' || self.standard < VHDLStandard::VHDL2019 => {
                 offset += 1;
                 offset += based_integer(&slice[offset..]).len();
                 if self.peek_n(offset) == Some(b'.') {
@@ -317,7 +321,13 @@ impl<'a> Tokenizer<'a> {
         let quote = self.peek().expect("Input empty while tokenizing quoted");
         let mut itr = self.slice(1..).iter();
         let mut count = 1usize;
+        let mut pending_err = None;
         while let Some(next) = itr.next() {
+            if quote_kind == QuoteKind::PercentSign && next == &b'"' {
+                // we only record the error as we can safely recover here (the string must still end with a percent)
+                // unterminated overwrites on purpose
+                pending_err = Some(LexErr::token(LexErrKind::ReplacedStringContainsQuote));
+            }
             if next == &quote {
                 // Escaped
                 if itr.as_slice().first() == Some(&quote) {
@@ -326,7 +336,7 @@ impl<'a> Tokenizer<'a> {
                     continue;
                 } else {
                     count += 1;
-                    return (self.slice(..count), quote_kind.token_kind(), None);
+                    return (self.slice(..count), quote_kind.token_kind(), pending_err);
                 }
             }
             count += 1;
@@ -467,6 +477,11 @@ impl<'a> Iterator for Tokenizer<'a> {
                 token_diag = diag;
                 (kind, slice)
             }
+            b'%' if self.standard < VHDLStandard::VHDL2019 => {
+                let (slice, kind, diag) = self.quoted(QuoteKind::PercentSign);
+                token_diag = diag;
+                (kind, slice)
+            }
             b';' => (SemiColon, self.slice(..1)),
             b'(' => (LeftPar, self.slice(..1)),
             b')' => (RightPar, self.slice(..1)),
@@ -535,6 +550,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             b'^' => (Circ, self.slice(..1)),
             b'@' => (CommAt, self.slice(..1)),
             b'|' => (Bar, self.slice(..1)),
+            b'!' if self.standard < VHDLStandard::VHDL2019 => (Bar, self.slice(..1)),
             b'[' => (LeftSquare, self.slice(..1)),
             b']' => (RightSquare, self.slice(..1)),
             b'\\' => {
@@ -579,7 +595,7 @@ fn can_be_char(last_token_kind: Option<TokenKind>) -> bool {
 mod tests {
 
     use crate::tokens::comment::Comment;
-    use crate::tokens::tokenizer::Tokenize;
+    use crate::tokens::tokenizer::{LexErr, LexErrKind, LexErrPos, Tokenize, UnterminatedKind};
     use crate::tokens::TokenKind;
     use crate::tokens::TokenKind::*;
     use crate::tokens::{Keyword as Kw, Token, TriviaBuf, TriviaPiece};
@@ -1200,7 +1216,7 @@ comment
     #[test]
     fn tokenize_illegal() {
         assert_eq!(
-            "begin!end".tokenize_kinds(),
+            "begin$end".tokenize_kinds(),
             vec![Keyword(Kw::Begin), Unknown, Keyword(Kw::End), Eof]
         );
     }
@@ -1281,5 +1297,119 @@ comment
             tokenize_first_kind_with_standard(VHDL2019, "view"),
             Keyword(Kw::View)
         );
+    }
+
+    #[test]
+    fn string_literal_can_be_replaced_by_percent_before_2019() {
+        use crate::standard::VHDLStandard::*;
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2008, "%1100%"),
+            StringLiteral
+        );
+        assert_eq!(
+            tokenize_first_kind_with_standard(VHDL2019, "%1100%"),
+            Unknown
+        )
+    }
+
+    #[test]
+    fn vertical_line_can_be_replaced_by_exclamation_mark_before_2019() {
+        use crate::standard::VHDLStandard::*;
+        assert_eq!(tokenize_first_kind_with_standard(VHDL2008, "!"), Bar);
+        assert_eq!(tokenize_first_kind_with_standard(VHDL2019, "!"), Unknown)
+    }
+
+    fn tokenize_first_with_standard(
+        standard: crate::standard::VHDLStandard,
+        input: &str,
+    ) -> (Token, Option<LexErr>) {
+        use super::Tokenizer;
+        Tokenizer::with_standard(standard, input.as_bytes().iter())
+            .next()
+            .unwrap()
+    }
+
+    #[test]
+    fn percent_string_literal_escapes_percent() {
+        use crate::standard::VHDLStandard::*;
+        let (tok, err) = tokenize_first_with_standard(VHDL2008, "%a%%b% c");
+        assert_eq!(tok, Token::simple(StringLiteral, b"%a%%b%"));
+        assert!(err.is_none());
+    }
+
+    #[test]
+    fn percent_string_literal_does_not_escape_quotation_mark() {
+        use crate::standard::VHDLStandard::*;
+        // `""` is not an escape inside a percent-delimited string
+        let (tok, _) = tokenize_first_with_standard(VHDL2008, "%a\"\"b%");
+        assert_eq!(tok, Token::simple(StringLiteral, b"%a\"\"b%"));
+    }
+
+    #[test]
+    fn percent_string_literal_containing_quotation_mark_is_an_error() {
+        use crate::standard::VHDLStandard::*;
+        let (tok, err) = tokenize_first_with_standard(VHDL2008, "%a\"b% c");
+        assert_eq!(tok, Token::simple(StringLiteral, b"%a\"b%"));
+        assert!(matches!(
+            err,
+            Some(LexErr {
+                err: LexErrKind::ReplacedStringContainsQuote,
+                pos: LexErrPos::Token
+            })
+        ));
+    }
+
+    #[test]
+    fn unterminated_percent_string_literal() {
+        use crate::standard::VHDLStandard::*;
+        let (tok, err) = tokenize_first_with_standard(VHDL2008, "%a\"b");
+        assert_eq!(tok, Token::simple(StringLiteral, b"%a\"b"));
+        assert!(matches!(
+            err,
+            Some(LexErr {
+                err: LexErrKind::Unterminated(UnterminatedKind::StringLiteral),
+                pos: LexErrPos::Token
+            })
+        ));
+    }
+
+    #[test]
+    fn quoted_string_literal_may_contain_percent() {
+        use crate::standard::VHDLStandard::*;
+        let (tok, err) = tokenize_first_with_standard(VHDL2008, "\"a%b\"");
+        assert_eq!(tok, Token::simple(StringLiteral, b"\"a%b\""));
+        assert!(err.is_none());
+    }
+
+    #[test]
+    fn based_literal_colon_replacement_before_2019() {
+        use crate::standard::VHDLStandard::*;
+        let (tok, err) = tokenize_first_with_standard(VHDL2008, "16:FF:");
+        assert_eq!(tok, Token::simple(AbstractLiteral, b"16:FF:"));
+        assert!(err.is_none());
+        let (tok, _) = tokenize_first_with_standard(VHDL2008, "16#FF#");
+        assert_eq!(tok, Token::simple(AbstractLiteral, b"16#FF#"));
+        // Both delimiters must be replaced, not just one
+        let (tok, _) = tokenize_first_with_standard(VHDL2008, "16:FF#");
+        assert_ne!(tok, Token::simple(AbstractLiteral, b"16:FF#"));
+
+        assert_eq!(
+            tokenize_kinds_with_standard(VHDL2019, "16:FF:"),
+            vec![AbstractLiteral, Colon, Identifier, Colon, Eof]
+        );
+        assert_eq!(
+            tokenize_kinds_with_standard(VHDL2019, "16#FF#"),
+            vec![AbstractLiteral, Eof]
+        );
+    }
+
+    fn tokenize_kinds_with_standard(
+        standard: crate::standard::VHDLStandard,
+        input: &str,
+    ) -> Vec<TokenKind> {
+        use super::Tokenizer;
+        Tokenizer::with_standard(standard, input.as_bytes().iter())
+            .map(|(tok, _)| tok.kind())
+            .collect()
     }
 }

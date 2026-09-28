@@ -38,6 +38,7 @@ pub enum SyntaxErrKind {
     Unexpected(ChildKind),
     /// A token or error that was unterminated
     Unterminated(UnterminatedKind),
+    ReplacedStringContainsQuote,
 }
 
 struct DisplayTokenKind(TokenKind);
@@ -95,6 +96,12 @@ impl Display for SyntaxErrKind {
             SyntaxErrKind::Unterminated(unterminated_kind) => {
                 write!(f, "unterminated {unterminated_kind}")
             }
+            SyntaxErrKind::ReplacedStringContainsQuote => {
+                write!(
+                    f,
+                    "string delimited by '%' must not contain regular quotation marks ('\"')"
+                )
+            }
         }
     }
 }
@@ -151,6 +158,7 @@ impl SyntaxErr {
             LexErrKind::IllegalInput => {
                 SyntaxErrKind::Unexpected(ChildKind::Token(TokenKind::Unknown))
             }
+            LexErrKind::ReplacedStringContainsQuote => SyntaxErrKind::ReplacedStringContainsQuote,
         };
 
         SyntaxErr::new(span, kind)

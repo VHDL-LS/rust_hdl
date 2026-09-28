@@ -184,7 +184,9 @@ impl NodeBuilder {
                         let start = text_pos - token.text().len();
                         errors.push(SyntaxErr::new(start..text_pos, kind));
                     }
-                    SyntaxErrKind::Unterminated(_) => unreachable!("handled by push(Token)"),
+                    SyntaxErrKind::Unterminated(_) | SyntaxErrKind::ReplacedStringContainsQuote => {
+                        unreachable!("handled by push(Token)")
+                    }
                 },
             }
         }

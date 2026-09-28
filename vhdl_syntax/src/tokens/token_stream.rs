@@ -261,6 +261,20 @@ mod tests {
     }
 
     #[test]
+    fn merge_percent_delimited_bit_string() {
+        // x%FF% → single BitStringLiteral (percent replaces quotation marks before VHDL-2019)
+        assert_eq!(
+            stream_kinds("x%FF%"),
+            vec![TokenKind::BitStringLiteral, TokenKind::Eof]
+        );
+        assert_eq!(stream_first_text("x%FF%"), "x%FF%");
+        assert_eq!(
+            stream_kinds("10ub%0101%"),
+            vec![TokenKind::BitStringLiteral, TokenKind::Eof]
+        );
+    }
+
+    #[test]
     fn no_merge_non_base_specifier() {
         // foo"bar" — foo is not a base specifier
         assert_eq!(
