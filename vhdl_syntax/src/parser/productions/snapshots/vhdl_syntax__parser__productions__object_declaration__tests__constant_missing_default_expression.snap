@@ -20,4 +20,4 @@ ConstantDeclaration
   SemiColon
 
 == diagnostics ==
-1:28 expected Identifier, '<<', BitStringLiteral, CharacterLiteral, StringLiteral, 'null', AbstractLiteral, '(' or 'new'
+1:28 expected Identifier, StringLiteral, CharacterLiteral, '<<', BitStringLiteral, 'null', AbstractLiteral, '(' or 'new'

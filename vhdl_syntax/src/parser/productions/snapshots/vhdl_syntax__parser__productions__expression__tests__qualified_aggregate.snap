@@ -16,6 +16,8 @@ QualifiedExpression
             OthersChoice
               Keyword(Others)
           RightArrow
-        LiteralExpression
-          CharacterLiteral ''1''
+        NameExpression
+          Name
+            NameDesignatorPrefix
+              CharacterLiteral ''1''
     RightPar

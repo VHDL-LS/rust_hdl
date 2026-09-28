@@ -1,0 +1,23 @@
+---
+source: vhdl_syntax/src/parser/productions/expression.rs
+expression: "expr_to_test_text(\"\\\"+\\\"(1, 2)\")"
+---
+NameExpression
+  Name
+    NameDesignatorPrefix
+      StringLiteral '"+"'
+    ParenthesizedName
+      LeftPar
+      AssociationList
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              LiteralExpression
+                AbstractLiteral '1'
+        Comma
+        AssociationElement
+          ActualPart
+            ActualPartExpression
+              LiteralExpression
+                AbstractLiteral '2'
+      RightPar

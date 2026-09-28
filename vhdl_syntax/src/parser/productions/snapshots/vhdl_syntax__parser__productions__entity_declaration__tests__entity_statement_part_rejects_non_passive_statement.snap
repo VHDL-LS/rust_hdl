@@ -26,8 +26,10 @@ EntityDeclaration
         LTE
         WaveformElements
           WaveformElement
-            LiteralExpression
-              CharacterLiteral ''0''
+            NameExpression
+              Name
+                NameDesignatorPrefix
+                  CharacterLiteral ''0''
         SemiColon
   EntityDeclarationEpilogue
     Keyword(End)

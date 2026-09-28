@@ -4,8 +4,10 @@ expression: "to_test_text(Parser::report_statement, \"report \\\"message\\\" sev
 ---
 ReportStatement
   Keyword(Report)
-  LiteralExpression
-    StringLiteral '"message"'
+  NameExpression
+    Name
+      NameDesignatorPrefix
+        StringLiteral '"message"'
   SeverityClause
     Keyword(Severity)
     NameExpression

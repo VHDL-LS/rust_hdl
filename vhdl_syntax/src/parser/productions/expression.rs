@@ -45,11 +45,11 @@ fn unary_precedence(token: TokenKind) -> Option<NonZeroU8> {
 impl Parser {
     pub(crate) fn primary(&mut self) -> Option<CompletedMarker> {
         match_next_token!(self,
-            Identifier, LtLt => {
+            Identifier, StringLiteral, CharacterLiteral, LtLt => {
               let name = self.name();
               Some(self.continue_primary_after_name(name))
             },
-            BitStringLiteral, CharacterLiteral, StringLiteral, Keyword(Kw::Null) => Some(self.skip_into_node(LiteralExpression)),
+            BitStringLiteral, Keyword(Kw::Null) => Some(self.skip_into_node(LiteralExpression)),
             AbstractLiteral => {
                 let literal_marker = self.start_unknown();
                 self.skip();
@@ -184,7 +184,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn operator_symbol() {
         insta::assert_snapshot!(expr_to_test_text("\"+\"(1, 2)"));
     }

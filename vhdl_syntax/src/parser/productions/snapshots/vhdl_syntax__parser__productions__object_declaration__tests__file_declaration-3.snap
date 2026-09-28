@@ -13,6 +13,8 @@ FileDeclaration
         Identifier 'bit'
   FileOpenInformation
     Keyword(Is)
-    LiteralExpression
-      StringLiteral '"./path_to_file.txt"'
+    NameExpression
+      Name
+        NameDesignatorPrefix
+          StringLiteral '"./path_to_file.txt"'
   SemiColon

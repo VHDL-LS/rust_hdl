@@ -19,6 +19,8 @@ FileDeclaration
           NameDesignatorPrefix
             Identifier 'WRITE_MODE'
     Keyword(Is)
-    LiteralExpression
-      StringLiteral '"./path_to_file.txt"'
+    NameExpression
+      Name
+        NameDesignatorPrefix
+          StringLiteral '"./path_to_file.txt"'
   SemiColon

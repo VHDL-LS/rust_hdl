@@ -19,11 +19,15 @@ FullTypeDeclaration
             AbstractLiteral '5'
         Comma
         BinaryExpression
-          LiteralExpression
-            CharacterLiteral ''A''
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                CharacterLiteral ''A''
           Keyword(To)
-          LiteralExpression
-            CharacterLiteral ''B''
+          NameExpression
+            Name
+              NameDesignatorPrefix
+                CharacterLiteral ''B''
         Comma
         NameExpression
           Name

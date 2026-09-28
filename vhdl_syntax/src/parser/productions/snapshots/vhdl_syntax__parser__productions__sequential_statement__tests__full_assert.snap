@@ -11,8 +11,10 @@ AssertionStatement
           Identifier 'false'
     ReportClause
       Keyword(Report)
-      LiteralExpression
-        StringLiteral '"message"'
+      NameExpression
+        Name
+          NameDesignatorPrefix
+            StringLiteral '"message"'
     SeverityClause
       Keyword(Severity)
       NameExpression

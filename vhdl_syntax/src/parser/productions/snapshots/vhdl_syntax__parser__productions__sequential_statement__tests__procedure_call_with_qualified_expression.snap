@@ -29,8 +29,10 @@ ProcedureCallStatement
                   LeftPar
                   ElementAssociationList
                     ElementAssociation
-                      LiteralExpression
-                        StringLiteral '"L: "'
+                      NameExpression
+                        Name
+                          NameDesignatorPrefix
+                            StringLiteral '"L: "'
                   RightPar
       RightPar
   SemiColon

@@ -17,6 +17,8 @@ ConstantDeclaration
         Identifier 'std_ulogic'
   InitialValue
     ColonEq
-    LiteralExpression
-      CharacterLiteral ''0''
+    NameExpression
+      Name
+        NameDesignatorPrefix
+          CharacterLiteral ''0''
   SemiColon
