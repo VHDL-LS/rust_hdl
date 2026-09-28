@@ -21,12 +21,13 @@ Arguments:
   [FILES]...  Files or directories to check [default: .]
 
 Options:
-      --std <STD>            Select the VHDL standard under which the file should be parsed and linted. Default is VHDL-2008
-      --encoding <ENCODING>  Encoding used to read comments. Default is UTF-8 [possible values: latin-1, utf-8]
-      --config <CONFIG>      Path to the config
-      --fix                  Apply fixes to resolve lint violations
-  -h, --help                 Print help
-  -V, --version              Print version
+      --std <STD>                      Select the VHDL standard under which the file should be parsed and linted. Default is VHDL-2008
+      --encoding <ENCODING>            Encoding used to read comments. Default is UTF-8 [possible values: latin-1, utf-8]
+      --config <CONFIG>                Path to the config
+      --output-format <OUTPUT_FORMAT>  Output serialization format for violations [default: full] [possible values: full, json]
+      --fix                            Apply fixes to resolve lint violations
+  -h, --help                           Print help
+  -V, --version                        Print version
 
 File selection:
       --exclude <FILE PATTERN>  Patterns to exclude from analysis

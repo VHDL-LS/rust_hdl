@@ -27,6 +27,7 @@ use vhdl_lint::{
         selection::{RuleOverrides, RuleSelector},
         ErasedAstRule, RuleRegistry,
     },
+    serialize::RenderableDiagnostic,
     Encoding, File, FileId, FileStore, FixErrKind, FixOutcome,
 };
 use vhdl_syntax::standard::VHDLStandard;
@@ -63,6 +64,13 @@ fn resolve(args: &Args) -> Result<WalkBuilder, ignore::Error> {
         builder.standard_filters(false);
     }
     Ok(builder)
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum OutputFormat {
+    #[default]
+    Full,
+    Json,
 }
 
 #[derive(clap::Args)]
@@ -117,6 +125,10 @@ struct Args {
     /// Path to the config
     #[arg(long)]
     config: Option<PathBuf>,
+
+    /// Output serialization format for violations
+    #[arg(long, value_enum, default_value_t)]
+    output_format: OutputFormat,
 
     /// Apply fixes to resolve lint violations
     #[arg(long)]
@@ -432,33 +444,47 @@ fn main() -> ExitCode {
             .collect::<Vec<_>>()
     };
 
-    if !errors.is_empty() || !skipped.is_empty() {
-        errors.sort_by_key(|diag| {
-            let loc = diag.loc();
-            (
-                files.get(loc.file()).path(),
-                loc.span().start,
-                loc.span().end,
-            )
-        });
-        skipped.sort();
-        let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
+    let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
 
-        let report = render_diagnostics(&errors, &files)
-            .chain(
-                skipped
-                    .iter()
-                    .map(|msg| Group::with_title(Level::ERROR.primary_title(msg))),
-            )
-            .collect::<Vec<_>>();
-        anstream::eprintln!("{}", renderer.render(&report));
+    errors.sort_by_key(|diag| {
+        let loc = diag.loc();
+        (
+            files.get(loc.file()).path(),
+            loc.span().start,
+            loc.span().end,
+        )
+    });
+
+    match args.output_format {
+        OutputFormat::Full => {
+            if !errors.is_empty() {
+                let report = render_diagnostics(&errors, &files).collect::<Vec<_>>();
+                anstream::println!("{}", renderer.render(&report));
+            }
+        }
+        OutputFormat::Json => {
+            let diagnostics = errors
+                .iter()
+                .map(|diag| RenderableDiagnostic::from_diagnostic(diag, &files))
+                .collect::<Box<_>>();
+            anstream::println!("{}", serde_json::to_string(&diagnostics).unwrap())
+        }
     }
 
-    if total_fixes > 0 {
+    if !skipped.is_empty() {
+        skipped.sort();
+        let rendered = skipped
+            .iter()
+            .map(|msg| Group::with_title(Level::ERROR.primary_title(msg)))
+            .collect::<Box<[_]>>();
+        anstream::eprintln!("{}", renderer.render(&rendered));
+    }
+
+    if args.output_format == OutputFormat::Full && total_fixes > 0 {
         anstream::println!("Fixed {total_fixes} issue{}", pluralize(total_fixes));
     }
 
-    if !args.fix {
+    if args.output_format == OutputFormat::Full && !args.fix {
         let fixable = fixable(&errors);
         if fixable > 0 {
             anstream::println!(
@@ -477,16 +503,18 @@ fn main() -> ExitCode {
             ExitCode::from(EXIT_DIAGNOSTICS)
         }
     } else {
-        let preamble = if total_fixes > 0 {
-            "No new issues"
-        } else {
-            "No issues"
-        };
-        anstream::println!(
-            "{preamble} found in {} file{}",
-            files.len(),
-            pluralize(files.len())
-        );
+        if args.output_format == OutputFormat::Full {
+            let preamble = if total_fixes > 0 {
+                "No new issues"
+            } else {
+                "No issues"
+            };
+            anstream::println!(
+                "{preamble} found in {} file{}",
+                files.len(),
+                pluralize(files.len())
+            );
+        }
         ExitCode::SUCCESS
     }
 }

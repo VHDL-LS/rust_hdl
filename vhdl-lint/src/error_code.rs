@@ -78,6 +78,15 @@ impl fmt::Display for ErrorCode {
     }
 }
 
+impl serde::Serialize for ErrorCode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.collect_str(self)
+    }
+}
+
 /// The string does not name an [ErrorCode].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseErrorCodeErr {

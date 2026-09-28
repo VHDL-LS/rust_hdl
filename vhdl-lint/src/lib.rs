@@ -6,6 +6,7 @@ pub mod diagnostic;
 pub mod error_code;
 pub mod fix;
 pub mod rule;
+pub mod serialize;
 pub mod severity;
 pub mod source_loc;
 
@@ -25,7 +26,10 @@ use vhdl_syntax::{
     latin_1::Latin1Str,
     parser::{parse_valid_with_standard, parse_with_standard},
     standard::VHDLStandard,
-    text::{char_encoding::Utf8, source_loc::SourceLocConverter},
+    text::{
+        char_encoding::{Utf32, Utf8},
+        source_loc::SourceLocConverter,
+    },
 };
 
 use crate::{
@@ -69,7 +73,10 @@ pub struct File {
     path: PathBuf,
     contents: Vec<u8>,
     settings: FileSettings,
-    rendered: OnceLock<(String, SourceLocConverter)>,
+    // TODO: Think about a better implementation that doesn't need two locks
+    // resp. enables arbitrary encoding
+    rendered_utf8: OnceLock<(String, SourceLocConverter)>,
+    rendered_utf32: OnceLock<SourceLocConverter>,
 }
 
 impl File {
@@ -78,7 +85,8 @@ impl File {
             path: path.into(),
             contents,
             settings,
-            rendered: OnceLock::new(),
+            rendered_utf8: OnceLock::new(),
+            rendered_utf32: OnceLock::new(),
         }
     }
 
@@ -95,12 +103,13 @@ impl File {
     }
 
     pub fn set_contents(&mut self, contents: Vec<u8>) {
-        self.rendered = OnceLock::new();
+        self.rendered_utf8 = OnceLock::new();
+        self.rendered_utf32 = OnceLock::new();
         self.contents = contents
     }
 
-    fn rendered(&self) -> &(String, SourceLocConverter) {
-        self.rendered.get_or_init(|| {
+    fn rendered_utf8(&self) -> &(String, SourceLocConverter) {
+        self.rendered_utf8.get_or_init(|| {
             let (design, _) = parse_with_standard(self.settings.standard, self.contents.as_slice());
             match self.settings.encoding {
                 Encoding::Latin1 => (
@@ -117,12 +126,26 @@ impl File {
         })
     }
 
-    pub fn source_mapping(&self) -> &SourceLocConverter {
-        &self.rendered().1
+    fn rendered_utf32(&self) -> &SourceLocConverter {
+        self.rendered_utf32.get_or_init(|| {
+            let (design, _) = parse_with_standard(self.settings.standard, self.contents.as_slice());
+            match self.settings.encoding {
+                Encoding::Latin1 => SourceLocConverter::new_lossy::<Latin1Encoder, Utf32>(&design),
+                Encoding::Utf8 => SourceLocConverter::new_lossy::<LossyUtf8Encoder, Utf32>(&design),
+            }
+        })
+    }
+
+    pub fn source_mapping_utf8(&self) -> &SourceLocConverter {
+        &self.rendered_utf8().1
+    }
+
+    pub fn source_mapping_utf32(&self) -> &SourceLocConverter {
+        self.rendered_utf32()
     }
 
     pub fn utf8_contents(&self) -> &str {
-        self.rendered().0.as_str()
+        self.rendered_utf8().0.as_str()
     }
 }
 
@@ -667,7 +690,7 @@ end;
             let file = encoded_file(source, encoding);
             let start = source.len() - b"entity e is end;".len();
             let span = file
-                .source_mapping()
+                .source_mapping_utf8()
                 .convert_byte_span(&(start..start + b"entity".len()));
             assert_eq!(
                 (span.start().raw(), span.end().raw()),
@@ -688,7 +711,7 @@ end;
         assert_eq!(file.utf8_contents(), "-- ä\nentity e is end;");
         file.set_contents(b"-- \xF6\nentity e is end;".to_vec());
         assert_eq!(file.utf8_contents(), "-- ö\nentity e is end;");
-        let span = file.source_mapping().convert_byte_span(&(5..11));
+        let span = file.source_mapping_utf8().convert_byte_span(&(5..11));
         assert_eq!(
             &file.utf8_contents()[span.start().raw()..span.end().raw()],
             "entity"

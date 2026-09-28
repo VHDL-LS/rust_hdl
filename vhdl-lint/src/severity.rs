@@ -2,7 +2,8 @@ use std::fmt;
 
 use annotate_snippets::Level;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Severity {
     Warning,
     Error,

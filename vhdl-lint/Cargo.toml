@@ -28,6 +28,7 @@ vhdl_syntax = { workspace = true, features = ["serde"] }
 vhdl_lint_macros.workspace = true
 toml.workspace = true
 globset.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

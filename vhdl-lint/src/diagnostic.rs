@@ -85,7 +85,7 @@ impl Diagnostic {
     pub fn render<'a>(&'a self, files: &'a FileStore) -> Group<'a> {
         let file = files.get(self.loc.file());
         let text = file.utf8_contents();
-        let slc = file.source_mapping();
+        let slc = file.source_mapping_utf8();
         let to_span = |span: EncodedSpan| span.start().raw()..span.end().raw();
         let mut group = self
             .severity()
