@@ -105,7 +105,7 @@ impl Diagnostic {
             group = group.element(Level::NOTE.message(note));
         }
         if let Some(fix) = self.fix() {
-            let level = if fix.is_safe() {
+            let level = if fix.is_fixeable(file.settings().unsafe_fixes) {
                 Level::HELP
             } else {
                 Level::HELP.with_name(Some("suggestion"))
@@ -139,7 +139,7 @@ mod tests {
     use insta::assert_snapshot;
 
     use super::*;
-    use crate::{fix::Edit, Encoding, FileSettings};
+    use crate::{fix::edit::Edit, Encoding, FileSettings};
 
     const SOURCE: &str = "entity e is end;";
 
@@ -162,13 +162,16 @@ mod tests {
 
     #[test]
     fn a_fix_that_fix_applies_is_rendered_as_help() {
-        let rendered = render_with_fix(Fix::safe("do it", vec![Edit::delete_raw(0..6)]));
+        let rendered = render_with_fix(Fix::safe_edits("do it", vec![Edit::delete_raw(0..6)]));
         assert!(rendered.contains("help: do it"), "{rendered}");
     }
 
     #[test]
     fn a_fix_that_fix_does_not_apply_is_rendered_as_a_suggestion() {
-        let rendered = render_with_fix(Fix::display_only("do it", vec![Edit::delete_raw(0..6)]));
+        let rendered = render_with_fix(Fix::display_only_edits(
+            "do it",
+            vec![Edit::delete_raw(0..6)],
+        ));
         assert!(rendered.contains("suggestion: do it"), "{rendered}");
         assert!(!rendered.contains("help:"), "{rendered}");
     }
@@ -196,7 +199,7 @@ mod tests {
             SourceLoc::new(id, span.clone()),
             ErrorCode::new(Category::Idiom, 1),
         );
-        diagnostic.set_fix(Fix::safe("shout", vec![Edit::new(span, b"ENTITY")]));
+        diagnostic.set_fix(Fix::safe_edits("shout", vec![Edit::new(span, b"ENTITY")]));
         Renderer::plain()
             .anonymized_line_numbers(true)
             .render(&[diagnostic.render(&files)])

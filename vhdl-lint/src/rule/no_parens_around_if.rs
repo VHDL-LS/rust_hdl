@@ -50,7 +50,7 @@ fn emit_redundant_parens(
         condition.text_range(),
         format!("unnecessary parentheses around '{name}' condition"),
     )
-    .with_fix(Fix::safe(
+    .with_fix(Fix::safe_edits(
         "remove these parentheses",
         vec![
             edits.delete(&condition.left_par_token()),

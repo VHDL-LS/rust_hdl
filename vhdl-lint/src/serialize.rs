@@ -5,7 +5,7 @@ use vhdl_syntax::text::source_loc::SourceLocConverter;
 use crate::{
     diagnostic::Diagnostic,
     error_code::ErrorCode,
-    fix::{Applicability, Edit, Fix},
+    fix::{edit::Edit, Applicability, Fix},
     severity::Severity,
     FileStore,
 };
@@ -190,7 +190,7 @@ mod tests {
         let files = files(b"entity e is end;", Encoding::Utf8);
         let mut diagnostic = diagnostic(0..6);
         diagnostic.set_note("a note");
-        diagnostic.set_fix(Fix::safe(
+        diagnostic.set_fix(Fix::safe_edits(
             "shout",
             vec![Edit::new(0..6, b"ENTITY"), Edit::delete_raw(15..16)],
         ));
@@ -251,7 +251,10 @@ mod tests {
     fn a_display_only_fix() {
         let files = files(b"entity e is end;", Encoding::Utf8);
         let mut diagnostic = diagnostic(0..6);
-        diagnostic.set_fix(Fix::display_only("shout", vec![Edit::new(0..6, b"ENTITY")]));
+        diagnostic.set_fix(Fix::display_only_edits(
+            "shout",
+            vec![Edit::new(0..6, b"ENTITY")],
+        ));
         let json = serde_json::to_value(RenderableDiagnostic::from_diagnostic(&diagnostic, &files))
             .unwrap();
         assert_snapshot!(json["fix"]["applicability"], @r#""display-only""#);
@@ -261,7 +264,7 @@ mod tests {
     fn a_latin1_replacement_is_serialized_as_utf8() {
         let files = files(b"entity e is end;", Encoding::Utf8);
         let mut diagnostic = diagnostic(0..6);
-        diagnostic.set_fix(Fix::safe("umlaut", vec![Edit::new(0..6, b"\xE4")]));
+        diagnostic.set_fix(Fix::safe_edits("umlaut", vec![Edit::new(0..6, b"\xE4")]));
         let json = serde_json::to_value(RenderableDiagnostic::from_diagnostic(&diagnostic, &files))
             .unwrap();
         assert_eq!(json["fix"]["edits"][0]["replacement"], "ä");

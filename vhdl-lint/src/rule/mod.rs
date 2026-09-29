@@ -16,7 +16,7 @@ use vhdl_syntax::{
 use crate::{
     diagnostic::Diagnostic,
     error_code::ErrorCode,
-    fix::{Edits, Fix},
+    fix::{edit::Edits, Fix},
     rule::{
         doc::RuleDocs, explicit_port_mode::ExplicitPortMode, no_parens_around_if::NoParensAroundIf,
     },

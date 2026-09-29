@@ -63,7 +63,7 @@ impl AstRule for ExplicitPortMode {
                     } else {
                         "ports without a mode are inputs"
                     })
-                    .with_fix(Fix::display_only(
+                    .with_fix(Fix::display_only_edits(
                         "spell out 'in' if that is intended",
                         vec![edits.insert_after(&object_declaration.colon_token(), Keyword::In)],
                     ));

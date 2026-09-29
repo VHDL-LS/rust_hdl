@@ -59,6 +59,8 @@ impl FileOverride {
             Layer {
                 standard: self.standard,
                 encoding: self.encoding,
+                // not configurable per file
+                unsafe_fixes: None,
                 rules: RuleOverrides::new(self.select, self.ignore),
             },
         ))
@@ -69,6 +71,8 @@ impl FileOverride {
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case", deny_unknown_fields)]
 pub struct ConfigFile {
+    /// Include fixes that may not retain the original intent of the code or remove comments
+    unsafe_fixes: Option<bool>,
     /// The default standard to parse and analyze the file under
     standard: Option<VHDLStandard>,
     /// The default comment-encoding
@@ -106,6 +110,7 @@ impl ConfigFile {
             Layer {
                 standard: self.standard,
                 encoding: self.encoding,
+                unsafe_fixes: self.unsafe_fixes,
                 rules: RuleOverrides::new(self.select, self.ignore),
             },
         ));
@@ -243,6 +248,8 @@ pub struct Layer {
     pub standard: Option<VHDLStandard>,
     /// The encoding to parse this layer under
     pub encoding: Option<Encoding>,
+    /// Whether to apply fixes that may change the meaning of the code
+    pub unsafe_fixes: Option<bool>,
     /// Any rule overrides
     pub rules: RuleOverrides,
 }
@@ -290,6 +297,10 @@ impl Config {
             encoding: self
                 .layers_for(path)
                 .find_map(|l| l.encoding)
+                .unwrap_or_default(),
+            unsafe_fixes: self
+                .layers_for(path)
+                .find_map(|l| l.unsafe_fixes)
                 .unwrap_or_default(),
         }
     }
@@ -531,6 +542,7 @@ mod tests {
             Layer {
                 standard: Some(VHDLStandard::VHDL2008),
                 encoding: None,
+                unsafe_fixes: None,
                 rules: RuleOverrides::default(),
             },
         );

@@ -66,6 +66,7 @@ impl Display for Encoding {
 pub struct FileSettings {
     pub standard: VHDLStandard,
     pub encoding: Encoding,
+    pub unsafe_fixes: bool,
 }
 
 #[derive(Debug)]
@@ -261,11 +262,11 @@ pub fn parse_and_analyze_file(
     analyze(file.contents(), file.settings(), file_id, rules)
 }
 
-fn get_fixes(diagnostics: &[Diagnostic]) -> Vec<&Fix> {
+fn get_fixes(diagnostics: &[Diagnostic], allow_unsafe: bool) -> Vec<&Fix> {
     diagnostics
         .iter()
         .filter_map(|diag| diag.fix())
-        .filter(|fix| fix.is_safe())
+        .filter(|fix| fix.is_fixeable(allow_unsafe))
         .collect()
 }
 
@@ -347,7 +348,7 @@ pub fn fix_file(
     // Every pass applies as many fixes as do not conflict with each other and re-derives
     // the rest from the edited text, so it may take several passes to reach a fixpoint.
     for _ in 0..MAX_TRIES {
-        let mut fixes = get_fixes(&diagnostics);
+        let mut fixes = get_fixes(&diagnostics, file.settings().unsafe_fixes);
         if fixes.is_empty() {
             if output_file == file.contents() {
                 return Ok(FixOutcome::Unchanged {
@@ -402,7 +403,7 @@ mod tests {
     use crate::{
         config::{ConfigFile, Layer},
         error_code::{Category, ErrorCode},
-        fix::Edit,
+        fix::edit::Edit,
         rule::{
             no_parens_around_if::NoParensAroundIf,
             selection::{RuleOverrides, RuleSelector},
@@ -446,7 +447,7 @@ end;
         fn check(&self, node: &Valid<Self::Node>, ctx: &mut AstRuleCtx<'_>) {
             let range = node.raw().text_range();
             ctx.push(range.clone(), "break")
-                .with_fix(Fix::safe("break", vec![Edit::new(range, b"if")]));
+                .with_fix(Fix::safe_edits("break", vec![Edit::new(range, b"if")]));
         }
     }
 
@@ -459,8 +460,10 @@ end;
         const CODE: ErrorCode = ErrorCode::new(Category::Idiom, 901);
         fn check(&self, node: &Valid<Self::Node>, ctx: &mut AstRuleCtx<'_>) {
             let start = node.raw().text_range().start;
-            ctx.push(start..start, "indent")
-                .with_fix(Fix::safe("indent", vec![Edit::new(start..start, b" ")]));
+            ctx.push(start..start, "indent").with_fix(Fix::safe_edits(
+                "indent",
+                vec![Edit::new(start..start, b" ")],
+            ));
         }
     }
 
@@ -475,7 +478,7 @@ end;
             let start = node.raw().text_range().start;
             let range = start..start + b"if".len();
             ctx.push(range.clone(), "no-op")
-                .with_fix(Fix::safe("no-op", vec![Edit::new(range, b"if")]));
+                .with_fix(Fix::safe_edits("no-op", vec![Edit::new(range, b"if")]));
         }
     }
 

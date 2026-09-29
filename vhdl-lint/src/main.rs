@@ -20,7 +20,7 @@ use vhdl_lint::{
     config::{Config, ConfigFile, Layer, CONFIG_NAME},
     diagnostic::{render_diagnostics, Diagnostic},
     error_code::ErrorCode,
-    fix::Fix,
+    fix::Applicability,
     fix_file, parse_and_analyze_file,
     rule::{
         register_builtin_rules,
@@ -134,6 +134,14 @@ struct Args {
     #[arg(long)]
     fix: bool,
 
+    /// Include fixes that may not retain the original intent of the code or remove comments.
+    /// Disable with `--no-unsafe-fixes`
+    #[arg(long, overrides_with = "no_unsafe_fixes")]
+    unsafe_fixes: bool,
+
+    #[arg(long, overrides_with = "unsafe_fixes", hide = true)]
+    no_unsafe_fixes: bool,
+
     #[clap(flatten)]
     file_selection: FileSelection,
 
@@ -154,17 +162,65 @@ impl Args {
         Layer {
             standard: self.std,
             encoding: self.encoding,
+            unsafe_fixes: match (self.unsafe_fixes, self.no_unsafe_fixes) {
+                (true, _) => Some(true),
+                (_, true) => Some(false),
+                _ => None,
+            },
             rules: self.rule_selection.overrides(),
         }
     }
 }
 
-/// How many of `diagnostics` carry a fix that `--fix` would apply.
-fn fixable(diagnostics: &[Diagnostic]) -> usize {
-    diagnostics
-        .iter()
-        .filter(|diag| diag.fix().is_some_and(Fix::is_safe))
-        .count()
+#[derive(Debug, Default, PartialEq, Eq)]
+struct Fixable {
+    safe_fixes: usize,
+    unsafe_fixes: usize,
+}
+
+fn fixable(diagnostics: &[Diagnostic], files: &FileStore) -> Fixable {
+    let mut fixable = Fixable::default();
+    for diag in diagnostics {
+        let Some(fix) = diag.fix() else { continue };
+        let unsafe_fixes = files.get(diag.loc().file()).settings().unsafe_fixes;
+        match fix.applicability_with_unsafe_fixes(unsafe_fixes) {
+            Applicability::Safe => fixable.safe_fixes += 1,
+            Applicability::Unsafe => fixable.unsafe_fixes += 1,
+            _ => {}
+        }
+    }
+    fixable
+}
+
+fn fixable_summary(fixable: &Fixable, fix: bool) -> Option<String> {
+    let hidden = if fixable.unsafe_fixes > 0 {
+        Some(format!(
+            "{} unsafe fix{} can be enabled with the `--unsafe-fixes` option",
+            fixable.unsafe_fixes,
+            if fixable.unsafe_fixes == 1 { "" } else { "es" }
+        ))
+    } else {
+        None
+    };
+    let applicable = if !fix && fixable.safe_fixes > 0 {
+        Some(format!(
+            "{} issue{} fixable with the `--fix` option",
+            fixable.safe_fixes,
+            if fixable.safe_fixes == 1 {
+                " is"
+            } else {
+                "s are"
+            }
+        ))
+    } else {
+        None
+    };
+    match (applicable, hidden) {
+        (Some(applicable), Some(hidden)) => Some(format!("{applicable} ({hidden})")),
+        (Some(applicable), None) => Some(applicable),
+        (None, Some(hidden)) => Some(format!("No fixes available ({hidden})")),
+        (None, None) => None,
+    }
 }
 
 fn pluralize(value: usize) -> &'static str {
@@ -480,17 +536,12 @@ fn main() -> ExitCode {
         anstream::eprintln!("{}", renderer.render(&rendered));
     }
 
-    if args.output_format == OutputFormat::Full && total_fixes > 0 {
-        anstream::println!("Fixed {total_fixes} issue{}", pluralize(total_fixes));
-    }
-
-    if args.output_format == OutputFormat::Full && !args.fix {
-        let fixable = fixable(&errors);
-        if fixable > 0 {
-            anstream::println!(
-                "{fixable} issue{} fixable with the `--fix` option",
-                if fixable == 1 { " is" } else { "s are" }
-            );
+    if args.output_format == OutputFormat::Full {
+        if total_fixes > 0 {
+            anstream::println!("Fixed {total_fixes} issue{}", pluralize(total_fixes));
+        }
+        if let Some(summary) = fixable_summary(&fixable(&errors, &files), args.fix) {
+            anstream::println!("{summary}");
         }
     }
 
@@ -573,12 +624,23 @@ mod tests {
     #[test]
     fn only_a_fix_that_fix_applies_counts_as_fixable() {
         use vhdl_lint::{
-            error_code::Category, fix::Edit, severity::Severity, source_loc::SourceLoc,
+            error_code::Category,
+            fix::{edit::Edit, Fix},
+            severity::Severity,
+            source_loc::SourceLoc,
         };
         let mut file_store = FileStore::new();
         let id = file_store.insert(Path::new("inline"), vec![], FileSettings::default());
+        let unsafe_id = file_store.insert(
+            Path::new("unsafe"),
+            vec![],
+            FileSettings {
+                unsafe_fixes: true,
+                ..FileSettings::default()
+            },
+        );
 
-        let diagnostic = |fix: Option<Fix>| {
+        let diagnostic_in = |id, fix: Option<Fix>| {
             let mut diagnostic = Diagnostic::new(
                 "message",
                 Severity::Warning,
@@ -590,15 +652,66 @@ mod tests {
             }
             diagnostic
         };
+        let diagnostic = |fix| diagnostic_in(id, fix);
         let edits = || vec![Edit::delete_raw(0..1)];
 
         assert_eq!(
-            fixable(&[
-                diagnostic(Some(Fix::safe("safe", edits()))),
-                diagnostic(Some(Fix::display_only("display only", edits()))),
-                diagnostic(None),
-            ]),
-            1
+            fixable(
+                &[
+                    diagnostic(Some(Fix::safe_edits("safe", edits()))),
+                    diagnostic(Some(Fix::unsafe_edits("unsafe", edits()))),
+                    diagnostic(Some(Fix::display_only_edits("display only", edits()))),
+                    diagnostic(None),
+                    diagnostic_in(unsafe_id, Some(Fix::unsafe_edits("unsafe", edits()))),
+                    diagnostic_in(
+                        unsafe_id,
+                        Some(Fix::display_only_edits("display only", edits()))
+                    ),
+                ],
+                &file_store
+            ),
+            Fixable {
+                safe_fixes: 2,
+                unsafe_fixes: 1
+            }
+        );
+    }
+
+    #[test]
+    fn the_fixable_summary_mentions_hidden_unsafe_fixes() {
+        let summary = |safe_fixes, unsafe_fixes, fix| {
+            fixable_summary(
+                &Fixable {
+                    safe_fixes,
+                    unsafe_fixes,
+                },
+                fix,
+            )
+        };
+
+        assert_eq!(summary(0, 0, false), None);
+        assert_eq!(
+            summary(2, 0, false).as_deref(),
+            Some("2 issues are fixable with the `--fix` option")
+        );
+        assert_eq!(
+            summary(1, 1, false).as_deref(),
+            Some(
+                "1 issue is fixable with the `--fix` option \
+                 (1 unsafe fix can be enabled with the `--unsafe-fixes` option)"
+            )
+        );
+        assert_eq!(
+            summary(0, 2, false).as_deref(),
+            Some("No fixes available (2 unsafe fixes can be enabled with the `--unsafe-fixes` option)")
+        );
+        // After `--fix`, only the hidden fixes are worth mentioning
+        assert_eq!(summary(3, 0, true), None);
+        assert_eq!(
+            summary(3, 1, true).as_deref(),
+            Some(
+                "No fixes available (1 unsafe fix can be enabled with the `--unsafe-fixes` option)"
+            )
         );
     }
 
@@ -655,6 +768,31 @@ mod tests {
         let err = load_config(&args, &dir, &registry).unwrap_err();
         fs::remove_dir_all(&dir).unwrap();
         assert_eq!(err, format!("{}: 'IDM999' does not exist", path.display()));
+    }
+
+    #[test]
+    fn the_cli_overrides_unsafe_fixes_from_the_config_in_both_directions() {
+        let dir = tempfile::tempdir().unwrap();
+        let unsafe_fixes = |config: &str, flags: &[&str]| {
+            let path = dir.path().join(CONFIG_NAME);
+            fs::write(&path, config).unwrap();
+            let args = Args::parse_from(
+                ["vhdl-lint", "--config", path.to_str().unwrap()]
+                    .iter()
+                    .chain(flags),
+            );
+            let config = load_config(&args, dir.path(), &RuleRegistry::new()).unwrap();
+            config.settings(&dir.path().join("a.vhd")).unsafe_fixes
+        };
+
+        assert!(!unsafe_fixes("", &[]));
+        assert!(unsafe_fixes("unsafe-fixes = true", &[]));
+        assert!(unsafe_fixes("", &["--unsafe-fixes"]));
+        assert!(!unsafe_fixes("unsafe-fixes = true", &["--no-unsafe-fixes"]));
+        assert!(unsafe_fixes("unsafe-fixes = false", &["--unsafe-fixes"]));
+        // The flag given last wins
+        assert!(unsafe_fixes("", &["--no-unsafe-fixes", "--unsafe-fixes"]));
+        assert!(!unsafe_fixes("", &["--unsafe-fixes", "--no-unsafe-fixes"]));
     }
 
     fn overrides(cwd: &Path, patterns: &[&str]) -> Override {
