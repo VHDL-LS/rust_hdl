@@ -1,5 +1,6 @@
 pub mod doc;
 pub mod explicit_port_mode;
+pub mod explicit_work_library;
 pub mod no_parens_around_if;
 pub mod registry;
 pub mod selection;
@@ -18,7 +19,8 @@ use crate::{
     error_code::ErrorCode,
     fix::{edit::Edits, Fix},
     rule::{
-        doc::RuleDocs, explicit_port_mode::ExplicitPortMode, no_parens_around_if::NoParensAroundIf,
+        doc::RuleDocs, explicit_port_mode::ExplicitPortMode,
+        explicit_work_library::ExplicitWorkLibrary, no_parens_around_if::NoParensAroundIf,
     },
     severity::Severity,
     source_loc::SourceLoc,
@@ -160,4 +162,5 @@ impl<R: AstRule> ErasedAstRule for R {
 pub fn register_builtin_rules(registry: &mut RuleRegistry) {
     registry.register(NoParensAroundIf).unwrap();
     registry.register(ExplicitPortMode).unwrap();
+    registry.register(ExplicitWorkLibrary).unwrap();
 }

@@ -2,8 +2,8 @@ use vhdl_syntax::{
     latin_1::{Latin1Str, Latin1String},
     parser::error::Span,
     standard::VHDLStandard,
-    syntax::SyntaxToken,
-    tokens::{token::requires_separator, Keyword, Token, TokenKind, TriviaBuf},
+    syntax::{SyntaxNode, SyntaxToken},
+    tokens::{token::requires_separator, Keyword, Token, TokenKind, TriviaBuf, TriviaPiece},
 };
 
 #[derive(Debug, Clone)]
@@ -79,20 +79,55 @@ impl Edits {
     }
 
     pub fn delete(&self, token: &SyntaxToken) -> Edit {
-        // Check if we need to insert a separator since adjacent tokens could merge
-        if let (Some(prev_token), Some(next_token)) = (token.prev_token(), token.next_token()) {
-            let requires_sep =
-                requires_separator(prev_token.token(), next_token.token(), self.standard);
-            if !requires_sep {
-                Edit::delete_raw(token.text_range())
-            } else if token.leading_trivia().is_empty() && next_token.leading_trivia().is_empty() {
-                Edit::new(token.text_range(), b" ")
-            } else {
-                Edit::delete_raw(token.text_range())
+        self.delete_tokens(token, token)
+    }
+
+    /// Deletes the text of `node`, including any trivia (and therefore comments) inside it.
+    pub fn delete_node(&self, node: &SyntaxNode) -> Edit {
+        self.delete_tokens(&node.first_token(), &node.last_token())
+    }
+
+    /// Deletes `node` and the line it's on, if any.
+    /// If the node is not on a new line, this behaves like [`Self::delete_node`]
+    pub fn delete_line_of(&self, node: &SyntaxNode) -> Edit {
+        let trailing_triv = node.last_token().trailing_trivia();
+        let trailing_edge = trailing_triv.iter().position(TriviaPiece::is_newline);
+        match trailing_edge {
+            None => self.delete_node(node),
+            Some(t) => {
+                let line_bytes = |piece: &TriviaPiece| match piece {
+                    TriviaPiece::CarriageReturnLineFeeds(_) => 2,
+                    _ => 1,
+                };
+                let first = node.first_token();
+                let leading_triv = first.leading_trivia();
+                let leading_edge = leading_triv.iter().rposition(TriviaPiece::is_newline);
+                let first_pos = if let Some(leading_edge) = leading_edge {
+                    leading_triv[..=leading_edge].byte_len()
+                } else if first.prev_token().is_none() {
+                    0
+                } else {
+                    return self.delete_node(node);
+                };
+                let last_pos = trailing_triv[..t].byte_len() + line_bytes(&trailing_triv[t]);
+                Edit::delete_raw(node.range().start + first_pos..node.range().end + last_pos)
             }
-        } else {
-            Edit::delete_raw(token.text_range())
         }
+    }
+
+    /// Deletes tokens first..=last, including trivia, but not leading trivia before the first token
+    pub fn delete_tokens(&self, first: &SyntaxToken, last: &SyntaxToken) -> Edit {
+        let range = first.text_range().start..last.text_range().end;
+        // Check if we need to insert a separator since adjacent tokens could merge
+        if let (Some(prev_token), Some(next_token)) = (first.prev_token(), last.next_token()) {
+            if requires_separator(prev_token.token(), next_token.token(), self.standard)
+                && first.leading_trivia().is_empty()
+                && next_token.leading_trivia().is_empty()
+            {
+                return Edit::new(range, b" ");
+            }
+        }
+        Edit::delete_raw(range)
     }
 
     pub fn insert_after(&self, token: &SyntaxToken, replacement: impl Into<TokenData>) -> Edit {
@@ -111,5 +146,192 @@ impl Edits {
             replacement.push(b' ');
         }
         Edit::new(token.range().end..token.range().end, replacement)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use vhdl_syntax::{
+        latin_1::Latin1Str,
+        parser::parse,
+        standard::VHDLStandard,
+        syntax::{AstNode, LibraryClauseSyntax},
+    };
+
+    use crate::fix::{apply_sorted_edits, edit::Edits};
+
+    fn delete_first_work_library(input: &str) -> String {
+        let edits = Edits::new(VHDLStandard::default());
+        let (file, _) = parse(input);
+        let library_clause = file
+            .descendants()
+            .filter_map(LibraryClauseSyntax::cast)
+            .find(|lib| {
+                lib.visit_tokens()
+                    .any(|tok| tok.text() == Latin1Str::new(b"work"))
+            })
+            .unwrap();
+        let edit = edits.delete_line_of(&library_clause);
+        String::from_utf8(apply_sorted_edits(input.as_bytes(), &[&edit])).unwrap()
+    }
+
+    #[test]
+    fn delete_with_no_leading_newline() {
+        assert_eq!(
+            delete_first_work_library(
+                "\
+library work;
+entity foo is
+end foo;"
+            ),
+            "\
+entity foo is
+end foo;"
+        )
+    }
+
+    #[test]
+    fn delete_with_no_leading_and_trailing_newlines() {
+        assert_eq!(
+            delete_first_work_library(
+                "\
+library work;entity foo is
+end foo;"
+            ),
+            "\
+entity foo is
+end foo;"
+        )
+    }
+
+    #[test]
+    fn delete_with_no_trailing_newline() {
+        assert_eq!(
+            delete_first_work_library(
+                "\
+-- foo
+library work;entity foo is
+end foo;"
+            ),
+            "\
+-- foo
+entity foo is
+end foo;"
+        )
+    }
+
+    #[test]
+    fn delete_with_only_leading_newline() {
+        assert_eq!(
+            delete_first_work_library(
+                "
+library work;entity foo is
+end foo;"
+            ),
+            "
+entity foo is
+end foo;"
+        )
+    }
+
+    #[test]
+    fn leading_comment() {
+        assert_eq!(
+            delete_first_work_library(
+                "\
+-- keep me
+library work;
+entity foo is
+end foo;"
+            ),
+            "\
+-- keep me
+entity foo is
+end foo;"
+        )
+    }
+
+    #[test]
+    fn multiple_libraries() {
+        assert_eq!(
+            delete_first_work_library(
+                "\
+library ieee;
+library work;
+entity foo is
+end foo;"
+            ),
+            "\
+library ieee;
+entity foo is
+end foo;"
+        )
+    }
+
+    #[test]
+    fn trailing_comment() {
+        assert_eq!(
+            delete_first_work_library(
+                "\
+library work; -- trailing
+entity foo is
+end foo;"
+            ),
+            "\
+entity foo is
+end foo;"
+        )
+    }
+
+    #[test]
+    fn same_line() {
+        assert_eq!(
+            delete_first_work_library(
+                "\
+library ieee;library work;
+entity foo is
+end foo;"
+            ),
+            "\
+library ieee;
+entity foo is
+end foo;"
+        )
+    }
+
+    #[test]
+    fn comment_after_library_clause() {
+        assert_eq!(
+            delete_first_work_library(
+                "\
+library ieee;
+library work; -- c
+entity foo is
+end foo;"
+            ),
+            "\
+library ieee;
+entity foo is
+end foo;"
+        )
+    }
+
+    #[test]
+    fn blank_lines_above_node() {
+        assert_eq!(
+            delete_first_work_library(
+                "\
+library ieee;
+
+library work;
+entity foo is
+end foo;"
+            ),
+            "\
+library ieee;
+
+entity foo is
+end foo;"
+        )
     }
 }

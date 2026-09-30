@@ -150,6 +150,18 @@ pub(crate) fn apply_fixes(input: &[u8], fixes: &[&Fix]) -> (Vec<u8>, usize) {
         edits.extend(fix.edits());
     }
 
+    let result = apply_sorted_edits(input, &edits);
+
+    (result, applied_fixes)
+}
+
+/// Apply edits
+///
+/// # Invariants
+/// - Edits must be sorted
+/// - Edits must be in bounds, i.e., for each edit `edit.span().start <= edit.span().end` and `edit.span().end <= input.len()`
+/// - Edits cannot overlap, i.e., for each edit: `prev_edit.span().end <= next_edit.span().start`
+pub(crate) fn apply_sorted_edits(input: &[u8], edits: &[&Edit]) -> Vec<u8> {
     let mut result = Vec::with_capacity(input.len());
     let mut pos = 0;
 
@@ -164,7 +176,7 @@ pub(crate) fn apply_fixes(input: &[u8], fixes: &[&Fix]) -> (Vec<u8>, usize) {
     }
     result.extend_from_slice(&input[pos..]);
 
-    (result, applied_fixes)
+    result
 }
 
 #[cfg(test)]

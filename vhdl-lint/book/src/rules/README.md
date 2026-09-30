@@ -6,3 +6,4 @@
 | --- | --- | --- | --- |
 | `IDM001` | [no-parens-around-if](no-parens-around-if.md) | Checks that the conditions of an `if` statement have no parenthesis. | no |
 | `IDM002` | [explicit-port-mode](explicit-port-mode.md) | Checks that port clauses have an explicit mode set. | yes |
+| `IDM003` | [explicit-work-library](explicit-work-library.md) | Checks that the 'work' library is not explicitly declared | no |
