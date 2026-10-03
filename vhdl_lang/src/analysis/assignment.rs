@@ -75,6 +75,16 @@ impl<'a> AnalyzeContext<'a, '_> {
             AssignmentType::Signal,
             diagnostics,
         ))?;
+        if let Some(WithTokenSpan {
+            item:
+                DelayMechanism::Inertial {
+                    reject: Some(ref mut reject),
+                },
+            ..
+        }) = assignment.delay_mechanism
+        {
+            self.expr_with_ttyp(scope, self.time(), reject, diagnostics)?;
+        }
         match &mut assignment.rhs {
             AssignmentRightHand::Simple(wavf) => {
                 self.analyze_waveform(scope, ttyp, wavf, diagnostics)?;

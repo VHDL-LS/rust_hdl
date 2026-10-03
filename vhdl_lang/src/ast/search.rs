@@ -233,6 +233,7 @@ fn search_selection<T: Search>(
 
 fn search_assignment<T: Search>(
     target: &WithTokenSpan<Target>,
+    delay_mechanism: &Option<WithTokenSpan<DelayMechanism>>,
     rhs: &AssignmentRightHand<T>,
     searcher: &mut impl Searcher,
     ctx: &dyn TokenAccess,
@@ -240,10 +241,12 @@ fn search_assignment<T: Search>(
     match rhs {
         AssignmentRightHand::Simple(item) => {
             return_if_found!(target.search(ctx, searcher));
+            return_if_found!(delay_mechanism.search(ctx, searcher));
             item.search(ctx, searcher)
         }
         AssignmentRightHand::Conditional(conditionals) => {
             return_if_found!(target.search(ctx, searcher));
+            return_if_found!(delay_mechanism.search(ctx, searcher));
             search_conditionals(conditionals, true, searcher, ctx)
         }
         AssignmentRightHand::Selected(selection) => {
@@ -255,7 +258,17 @@ fn search_assignment<T: Search>(
             // expression comes before target
             return_if_found!(expression.search(ctx, searcher));
             return_if_found!(target.search(ctx, searcher));
+            return_if_found!(delay_mechanism.search(ctx, searcher));
             search_alternatives(alternatives, true, searcher, ctx)
+        }
+    }
+}
+
+impl Search for WithTokenSpan<DelayMechanism> {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        match &self.item {
+            DelayMechanism::Transport => NotFound,
+            DelayMechanism::Inertial { reject } => reject.search(ctx, searcher),
         }
     }
 }
@@ -403,13 +416,22 @@ impl Search for LabeledSequentialStatement {
                 }
             }
             SequentialStatement::SignalAssignment(ref assign) => {
-                // @TODO more
-                let SignalAssignment { target, rhs, .. } = assign;
-                return_if_found!(search_assignment(target, rhs, searcher, ctx));
+                let SignalAssignment {
+                    target,
+                    delay_mechanism,
+                    rhs,
+                } = assign;
+                return_if_found!(search_assignment(
+                    target,
+                    delay_mechanism,
+                    rhs,
+                    searcher,
+                    ctx
+                ));
             }
             SequentialStatement::VariableAssignment(ref assign) => {
                 let VariableAssignment { target, rhs } = assign;
-                return_if_found!(search_assignment(target, rhs, searcher, ctx));
+                return_if_found!(search_assignment(target, &None, rhs, searcher, ctx));
             }
             SequentialStatement::SignalForceAssignment(ref assign) => {
                 let SignalForceAssignment {
@@ -417,7 +439,7 @@ impl Search for LabeledSequentialStatement {
                     force_mode: _,
                     rhs,
                 } = assign;
-                return_if_found!(search_assignment(target, rhs, searcher, ctx));
+                return_if_found!(search_assignment(target, &None, rhs, searcher, ctx));
             }
             SequentialStatement::SignalReleaseAssignment(ref assign) => {
                 let SignalReleaseAssignment {
@@ -578,6 +600,7 @@ impl Search for LabeledConcurrentStatement {
                 let ConcurrentSignalAssignment { assignment, .. } = assign;
                 return_if_found!(search_assignment(
                     &assignment.target,
+                    &assignment.delay_mechanism,
                     &assignment.rhs,
                     searcher,
                     ctx

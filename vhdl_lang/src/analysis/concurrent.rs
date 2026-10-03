@@ -217,7 +217,6 @@ impl<'a> AnalyzeContext<'a, '_> {
                 self.analyze_instance(scope, instance, diagnostics)?;
             }
             ConcurrentStatement::Assignment(ref mut assign) => {
-                // @TODO more delaymechanism
                 let ConcurrentSignalAssignment { assignment, .. } = assign;
                 self.analyze_waveform_assignment(scope, assignment, diagnostics)?;
             }

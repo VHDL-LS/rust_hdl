@@ -883,6 +883,54 @@ end architecture;
 }
 
 #[test]
+fn check_missing_in_reject_delay_mechanism() {
+    check_missing(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal sig : time;
+begin
+  sig <= reject missing inertial sig;
+
+  main : process is
+  begin
+    sig <= reject missing inertial sig after 1 ns;
+    wait;
+  end process;
+end architecture;
+",
+    );
+}
+
+#[test]
+fn search_names_in_reject_delay_mechanism() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal decl : time;
+begin
+  decl <= reject decl inertial decl after decl;
+  decl <= reject decl inertial decl when decl = 0 ns else decl;
+  with decl select
+     decl <= reject decl inertial decl when decl,
+             decl when others;
+
+  main : process is
+  begin
+    decl <= reject decl inertial decl;
+    wait;
+  end process;
+end architecture;
+",
+    );
+}
+
+#[test]
 fn search_for_loop_index() {
     check_search_reference(
         "
