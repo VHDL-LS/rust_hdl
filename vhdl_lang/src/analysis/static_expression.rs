@@ -194,6 +194,20 @@ pub(crate) enum BitStringConversionError {
 pub(crate) fn bit_string_to_string(
     bit_string: &BitString,
 ) -> Result<Latin1String, BitStringConversionError> {
+    // This may be an error for signed strings.
+    // The LRM is ambiguous in this case and one could read it both ways.
+    // GHDL and NVC also disagree (as of 2026-10-02) on what the correct behaviour should be.
+    // Therefore, we don't report an error to not raise a false positive.
+    if bit_string.length == Some(0) && bit_string.base.is_signed() {
+        if bit_string.value.is_empty() {
+            // Still report an empty signed expansion error here as the LRM is unambiguous (1076-2019):
+            // "It is an error if the bit string literal is an empty string"
+            return Err(BitStringConversionError::EmptySignedExpansion);
+        } else {
+            return Ok(Latin1String::empty());
+        }
+    }
+
     // Simplifies the bit string by removing all occurrences of the underscore
     // character
     let simplified_value: Vec<u8> = bit_string
@@ -260,7 +274,7 @@ pub(crate) fn bit_string_to_string(
                         .position(|el| *el != allowed_char);
                     match idx {
                         Some(value) => {
-                            let real_idx = last_elements.len() + value - 1;
+                            let real_idx = (last_elements.len() + value).saturating_sub(1);
                             let erroneous_string = Latin1String::from_vec(extended_value);
                             Err(BitStringConversionError::IllegalTruncate(
                                 real_idx,
@@ -291,6 +305,7 @@ mod test_mod {
     use crate::analysis::static_expression::{bit_string_to_string, BitStringConversionError};
     use crate::ast::{BaseSpecifier, BitString};
     use crate::Latin1String;
+    use assert_matches::assert_matches;
 
     impl BitString {
         fn new(length: Option<u32>, base: BaseSpecifier, value: &str) -> BitString {
@@ -473,5 +488,22 @@ mod test_mod {
             bit_string_to_string(&BitString::new(Some(32), BaseSpecifier::D, "1_000_000_000"))
                 .is_ok()
         );
+    }
+
+    #[test]
+    fn truncate_to_length_zero() {
+        assert_eq!(
+            bit_string_to_string(&BitString::new(Some(0), BaseSpecifier::X, "00")),
+            Ok(Latin1String::empty())
+        );
+        assert_matches!(
+            bit_string_to_string(&BitString::new(Some(0), BaseSpecifier::UX, "F")),
+            Err(BitStringConversionError::IllegalTruncate(..))
+        );
+
+        // These tests only assert the current status.
+        // It's unclear whether this should return an error or an empty string.
+        assert!(bit_string_to_string(&BitString::new(Some(0), BaseSpecifier::SX, "F")).is_ok());
+        assert!(bit_string_to_string(&BitString::new(Some(0), BaseSpecifier::SB, "0")).is_ok());
     }
 }
