@@ -790,3 +790,130 @@ fn generics_are_visible_in_procedures_but_not_outside() {
         )]
     )
 }
+
+#[test]
+fn explicit_homographs_made_visible_by_different_use_clauses_hide_each_other() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg1 is
+  function inc(arg : natural) return natural;
+end package;
+
+package pkg2 is
+  function inc(arg : natural) return natural;
+end package;
+
+use work.pkg1.all;
+use work.pkg2.all;
+package user is
+  constant c : natural := inc(0);
+end package;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![hidden_error(
+            &code,
+            "inc",
+            3,
+            &[
+                (&code, "work.pkg1.all", 1, false),
+                (&code, "inc", 1, true),
+                (&code, "work.pkg2.all", 1, false),
+                (&code, "inc", 2, true),
+            ],
+        )],
+    );
+}
+
+#[test]
+fn overloads_without_a_homograph_stay_visible_beside_conflicting_homographs() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg1 is
+  function inc(arg : natural) return natural;
+  function inc(arg : boolean) return natural;
+end package;
+
+package pkg2 is
+  function inc(arg : natural) return natural;
+end package;
+
+use work.pkg1.all;
+use work.pkg2.all;
+package user is
+  constant c : natural := inc(true);
+end package;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("inc(true)").start()),
+        Some(code.s1("inc(arg : boolean)").s1("inc").pos())
+    );
+}
+
+#[test]
+fn explicit_homograph_hides_implicit_homograph_made_visible_by_other_use_clause() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        r#"
+package types is
+    type word_t is array (natural range <>) of bit;
+end package;
+
+use work.types.all;
+package ops is
+    function "<"(l, r : word_t) return boolean;
+end package;
+
+use work.types.all;
+use work.ops.all;
+package user is
+    constant a, b : word_t(0 to 1) := "01";
+    constant lt : boolean := a < b;
+end package;
+"#,
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("a < b").s1("<").start()),
+        Some(code.s1("\"<\"").pos()),
+    );
+}
+
+#[test]
+fn implicit_operators_of_generic_type_and_its_actual_stay_visible() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package gen_pkg is
+  generic (type element_t);
+end package;
+
+package int_pkg is new work.gen_pkg generic map (element_t => integer);
+
+use work.int_pkg.all;
+package user is
+  constant a, b : integer := 0;
+  constant c : boolean := a = b;
+  constant d : boolean := a /= b;
+end package;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}

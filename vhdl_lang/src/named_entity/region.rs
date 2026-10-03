@@ -9,6 +9,7 @@ use crate::ast::token_range::WithTokenSpan;
 use crate::ast::*;
 use crate::named_entity::overloaded::SubprogramKey;
 use fnv::FnvHashMap;
+use itertools::Itertools;
 use std::collections::hash_map::Entry;
 
 #[derive(Clone)]
@@ -232,6 +233,14 @@ pub struct OverloadedName<'a> {
 impl<'a> OverloadedName<'a> {
     pub fn new(entities: Vec<OverloadedEnt<'_>>) -> OverloadedName<'_> {
         debug_assert!(!entities.is_empty());
+        debug_assert!(
+            entities
+                .iter()
+                .unique_by(|ent| ent.subprogram_key())
+                .count()
+                == entities.len(),
+            "overloaded names cannot contain homographs"
+        );
         let mut map = FnvHashMap::default();
         for ent in entities {
             map.insert(ent.subprogram_key(), ent);

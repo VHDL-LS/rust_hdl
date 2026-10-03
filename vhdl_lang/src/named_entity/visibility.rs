@@ -244,39 +244,76 @@ impl<'a> Visible<'a> {
         if named_entities.is_empty() {
             Ok(None)
         } else if named_entities.iter().all(|ent| ent.is_overloaded()) {
-            Ok(Some(NamedEntities::new_overloaded(
+            let overloads = directly_visible_overloads(
                 named_entities
                     .into_iter()
                     .map(|ent| OverloadedEnt::from_any(ent).unwrap())
                     .collect(),
-            )))
+            );
+            if overloads.is_empty() {
+                self.conflict_error(designator)
+            } else {
+                Ok(Some(NamedEntities::new_overloaded(overloads)))
+            }
         } else if named_entities.len() == 1 {
             Ok(Some(NamedEntities::new(named_entities.pop().unwrap())))
         } else {
-            let mut error = IntoUnambiguousError::new(designator.clone());
-            // Duplicate visible items hide each other
-
-            fn last_visible_pos(visible_entity: &VisibleEntity<'_>) -> u32 {
-                if let Some(pos) = visible_entity.visible_pos.iter().rev().flatten().next() {
-                    return pos.range().start.line;
-                }
-                0
-            }
-
-            // Sort by last visible pos to make error messages and testing deterministic
-            let mut visible_entities: Vec<_> = self.visible_entities.values().collect();
-            visible_entities.sort_by_key(|ent| last_visible_pos(ent));
-
-            for visible_entity in visible_entities {
-                for visible_pos in visible_entity.visible_pos.iter().rev().flatten() {
-                    error.add_conflicting(visible_pos.clone(), ConflictingName::MadeVisible);
-                }
-                if let Some(pos) = visible_entity.entity.decl_pos() {
-                    error.add_conflicting(pos.clone(), ConflictingName::Declared);
-                }
-            }
-
-            Err(error)
+            self.conflict_error(designator)
         }
+    }
+
+    fn conflict_error<T>(&self, designator: &Designator) -> Result<T, IntoUnambiguousError> {
+        let mut error = IntoUnambiguousError::new(designator.clone());
+        // Duplicate visible items hide each other
+
+        fn last_visible_pos(visible_entity: &VisibleEntity<'_>) -> u32 {
+            if let Some(pos) = visible_entity.visible_pos.iter().rev().flatten().next() {
+                return pos.range().start.line;
+            }
+            0
+        }
+
+        // Sort by last visible pos to make error messages and testing deterministic
+        let mut visible_entities: Vec<_> = self.visible_entities.values().collect();
+        visible_entities.sort_by_key(|ent| last_visible_pos(ent));
+
+        for visible_entity in visible_entities {
+            for visible_pos in visible_entity.visible_pos.iter().rev().flatten() {
+                error.add_conflicting(visible_pos.clone(), ConflictingName::MadeVisible);
+            }
+            if let Some(pos) = visible_entity.entity.decl_pos() {
+                error.add_conflicting(pos.clone(), ConflictingName::Declared);
+            }
+        }
+
+        Err(error)
+    }
+}
+
+/// LRM 12.4:
+///
+/// b) If two potentially visible declarations are homographs and one is explicitly declared and the other is
+/// implicitly declared, then the implicit declaration is not made directly visible
+///
+/// c) Potentially visible declarations that have the same designator and that are not covered by case b) are
+/// not made directly visible unless each of them is either an enumeration literal specification or the
+/// declaration of a subprogram
+fn directly_visible_overloads(overloaded: Vec<OverloadedEnt<'_>>) -> Vec<OverloadedEnt<'_>> {
+    let mut by_key: FnvHashMap<_, Vec<OverloadedEnt<'_>>> = FnvHashMap::default();
+    for ent in overloaded {
+        by_key.entry(ent.subprogram_key()).or_default().push(ent);
+    }
+    by_key
+        .into_values()
+        .filter_map(filter_explicit_overloads)
+        .collect()
+}
+
+fn filter_explicit_overloads(homographs: Vec<OverloadedEnt<'_>>) -> Option<OverloadedEnt<'_>> {
+    let mut explicit = homographs.iter().filter(|ent| !ent.inner().is_implicit());
+    match (explicit.next(), explicit.next()) {
+        (None, _) => homographs.first().copied(),
+        (Some(only), None) => Some(*only),
+        (Some(_), Some(_)) => None,
     }
 }
