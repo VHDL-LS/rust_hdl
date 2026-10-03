@@ -1288,10 +1288,9 @@ fn parse_multi_line_comment(reader: &mut ContentReader<'_>) -> Result<Comment, T
 fn parse_real_literal(
     buffer: &mut Latin1String,
     reader: &mut ContentReader<'_>,
-) -> Result<(f64, Latin1String), TokenError> {
+) -> Result<Latin1String, TokenError> {
     buffer.clear();
     let mut text = Latin1String::empty();
-    let start = reader.pos();
     while let Some(b) = reader.peek_lowercase()? {
         match b {
             b'e' => {
@@ -1315,18 +1314,22 @@ fn parse_real_literal(
         };
     }
 
-    let string = unsafe { std::str::from_utf8_unchecked(&buffer.bytes) };
-
-    string
-        .parse::<f64>()
-        .map(|val| (val, text))
-        .map_err(|err: std::num::ParseFloatError| {
-            TokenError::range(start, reader.pos(), err.to_string())
-        })
+    Ok(text)
 }
 
 fn exponentiate(value: u64, exp: u32) -> Option<u64> {
     10_u64.checked_pow(exp).and_then(|x| x.checked_mul(value))
+}
+
+// SAFETY: `buffer` must contain valid UTF-8
+unsafe fn buffer_to_real(
+    buffer: &Latin1String,
+    start: Position,
+    end: Position,
+) -> Result<f64, TokenError> {
+    let str = unsafe { str::from_utf8_unchecked(&buffer.bytes) };
+    str.parse::<f64>()
+        .map_err(|err: std::num::ParseFloatError| TokenError::range(start, end, err.to_string()))
 }
 
 /// LRM 15.5 Abstract literals
@@ -1342,27 +1345,32 @@ fn parse_abstract_literal(
         // Real
         Some(b'.') => {
             reader.set_state(state);
-            let (real, mut text) = parse_real_literal(buffer, reader)?;
+            let mut text = parse_real_literal(buffer, reader)?;
 
             match reader.peek()? {
                 // Exponent
                 Some(b'e' | b'E') => {
                     text.push(reader.peek().unwrap().unwrap());
+                    buffer.push(b'e');
                     reader.skip();
-                    let (exp, mut exp_text) = parse_exponent(reader)?;
-                    text.append(&mut exp_text);
+                    let (i, mut exp_text) = parse_exponent(reader)?;
+                    text.bytes.append(&mut exp_text.bytes);
+                    buffer.bytes.extend_from_slice(i.to_string().as_bytes());
+                    // SAFETY: the `parse` functions only accept ASCII, therefore `buffer` is valid UTF-8
+                    let value = unsafe { buffer_to_real(buffer, state.pos(), reader.pos()) }?;
                     Ok((
                         AbstractLiteral,
-                        Value::AbstractLiteral(
-                            text,
-                            ast::AbstractLiteral::Real(real * 10_f64.powi(exp)),
-                        ),
+                        Value::AbstractLiteral(text, ast::AbstractLiteral::Real(value)),
                     ))
                 }
-                _ => Ok((
-                    AbstractLiteral,
-                    Value::AbstractLiteral(text, ast::AbstractLiteral::Real(real)),
-                )),
+                _ => {
+                    // SAFETY: the `parse` functions only accept ASCII, therefore `buffer` is valid UTF-8
+                    let value = unsafe { buffer_to_real(buffer, state.pos(), reader.pos()) }?;
+                    Ok((
+                        AbstractLiteral,
+                        Value::AbstractLiteral(text, ast::AbstractLiteral::Real(value)),
+                    ))
+                }
             }
         }
 
@@ -2472,7 +2480,7 @@ my_other_ident",
     #[test]
     fn tokenize_real() {
         assert_eq!(
-            kind_value_tokenize("0.1 -2_2.3_3 2.0e3 3.33E2 2.1e-2 4.4e+1 2.5E+3"),
+            kind_value_tokenize("0.1 -2_2.3_3 2.0e3 3.33E2 2.1e-2 4.4e+1 2.5E+3 1.0e1_0"),
             vec![
                 (
                     AbstractLiteral,
@@ -2524,6 +2532,13 @@ my_other_ident",
                         ast::AbstractLiteral::Real(2500.0)
                     )
                 ),
+                (
+                    AbstractLiteral,
+                    Value::AbstractLiteral(
+                        Latin1String::new(b"1.0e1_0"),
+                        ast::AbstractLiteral::Real(1.0e10)
+                    )
+                ),
             ]
         );
     }
@@ -2554,6 +2569,28 @@ my_other_ident",
                 )
             )]
         );
+    }
+
+    #[test]
+    fn tokenize_real_with_exponent_is_correctly_rounded() {
+        for (text, value) in [
+            ("1.7976931348623157e308", f64::MAX),
+            ("1.1e-5", 1.1e-5),
+            ("1.23e-20", 1.23e-20),
+            ("4.35E15", 4.35e15),
+            ("1_000.000_1e-3", 1.000_000_1),
+        ] {
+            assert_eq!(
+                kind_value_tokenize(text),
+                vec![(
+                    AbstractLiteral,
+                    Value::AbstractLiteral(
+                        Latin1String::from_utf8_unchecked(text),
+                        ast::AbstractLiteral::Real(value)
+                    )
+                )],
+            );
+        }
     }
 
     #[test]
