@@ -326,3 +326,31 @@ end package;
 ",
     );
 }
+
+#[test]
+fn shift_operators_on_one_dimensional_arrays_of_bit_and_boolean() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+    type bits_t is array (natural range <>) of bit;
+    type booleans_t is array (0 to 1) of boolean;
+
+    constant b : bits_t(0 to 1) := \"01\";
+    constant b_sll : bits_t := b sll 1;
+    constant b_srl : bits_t := b srl 1;
+    constant b_sla : bits_t := b sla 1;
+    constant b_sra : bits_t := b sra 1;
+    constant b_rol : bits_t := b rol 1;
+    constant b_ror : bits_t := b ror -1;
+
+    constant v : booleans_t := (true, false);
+    constant v_sll : booleans_t := v sll 1;
+
+    constant bv : bit_vector(0 to 1) := \"01\";
+    constant bv_sll : bit_vector := bv sll 1;
+    constant boolv : boolean_vector(0 to 1) := (true, false);
+    constant boolv_ror : boolean_vector := boolv ror 1;
+end package;
+",
+    );
+}

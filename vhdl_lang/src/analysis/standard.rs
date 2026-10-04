@@ -855,6 +855,19 @@ impl<'a> AnalyzeContext<'a, '_> {
                 // S op A -> A
                 implicits.push(self.binary(op, typ, *elem_type, typ, typ));
             }
+
+            let shift_ops = [
+                Operator::SLL,
+                Operator::SRL,
+                Operator::SLA,
+                Operator::SRA,
+                Operator::ROL,
+                Operator::ROR,
+            ];
+
+            for op in shift_ops {
+                implicits.push(self.binary(op, typ, typ, self.integer(), typ));
+            }
         }
         implicits
     }
