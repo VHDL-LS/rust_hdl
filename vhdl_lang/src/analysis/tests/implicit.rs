@@ -354,3 +354,24 @@ end package;
 ",
     );
 }
+
+#[test]
+fn implicit_minimum_and_maximum_on_discrete_array_types() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+    type int_vec_t is array (natural range <>) of integer;
+
+    constant a : bit_vector(2 downto 0) := \"011\";
+    constant b : bit_vector(2 downto 0) := \"100\";
+    constant c : int_vec_t(0 to 1) := (1, 2);
+    constant good1 : bit_vector(2 downto 0) := minimum(a, b);
+    constant good2 : bit_vector(2 downto 0) := maximum(a, b);
+    constant good3 : int_vec_t(0 to 1) := maximum(c, c);
+    constant good4 : string(1 to 3) := minimum(string'(\"abd\"), \"abc\");
+    constant good5 : bit := maximum(a);
+    constant good6 : integer := minimum(c);
+end package;
+",
+    );
+}

@@ -790,11 +790,6 @@ impl<'a> AnalyzeContext<'a, '_> {
             unreachable!("Must be array type")
         };
 
-        let is_scalar = matches!(
-            elem_type.base().kind(),
-            Type::Integer | Type::Real | Type::Physical | Type::Enum(_)
-        );
-
         let is_one_dimensional = indexes.len() == 1;
         let is_character_elem = matches!(elem_type.base().kind(), Type::Enum(designators) if designators.iter().all(|des| matches!(des, Designator::Character(_))));
         let is_bit_or_boolean = elem_type.base_type() == self.bit().base_type()
@@ -805,68 +800,79 @@ impl<'a> AnalyzeContext<'a, '_> {
         implicits.push(self.comparison(Operator::NE, typ));
         if is_one_dimensional {
             implicits.extend(self.concatenations(typ, *elem_type));
-        }
-        if is_one_dimensional && is_character_elem {
-            implicits.push(self.create_to_string(typ));
-        }
-        if is_scalar {
-            implicits.extend_from_slice(&[
-                self.comparison(Operator::GT, typ),
-                self.comparison(Operator::GTE, typ),
-                self.comparison(Operator::LT, typ),
-                self.comparison(Operator::LTE, typ),
-                self.elementwise_min_or_maximum("MINIMUM", typ, *elem_type),
-                self.elementwise_min_or_maximum("MAXIMUM", typ, *elem_type),
-            ]);
-        }
-        if matching_op {
-            implicits.extend_from_slice(&[
-                self.binary(Operator::QueEQ, typ, typ, typ, *elem_type),
-                self.binary(Operator::QueNE, typ, typ, typ, *elem_type),
-                self.binary(Operator::QueGT, typ, typ, typ, *elem_type),
-                self.binary(Operator::QueGTE, typ, typ, typ, *elem_type),
-                self.binary(Operator::QueLT, typ, typ, typ, *elem_type),
-                self.binary(Operator::QueLTE, typ, typ, typ, *elem_type),
-            ]);
-        }
-        if is_bit_or_boolean && is_one_dimensional {
-            let ops = [
-                Operator::And,
-                Operator::Or,
-                Operator::Nand,
-                Operator::Nor,
-                Operator::Xor,
-                Operator::Xnor,
-                Operator::Not,
-            ];
 
-            for op in ops {
-                // A op A -> A
-                implicits.push(self.symmetric_binary(op, typ));
-                implicits.push(if op == Operator::Not {
-                    // op A -> A
-                    self.unary(op, typ, typ)
-                } else {
-                    // op A -> S
-                    self.unary(op, typ, *elem_type)
-                });
-                // A op S -> A
-                implicits.push(self.binary(op, typ, typ, *elem_type, typ));
-                // S op A -> A
-                implicits.push(self.binary(op, typ, *elem_type, typ, typ));
+            if is_character_elem {
+                implicits.push(self.create_to_string(typ));
             }
 
-            let shift_ops = [
-                Operator::SLL,
-                Operator::SRL,
-                Operator::SLA,
-                Operator::SRA,
-                Operator::ROL,
-                Operator::ROR,
-            ];
+            if elem_type.is_scalar() {
+                implicits.extend_from_slice(&[
+                    self.elementwise_min_or_maximum("MINIMUM", typ, *elem_type),
+                    self.elementwise_min_or_maximum("MAXIMUM", typ, *elem_type),
+                ]);
+            }
 
-            for op in shift_ops {
-                implicits.push(self.binary(op, typ, typ, self.integer(), typ));
+            if elem_type.is_discrete() {
+                implicits.extend_from_slice(&[
+                    self.comparison(Operator::GT, typ),
+                    self.comparison(Operator::GTE, typ),
+                    self.comparison(Operator::LT, typ),
+                    self.comparison(Operator::LTE, typ),
+                    self.minimum(typ),
+                    self.maximum(typ),
+                ]);
+            }
+
+            if is_bit_or_boolean {
+                let ops = [
+                    Operator::And,
+                    Operator::Or,
+                    Operator::Nand,
+                    Operator::Nor,
+                    Operator::Xor,
+                    Operator::Xnor,
+                    Operator::Not,
+                ];
+
+                for op in ops {
+                    // A op A -> A
+                    implicits.push(self.symmetric_binary(op, typ));
+                    implicits.push(if op == Operator::Not {
+                        // op A -> A
+                        self.unary(op, typ, typ)
+                    } else {
+                        // op A -> S
+                        self.unary(op, typ, *elem_type)
+                    });
+                    // A op S -> A
+                    implicits.push(self.binary(op, typ, typ, *elem_type, typ));
+                    // S op A -> A
+                    implicits.push(self.binary(op, typ, *elem_type, typ, typ));
+                }
+
+                let shift_ops = [
+                    Operator::SLL,
+                    Operator::SRL,
+                    Operator::SLA,
+                    Operator::SRA,
+                    Operator::ROL,
+                    Operator::ROR,
+                ];
+
+                for op in shift_ops {
+                    implicits.push(self.binary(op, typ, typ, self.integer(), typ));
+                }
+            }
+
+            if matching_op {
+                implicits.extend_from_slice(&[
+                    self.binary(Operator::QueEQ, typ, typ, typ, *elem_type),
+                    self.binary(Operator::QueNE, typ, typ, typ, *elem_type),
+                    self.binary(Operator::QueGT, typ, typ, typ, *elem_type),
+                    self.binary(Operator::QueGTE, typ, typ, typ, *elem_type),
+                    self.binary(Operator::QueLT, typ, typ, typ, *elem_type),
+                    self.binary(Operator::QueLTE, typ, typ, typ, *elem_type),
+                ]);
             }
         }
         implicits

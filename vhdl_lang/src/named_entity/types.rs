@@ -73,10 +73,7 @@ impl Type<'_> {
 
     pub fn is_discrete(&self) -> bool {
         use Type::*;
-        matches!(
-            self,
-            Integer | Enum(_) | Universal(UniversalType::Integer) | Physical
-        )
+        matches!(self, Integer | Enum(_) | Universal(UniversalType::Integer))
     }
 
     pub fn is_physical(&self) -> bool {
@@ -205,6 +202,14 @@ impl<'a> TypeEnt<'a> {
 
     pub fn is_scalar(&self) -> bool {
         self.base().is_scalar()
+    }
+
+    pub fn is_discrete(&self) -> bool {
+        self.base().is_discrete()
+    }
+
+    pub fn is_physical(&self) -> bool {
+        self.base().is_physical()
     }
 
     pub fn sliced_as(&self) -> Option<TypeEnt<'a>> {

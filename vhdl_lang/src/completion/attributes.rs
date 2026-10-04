@@ -57,7 +57,7 @@ fn extend_attributes_of_type(
             Type(TypeAttribute::Element),
         ]);
     }
-    if typ.is_discrete() {
+    if typ.is_discrete() || typ.is_physical() {
         attributes.extend([Pos, Val, Succ, Pred, LeftOf, RightOf]);
     }
 }

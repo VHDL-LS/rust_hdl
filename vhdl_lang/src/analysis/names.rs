@@ -965,7 +965,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             AttributeDesignator::Pos => {
                 let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
-                if typ.base().is_discrete() {
+                if typ.is_discrete() || typ.is_physical() {
                     if let Some(ref mut expr) =
                         check_single_argument(self.ctx, name_pos, attr, diagnostics)
                     {
@@ -986,7 +986,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             AttributeDesignator::Val => {
                 let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
-                if typ.base().is_discrete() {
+                if typ.is_discrete() || typ.is_physical() {
                     if let Some(ref mut expr) =
                         check_single_argument(self.ctx, name_pos, attr, diagnostics)
                     {
@@ -1015,7 +1015,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             | AttributeDesignator::RightOf => {
                 let typ = prefix.as_type_of_attr_prefix(self.ctx, prefix_pos, attr, diagnostics)?;
 
-                if typ.base().is_discrete() {
+                if typ.is_discrete() || typ.is_physical() {
                     if let Some(ref mut expr) =
                         check_single_argument(self.ctx, name_pos, attr, diagnostics)
                     {
