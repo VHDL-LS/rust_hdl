@@ -53,7 +53,6 @@ impl UniversalTypes {
 
 pub(crate) struct StandardTypes {
     pub boolean: EntityId,
-    pub boolean_vector: EntityId,
     pub bit: EntityId,
     pub bit_vector: EntityId,
     pub character: EntityId,
@@ -75,7 +74,6 @@ impl StandardTypes {
         decls: &mut [WithTokenSpan<Declaration>],
     ) -> Self {
         let mut boolean = None;
-        let mut boolean_vector = None;
         let mut bit = None;
         let mut bit_vector = None;
         let mut character = None;
@@ -106,9 +104,6 @@ impl StandardTypes {
                 match name.bytes.as_slice() {
                     b"BOOLEAN" => {
                         boolean = Some(id);
-                    }
-                    b"BOOLEAN_VECTOR" => {
-                        boolean_vector = Some(id);
                     }
                     b"BIT" => {
                         bit = Some(id);
@@ -153,7 +148,6 @@ impl StandardTypes {
 
         Self {
             boolean: boolean.unwrap(),
-            boolean_vector: boolean_vector.unwrap(),
             bit: bit.unwrap(),
             bit_vector: bit_vector.unwrap(),
             character: character.unwrap(),
@@ -184,10 +178,6 @@ impl<'a> AnalyzeContext<'a, '_> {
 
     pub(crate) fn boolean(&self) -> TypeEnt<'a> {
         self.arena.get_type(self.standard_types().boolean)
-    }
-
-    pub(crate) fn boolean_vector(&self) -> TypeEnt<'a> {
-        self.arena.get_type(self.standard_types().boolean_vector)
     }
 
     pub(crate) fn bit(&self) -> TypeEnt<'a> {
@@ -792,11 +782,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         .into_iter()
     }
 
-    pub fn array_implicits(
-        &self,
-        typ: TypeEnt<'a>,
-        matching_op: bool,
-    ) -> impl Iterator<Item = EntRef<'a>> {
+    pub fn array_implicits(&self, typ: TypeEnt<'a>, matching_op: bool) -> Vec<EntRef<'a>> {
         let Type::Array {
             indexes, elem_type, ..
         } = typ.kind()
@@ -811,65 +797,66 @@ impl<'a> AnalyzeContext<'a, '_> {
 
         let is_one_dimensional = indexes.len() == 1;
         let is_character_elem = matches!(elem_type.base().kind(), Type::Enum(designators) if designators.iter().all(|des| matches!(des, Designator::Character(_))));
+        let is_bit_or_boolean = elem_type.base_type() == self.bit().base_type()
+            || elem_type.base_type() == self.boolean().base_type();
 
-        [
-            self.comparison(Operator::EQ, typ),
-            self.comparison(Operator::NE, typ),
-        ]
-        .into_iter()
-        .chain(if is_one_dimensional && is_character_elem {
-            // To string is only defined for 1d array types with character elements
-            Some(self.create_to_string(typ)).into_iter()
-        } else {
-            None.into_iter()
-        })
-        .chain(
-            (if is_one_dimensional {
-                Some(self.concatenations(typ, *elem_type))
-            } else {
-                None
-            })
-            .into_iter()
-            .flatten(),
-        )
-        .chain(
-            (if is_scalar {
-                Some(
-                    [
-                        self.comparison(Operator::GT, typ),
-                        self.comparison(Operator::GTE, typ),
-                        self.comparison(Operator::LT, typ),
-                        self.comparison(Operator::LTE, typ),
-                        self.elementwise_min_or_maximum("MINIMUM", typ, *elem_type),
-                        self.elementwise_min_or_maximum("MAXIMUM", typ, *elem_type),
-                    ]
-                    .into_iter(),
-                )
-            } else {
-                None
-            })
-            .into_iter()
-            .flatten(),
-        )
-        .chain(
-            if matching_op {
-                Some(
-                    [
-                        self.binary(Operator::QueEQ, typ, typ, typ, *elem_type),
-                        self.binary(Operator::QueNE, typ, typ, typ, *elem_type),
-                        self.binary(Operator::QueGT, typ, typ, typ, *elem_type),
-                        self.binary(Operator::QueGTE, typ, typ, typ, *elem_type),
-                        self.binary(Operator::QueLT, typ, typ, typ, *elem_type),
-                        self.binary(Operator::QueLTE, typ, typ, typ, *elem_type),
-                    ]
-                    .into_iter(),
-                )
-            } else {
-                None
+        let mut implicits = Vec::new();
+        implicits.push(self.comparison(Operator::EQ, typ));
+        implicits.push(self.comparison(Operator::NE, typ));
+        if is_one_dimensional {
+            implicits.extend(self.concatenations(typ, *elem_type));
+        }
+        if is_one_dimensional && is_character_elem {
+            implicits.push(self.create_to_string(typ));
+        }
+        if is_scalar {
+            implicits.extend_from_slice(&[
+                self.comparison(Operator::GT, typ),
+                self.comparison(Operator::GTE, typ),
+                self.comparison(Operator::LT, typ),
+                self.comparison(Operator::LTE, typ),
+                self.elementwise_min_or_maximum("MINIMUM", typ, *elem_type),
+                self.elementwise_min_or_maximum("MAXIMUM", typ, *elem_type),
+            ]);
+        }
+        if matching_op {
+            implicits.extend_from_slice(&[
+                self.binary(Operator::QueEQ, typ, typ, typ, *elem_type),
+                self.binary(Operator::QueNE, typ, typ, typ, *elem_type),
+                self.binary(Operator::QueGT, typ, typ, typ, *elem_type),
+                self.binary(Operator::QueGTE, typ, typ, typ, *elem_type),
+                self.binary(Operator::QueLT, typ, typ, typ, *elem_type),
+                self.binary(Operator::QueLTE, typ, typ, typ, *elem_type),
+            ]);
+        }
+        if is_bit_or_boolean && is_one_dimensional {
+            let ops = [
+                Operator::And,
+                Operator::Or,
+                Operator::Nand,
+                Operator::Nor,
+                Operator::Xor,
+                Operator::Xnor,
+                Operator::Not,
+            ];
+
+            for op in ops {
+                // A op A -> A
+                implicits.push(self.symmetric_binary(op, typ));
+                implicits.push(if op == Operator::Not {
+                    // op A -> A
+                    self.unary(op, typ, typ)
+                } else {
+                    // op A -> S
+                    self.unary(op, typ, *elem_type)
+                });
+                // A op S -> A
+                implicits.push(self.binary(op, typ, typ, *elem_type, typ));
+                // S op A -> A
+                implicits.push(self.binary(op, typ, *elem_type, typ, typ));
             }
-            .into_iter()
-            .flatten(),
-        )
+        }
+        implicits
     }
 
     pub fn access_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
@@ -912,49 +899,6 @@ impl<'a> AnalyzeContext<'a, '_> {
             for ent in implicits {
                 unsafe {
                     self.arena.add_implicit(typ.id(), ent);
-                };
-                region.add(ent, diagnostics);
-            }
-        }
-
-        for (styp, atyp) in [
-            (self.boolean(), self.boolean_vector()),
-            (self.bit(), self.bit_vector()),
-        ] {
-            let ops = [
-                Operator::And,
-                Operator::Or,
-                Operator::Nand,
-                Operator::Nor,
-                Operator::Xor,
-                Operator::Xnor,
-                Operator::Not,
-            ];
-
-            let implicits = ops.iter().flat_map(|op| {
-                let op = *op;
-                [
-                    // A op A -> A
-                    self.symmetric_binary(op, atyp),
-                    if op == Operator::Not {
-                        // op A -> A
-                        self.unary(op, atyp, atyp)
-                    } else {
-                        // op A -> S
-                        self.unary(op, atyp, styp)
-                    },
-                    // A op S -> A
-                    self.binary(op, atyp, atyp, styp, atyp),
-                    // S op A -> A
-                    self.binary(op, atyp, styp, atyp, atyp),
-                ]
-                .into_iter()
-            });
-
-            for ent in implicits {
-                // This is safe because the standard package is analyzed in a single thread
-                unsafe {
-                    self.arena.add_implicit(atyp.id(), ent);
                 };
                 region.add(ent, diagnostics);
             }

@@ -272,6 +272,49 @@ end package;
 }
 
 #[test]
+fn logical_operators_on_one_dimensional_arrays_of_bit_and_boolean() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+    type bits_t is array (natural range <>) of bit;
+    subtype sub_boolean_t is boolean;
+    type booleans_t is array (0 to 1) of sub_boolean_t;
+
+    constant b : bits_t(0 to 1) := \"01\";
+    constant b_and : bits_t := b and b;
+    constant b_or : bits_t := b or '1';
+    constant b_nand : bits_t := '0' nand b;
+    constant b_nor : bits_t := b nor b;
+    constant b_xor : bits_t := b xor b;
+    constant b_xnor : bits_t := b xnor b;
+    constant b_not : bits_t := not b;
+    constant b_reduce : bit := and b;
+
+    constant v : booleans_t := (true, false);
+    constant v_and : booleans_t := v and v;
+    constant v_or : booleans_t := v or true;
+    constant v_nand : booleans_t := false nand v;
+    constant v_nor : booleans_t := v nor v;
+    constant v_xor : booleans_t := v xor v;
+    constant v_xnor : booleans_t := v xnor v;
+    constant v_not : booleans_t := not v;
+    constant v_reduce : boolean := xor v;
+
+    constant bv : bit_vector(0 to 1) := \"01\";
+    constant bv_and : bit_vector := bv and bv;
+    constant bv_not : bit_vector := not bv;
+    constant bv_reduce : bit := or bv;
+
+    constant boolv : boolean_vector(0 to 1) := (true, false);
+    constant boolv_and : boolean_vector := boolv and boolv;
+    constant boolv_not : boolean_vector := not boolv;
+    constant boolv_reduce : boolean := nor boolv;
+end package;
+",
+    );
+}
+
+#[test]
 fn implicit_real_vs_integer_functions() {
     check_code_with_no_diagnostics(
         "
