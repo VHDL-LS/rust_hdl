@@ -127,7 +127,7 @@ impl VHDLFormatter<'_> {
             }
             ElementResolution::Record(record) => {
                 for (i, element_resolution) in record.iter().enumerate() {
-                    self.format_token_id(element_resolution.ident.token, buffer);
+                    self.format_token_id(element_resolution.ident.item.token, buffer);
                     buffer.push_whitespace();
                     self.format_resolution_indication(&element_resolution.resolution, buffer);
                     if i < record.len() - 1 {

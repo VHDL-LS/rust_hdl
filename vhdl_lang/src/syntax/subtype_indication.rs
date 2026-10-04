@@ -184,7 +184,7 @@ pub fn parse_element_resolution(ctx: &mut ParsingContext<'_>) -> ParseResult<Ele
                 let ident = ctx.stream.expect_ident()?;
                 let resolution = parse_resolution_indication(ctx)?;
                 element_resolutions.push(RecordElementResolution {
-                    ident,
+                    ident: ident.into_ref(),
                     resolution: Box::new(resolution),
                 });
                 expect_token!(
@@ -316,7 +316,7 @@ mod tests {
         let code = Code::new("(elem resolve) rec_t");
 
         let elem_resolution = RecordElementResolution {
-            ident: code.s1("elem").ident(),
+            ident: code.s1("elem").ident().into_ref(),
             resolution: Box::new(ResolutionIndication::FunctionName(
                 code.s1("resolve").name(),
             )),
@@ -341,7 +341,7 @@ mod tests {
             Code::new("(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t");
 
         let elem1_resolution = RecordElementResolution {
-            ident: code.s1("elem1").ident(),
+            ident: code.s1("elem1").ident().into_ref(),
             resolution: Box::new(ResolutionIndication::Element(WithTokenSpan::new(
                 ElementResolution::Array(Box::new(ResolutionIndication::FunctionName(
                     code.s1("resolve1").name(),
@@ -351,21 +351,21 @@ mod tests {
         };
 
         let elem2_resolution = RecordElementResolution {
-            ident: code.s1("elem2").ident(),
+            ident: code.s1("elem2").ident().into_ref(),
             resolution: Box::new(ResolutionIndication::FunctionName(
                 code.s1("resolve2").name(),
             )),
         };
 
         let sub_elem_resolution = RecordElementResolution {
-            ident: code.s1("sub_elem").ident(),
+            ident: code.s1("sub_elem").ident().into_ref(),
             resolution: Box::new(ResolutionIndication::FunctionName(
                 code.s1("sub_resolve").name(),
             )),
         };
 
         let elem3_resolution = RecordElementResolution {
-            ident: code.s1("elem3").ident(),
+            ident: code.s1("elem3").ident().into_ref(),
             resolution: Box::new(ResolutionIndication::Element(WithTokenSpan::new(
                 ElementResolution::Record(vec![sub_elem_resolution]),
                 code.s1("(sub_elem sub_resolve)").token_span(),

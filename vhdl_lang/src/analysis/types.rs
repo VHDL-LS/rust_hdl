@@ -4,7 +4,11 @@
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
+use std::fmt::Display;
+
 use super::*;
+use crate::analysis::names::ResolvedName;
+use crate::ast::token_range::WithToken;
 use crate::ast::*;
 use crate::data::error_codes::ErrorCode;
 use crate::data::*;
@@ -19,26 +23,335 @@ impl<'a> AnalyzeContext<'a, '_> {
         subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Subtype<'a>> {
-        // @TODO more
         let SubtypeIndication {
+            resolution,
             type_mark,
             constraint,
-            ..
         } = subtype_indication;
 
-        let base_type = self.type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)?;
+        let type_name = self.type_name(scope, type_mark.span, &mut type_mark.item, diagnostics)?;
 
         if let Some(constraint) = constraint {
             self.analyze_subtype_constraint(
                 scope,
                 &type_mark.pos(self.ctx),
-                base_type.base(),
+                type_name.base(),
                 &mut constraint.item,
                 diagnostics,
             )?;
         }
 
-        Ok(Subtype::new(base_type))
+        if let Some(resolution) = resolution {
+            as_fatal(self.analyze_resolution_indication(
+                scope,
+                resolution,
+                type_name,
+                &type_mark.pos(self.ctx),
+                false,
+                diagnostics,
+            ))?;
+        }
+
+        Ok(Subtype::new(type_name))
+    }
+
+    /// Analyzes `resolution` as applying to `typ`.
+    ///
+    /// `type_mark_pos` is the position of the type mark in the subtype indication.
+    /// `is_element` is true when `typ` is not the type mark itself, but an
+    /// element type reached through an enclosing element resolution.
+    pub fn analyze_resolution_indication(
+        &self,
+        scope: &Scope<'a>,
+        resolution: &mut ResolutionIndication,
+        typ: TypeEnt<'a>,
+        type_mark_pos: &SrcPos,
+        is_element: bool,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult {
+        let type_is_not = |kind: &str| {
+            if is_element {
+                format!(
+                    "Element type '{}' of this type is not {kind}",
+                    typ.designator()
+                )
+            } else {
+                format!("{} is not {kind}", typ.describe())
+            }
+        };
+        match resolution {
+            ResolutionIndication::FunctionName(func) => {
+                let name = self.name_resolve(scope, func.span(), &mut func.item, diagnostics)?;
+                match name {
+                    ResolvedName::Overloaded(des, name) => {
+                        let resolved_fn = self.disambiguate_resolution_function(
+                            &des,
+                            &name,
+                            typ.base(),
+                            diagnostics,
+                        )?;
+                        func.item.set_unique_reference(resolved_fn.ent);
+                    }
+                    _ => {
+                        diagnostics.push(Diagnostic::mismatched_kinds(
+                            func.pos(self.ctx),
+                            format!(
+                                "Resolution indication must be a function, not {}",
+                                name.describe()
+                            ),
+                        ));
+                    }
+                }
+            }
+            ResolutionIndication::Element(element) => match &mut element.item {
+                ElementResolution::Array(array_resolution) => match typ.base().kind() {
+                    Type::Array { elem_type, .. } => {
+                        self.analyze_resolution_indication(
+                            scope,
+                            array_resolution,
+                            *elem_type,
+                            type_mark_pos,
+                            true,
+                            diagnostics,
+                        )?;
+                    }
+                    _ => diagnostics.push(
+                        Diagnostic::mismatched_kinds(
+                            element.span.pos(self.ctx),
+                            "Resolving elements requires an array type",
+                        )
+                        .related(type_mark_pos, type_is_not("an array type")),
+                    ),
+                },
+                ElementResolution::Record(record_resolutions) => match typ.base().kind() {
+                    Type::Record(region) => {
+                        for RecordElementResolution { ident, resolution } in
+                            record_resolutions.iter_mut()
+                        {
+                            let des = Designator::Identifier(ident.item.item.clone());
+                            if let Some(elem) = region.lookup(&des) {
+                                ident.set_unique_reference(&elem);
+                                as_fatal(self.analyze_resolution_indication(
+                                    scope,
+                                    resolution,
+                                    elem.type_mark(),
+                                    type_mark_pos,
+                                    true,
+                                    diagnostics,
+                                ))?;
+                            } else {
+                                diagnostics.push(Diagnostic::no_declaration_within(
+                                    &typ.base(),
+                                    ident.item.pos(self.ctx),
+                                    &des,
+                                ));
+                            }
+                        }
+                    }
+                    _ => diagnostics.push(
+                        Diagnostic::mismatched_kinds(
+                            element.span.pos(self.ctx),
+                            "Resolving record fields requires a record type",
+                        )
+                        .related(type_mark_pos, type_is_not("a record type")),
+                    ),
+                },
+            },
+        }
+        Ok(())
+    }
+
+    /// Disambiguates `candidates` into a single `OverloadedEnt`, or
+    /// returns an error if this is not possible.
+    ///
+    /// Currently does not check / verify that
+    /// - the function must be pure
+    /// - the parameter must be `constant`
+    /// - the parameter's array type must be unconstrained
+    fn disambiguate_resolution_function(
+        &self,
+        name: &WithToken<Designator>,
+        candidates: &OverloadedName<'a>,
+        typ: BaseType<'a>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<OverloadedEnt<'a>> {
+        enum FilteredOutReason<'a> {
+            IsUninstantiated,
+            NotAFunction,
+            NotASingleInputParameter,
+            ReturnTypeDoesNotMatch {
+                actual: TypeEnt<'a>,
+                expected: TypeEnt<'a>,
+            },
+            ResolutionParameterIsNotArray,
+            ResolutionParameterElementTypeMismatch {
+                actual: TypeEnt<'a>,
+                expected: TypeEnt<'a>,
+            },
+            IndexNot1D,
+        }
+
+        impl Display for FilteredOutReason<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    FilteredOutReason::IsUninstantiated => {
+                        write!(f, "is an uninstantiated subprogram")
+                    }
+                    FilteredOutReason::NotAFunction => {
+                        write!(f, "is not a function")
+                    }
+                    FilteredOutReason::NotASingleInputParameter => {
+                        write!(f, "does not have a single input parameter")
+                    }
+                    FilteredOutReason::ReturnTypeDoesNotMatch { actual, expected } => {
+                        write!(
+                            f,
+                            "returns {} instead of {}",
+                            actual.describe(),
+                            expected.describe()
+                        )
+                    }
+                    FilteredOutReason::ResolutionParameterIsNotArray => {
+                        write!(f, "has a parameter that is not of an array type")
+                    }
+                    FilteredOutReason::ResolutionParameterElementTypeMismatch {
+                        actual,
+                        expected,
+                    } => {
+                        write!(
+                            f,
+                            "has a parameter whose element {} does not match {}",
+                            actual.describe(),
+                            expected.describe()
+                        )
+                    }
+                    FilteredOutReason::IndexNot1D => {
+                        write!(f, "has a parameter that is not a one-dimensional array")
+                    }
+                }
+            }
+        }
+
+        struct FilteredOut<'a> {
+            ent: OverloadedEnt<'a>,
+            reason: FilteredOutReason<'a>,
+            decl_pos: Option<SrcPos>,
+        }
+
+        let mut filtered_out = Vec::new();
+        let mut applicable = Vec::new();
+
+        for entity in candidates.entities() {
+            let mut filter_out = |reason, decl_pos: Option<&SrcPos>| {
+                filtered_out.push(FilteredOut {
+                    ent: entity,
+                    reason,
+                    decl_pos: decl_pos.cloned(),
+                })
+            };
+            match entity.kind() {
+                Overloaded::Subprogram(signature)
+                | Overloaded::SubprogramDecl(signature)
+                | Overloaded::InterfaceSubprogram(signature) => {
+                    // Is a procedure
+                    let Some(return_type) = signature.return_type else {
+                        filter_out(FilteredOutReason::NotAFunction, entity.decl_pos());
+                        continue;
+                    };
+                    if return_type.base_type() != typ.into() {
+                        filter_out(
+                            FilteredOutReason::ReturnTypeDoesNotMatch {
+                                actual: return_type.base_type(),
+                                expected: typ.into(),
+                            },
+                            entity.decl_pos(),
+                        );
+                        continue;
+                    }
+                    let mut formals = signature.formals.iter();
+                    if formals.len() != 1 {
+                        filter_out(
+                            FilteredOutReason::NotASingleInputParameter,
+                            entity.decl_pos(),
+                        );
+                        continue;
+                    }
+                    let parameter = formals.next().unwrap();
+                    match parameter.type_mark().base_type().kind() {
+                        Type::Array { elem_type, indexes } => {
+                            if elem_type.base_type() != typ.into() {
+                                filter_out(
+                                    FilteredOutReason::ResolutionParameterElementTypeMismatch {
+                                        actual: elem_type.base_type(),
+                                        expected: typ.into(),
+                                    },
+                                    parameter.decl_pos(),
+                                );
+                                continue;
+                            }
+                            if indexes.len() != 1 {
+                                filter_out(FilteredOutReason::IndexNot1D, parameter.decl_pos());
+                                continue;
+                            }
+                            applicable.push(entity);
+                        }
+                        _ => {
+                            filter_out(
+                                FilteredOutReason::ResolutionParameterIsNotArray,
+                                parameter.decl_pos(),
+                            );
+                        }
+                    }
+                }
+                Overloaded::UninstSubprogram(..) | Overloaded::UninstSubprogramDecl(..) => {
+                    filter_out(FilteredOutReason::IsUninstantiated, entity.decl_pos());
+                }
+                Overloaded::EnumLiteral(_) => {
+                    filter_out(FilteredOutReason::NotAFunction, entity.decl_pos());
+                }
+                Overloaded::Alias(_) => unreachable!("Alias should be resolved by 'entity.kind()'"),
+            }
+        }
+
+        match applicable.as_slice() {
+            [] => {
+                let mut diag = Diagnostic::new(
+                    name.pos(self.ctx),
+                    format!(
+                        "Could not resolve resolution function '{}'",
+                        name.item.designator()
+                    ),
+                    ErrorCode::Unresolved,
+                );
+                filtered_out.sort_by(|x, y| x.decl_pos.cmp(&y.decl_pos));
+                for FilteredOut {
+                    ent,
+                    reason,
+                    decl_pos,
+                } in filtered_out
+                {
+                    if let Some(decl_pos) = decl_pos {
+                        diag.add_related(
+                            decl_pos,
+                            format!("candidate {} {reason}", ent.describe()),
+                        );
+                    }
+                }
+                diagnostics.push(diag);
+                Err(EvalError::Unknown)
+            }
+            [single] => Ok(*single),
+            _ => {
+                let mut diag = Diagnostic::new(
+                    name.pos(self.ctx),
+                    format!("Ambiguous resolution function '{}'", name.item.designator()),
+                    ErrorCode::AmbiguousCall,
+                );
+                diag.add_subprogram_candidates("Might be", applicable);
+                diagnostics.push(diag);
+                Err(EvalError::Unknown)
+            }
+        }
     }
 
     pub(crate) fn analyze_type_declaration(

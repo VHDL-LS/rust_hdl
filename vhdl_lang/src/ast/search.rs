@@ -754,15 +754,35 @@ impl Search for WithTokenSpan<SubtypeConstraint> {
 
 impl Search for SubtypeIndication {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        // @TODO more
         let SubtypeIndication {
+            resolution,
             type_mark,
             constraint,
-            ..
         } = self;
+        return_if_found!(resolution.search(ctx, searcher));
         return_if_found!(type_mark.search(ctx, searcher));
         return_if_found!(constraint.search(ctx, searcher));
         NotFound
+    }
+}
+
+impl Search for ResolutionIndication {
+    fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        match self {
+            ResolutionIndication::FunctionName(name) => name.search(ctx, searcher),
+            ResolutionIndication::Element(element) => match &element.item {
+                ElementResolution::Array(resolution) => resolution.search(ctx, searcher),
+                ElementResolution::Record(resolutions) => {
+                    for RecordElementResolution { resolution, ident } in resolutions {
+                        return_if_found!(searcher
+                            .search_pos_with_ref(ctx, ident.item.pos(ctx), &ident.reference)
+                            .or_not_found());
+                        return_if_found!(resolution.search(ctx, searcher));
+                    }
+                    NotFound
+                }
+            },
+        }
     }
 }
 

@@ -380,7 +380,7 @@ pub enum SubtypeConstraint {
 /// LRM 6.3 Subtype declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct RecordElementResolution {
-    pub ident: Ident,
+    pub ident: WithRef<Ident>,
     pub resolution: Box<ResolutionIndication>,
 }
 

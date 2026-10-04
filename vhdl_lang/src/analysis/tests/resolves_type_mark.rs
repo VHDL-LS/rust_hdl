@@ -500,6 +500,338 @@ end architecture;
     );
 }
 
+#[test]
+fn array_element_resolution_requires_array_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+  f : bit;
+end record;
+function res(arg : bit_vector) return bit;
+
+subtype sub1_t is (res) bit;
+subtype sub2_t is (res) rec_t;
+subtype sub3_t is ((res)) bit_vector;
+",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![
+            Diagnostic::mismatched_kinds(
+                code.s1("(res) bit;").s1("(res)"),
+                "Resolving elements requires an array type",
+            )
+            .related(
+                code.s1("(res) bit;").s1("bit"),
+                "type 'BIT' is not an array type",
+            ),
+            Diagnostic::mismatched_kinds(
+                code.s1("(res) rec_t").s1("(res)"),
+                "Resolving elements requires an array type",
+            )
+            .related(
+                code.s1("(res) rec_t").s1("rec_t"),
+                "record type 'rec_t' is not an array type",
+            ),
+            Diagnostic::mismatched_kinds(
+                code.s1("((res)) bit_vector").s1("(res)"),
+                "Resolving elements requires an array type",
+            )
+            .related(
+                code.s1("((res)) bit_vector").s1("bit_vector"),
+                "Element type 'BIT' of this type is not an array type",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn record_element_resolution_requires_record_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+function res(arg : bit_vector) return bit;
+
+subtype sub1_t is (f res) bit;
+subtype sub2_t is (f res) bit_vector;
+subtype sub3_t is ((f res)) bit_vector;
+",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![
+            Diagnostic::mismatched_kinds(
+                code.s1("(f res) bit;").s1("(f res)"),
+                "Resolving record fields requires a record type",
+            )
+            .related(
+                code.s1("(f res) bit;").s1("bit"),
+                "type 'BIT' is not a record type",
+            ),
+            Diagnostic::mismatched_kinds(
+                code.s1("(f res) bit_vector").s1("(f res)"),
+                "Resolving record fields requires a record type",
+            )
+            .related(
+                code.s1("(f res) bit_vector").s1("bit_vector"),
+                "array type 'BIT_VECTOR' is not a record type",
+            ),
+            Diagnostic::mismatched_kinds(
+                code.s1("((f res)) bit_vector").s1("(f res)"),
+                "Resolving record fields requires a record type",
+            )
+            .related(
+                code.s1("((f res)) bit_vector").s1("bit_vector"),
+                "Element type 'BIT' of this type is not a record type",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn record_element_resolution_resolves_elements() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type inner_t is record
+  a : bit;
+end record;
+type outer_t is record
+  i : inner_t;
+  b : bit_vector;
+end record;
+function res(arg : bit_vector) return bit;
+
+subtype sub_t is (i (a res), b (res)) outer_t;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let usage = code.s1("(i (a res), b (res))");
+    for (name, decl) in [
+        ("i", code.s1("i : inner_t").s1("i")),
+        ("a", code.s1("a : bit").s1("a")),
+        ("b", code.s1("b : bit_vector").s1("b")),
+    ] {
+        assert_eq!(
+            root.search_reference_pos(code.source(), usage.s1(name).start()),
+            Some(decl.pos()),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn record_element_resolution_requires_existing_elements() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type inner_t is record
+  a : bit;
+end record;
+type outer_t is record
+  i : inner_t;
+end record;
+function res(arg : bit_vector) return bit;
+
+subtype sub_t is (x res, i (y res)) outer_t;
+",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![
+            Diagnostic::new(
+                code.s1("x res").s1("x"),
+                "No declaration of 'x' within record type 'outer_t'",
+                ErrorCode::Unresolved,
+            ),
+            Diagnostic::new(
+                code.s1("y res").s1("y"),
+                "No declaration of 'y' within record type 'inner_t'",
+                ErrorCode::Unresolved,
+            ),
+        ],
+    );
+}
+
+#[test]
+fn record_element_resolution_continues_after_unresolved_function() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+  a : bit;
+  b : bit;
+end record;
+function res(arg : bit_vector) return bit;
+
+subtype sub_t is (a missing, b res) rec_t;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("missing"),
+            "No declaration of 'missing'",
+            ErrorCode::Unresolved,
+        )],
+    );
+
+    let usage = code.s1("b res");
+    assert_eq!(
+        root.search_reference_pos(code.source(), usage.s1("b").start()),
+        Some(code.s1("b : bit").s1("b").pos())
+    );
+    assert_eq!(
+        root.search_reference_pos(code.source(), usage.s1("res").start()),
+        Some(code.s1("function res").s1("res").pos())
+    );
+}
+
+#[test]
+fn resolution_function_is_disambiguated_by_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type bv_arr_t is array (natural range <>) of bit_vector;
+
+function res(arg : bit_vector) return bit;
+function res(arg : string) return character;
+function res(arg : bv_arr_t) return bit_vector;
+procedure res(arg : bit_vector);
+
+subtype sub1_t is res bit;
+subtype sub2_t is res character;
+subtype sub3_t is res bit_vector;
+subtype sub4_t is (res) bit_vector;
+subtype sub5_t is ((res)) bv_arr_t;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let bit_res = code.s1("function res(arg : bit_vector)").s1("res").pos();
+    let character_res = code.s1("function res(arg : string)").s1("res").pos();
+    let bit_vector_res = code.s1("function res(arg : bv_arr_t)").s1("res").pos();
+
+    for (usage, decl_pos) in [
+        ("res bit;", &bit_res),
+        ("res character;", &character_res),
+        ("res bit_vector;", &bit_vector_res),
+        ("(res) bit_vector;", &bit_res),
+        ("((res)) bv_arr_t;", &bit_res),
+    ] {
+        assert_eq!(
+            root.search_reference_pos(code.source(), code.s1(usage).s1("res").start()),
+            Some(decl_pos.clone()),
+            "{usage}"
+        );
+    }
+}
+
+#[test]
+fn resolution_function_candidates_are_filtered_out() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type enum_t is (res);
+type bit_matrix_t is array (natural range <>, natural range <>) of bit;
+
+procedure res(arg0 : bit_vector);
+function res generic (type T) parameter (arg1 : T) return bit;
+function res(arg2 : bit_vector) return boolean;
+function res(arg3, arg4 : bit_vector) return bit;
+function res(arg5 : bit) return bit;
+function res(arg6 : string) return bit;
+function res(arg7 : bit_matrix_t) return bit;
+
+subtype sub_t is res bit;
+",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("res bit;").s1("res"),
+            "Could not resolve resolution function 'res'",
+            ErrorCode::Unresolved,
+        )
+        .related(
+            code.s1("(res)").s1("res"),
+            "candidate res[return enum_t] is not a function",
+        )
+        .related(
+            code.s1("procedure res").s1("res"),
+            "candidate procedure res[BIT_VECTOR] is not a function",
+        )
+        .related(
+            code.s1("function res generic").s1("res"),
+            "candidate function res[T return BIT] is an uninstantiated subprogram",
+        )
+        .related(
+            code.s1("function res(arg2").s1("res"),
+            "candidate function res[BIT_VECTOR return BOOLEAN] returns type 'BOOLEAN' instead of type 'BIT'",
+        )
+        .related(
+            code.s1("function res(arg3").s1("res"),
+            "candidate function res[BIT_VECTOR, BIT_VECTOR return BIT] does not have a single input parameter",
+        )
+        .related(
+            code.s1("arg5"),
+            "candidate function res[BIT return BIT] has a parameter that is not of an array type",
+        )
+        .related(
+            code.s1("arg6"),
+            "candidate function res[STRING return BIT] has a parameter whose element type 'CHARACTER' does not match type 'BIT'",
+        )
+        .related(
+            code.s1("arg7"),
+            "candidate function res[bit_matrix_t return BIT] has a parameter that is not a one-dimensional array",
+        )],
+    );
+}
+
+#[test]
+fn ambiguous_resolution_function() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type bv2_t is array (natural range <>) of bit;
+
+function res(arg : bit_vector) return bit;
+function res(arg : bv2_t) return bit;
+
+subtype sub_t is res bit;
+",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("res bit;").s1("res"),
+            "Ambiguous resolution function 'res'",
+            ErrorCode::AmbiguousCall,
+        )
+        .related(
+            code.s1("function res(arg : bit_vector)").s1("res"),
+            "Might be function res[BIT_VECTOR return BIT]",
+        )
+        .related(
+            code.s1("function res(arg : bv2_t)").s1("res"),
+            "Might be function res[bv2_t return BIT]",
+        )],
+    );
+}
+
 pub fn kind_error(
     code: &Code,
     name: &str,
