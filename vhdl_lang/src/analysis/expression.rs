@@ -822,7 +822,8 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
 
                         match implicit_bool_types.len().cmp(&1) {
                             std::cmp::Ordering::Equal => {
-                                let typ: TypeEnt<'_> = types.into_iter().next().unwrap().into();
+                                let typ: TypeEnt<'_> =
+                                    implicit_bool_types.into_iter().next().unwrap().into();
                                 self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                             }
                             std::cmp::Ordering::Greater => {
