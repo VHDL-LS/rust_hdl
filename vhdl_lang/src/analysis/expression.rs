@@ -1037,6 +1037,183 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         Ok(())
     }
 
+    fn to_record_choices<'b>(
+        &self,
+        choices: &'b mut Vec<WithTokenSpan<Choice>>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<RecordChoices<'b>> {
+        if choices.len() == 1 && choices[0].item == Choice::Others {
+            return Ok(RecordChoices::Others(choices[0].span));
+        }
+        let mut designators = Vec::new();
+
+        for choice in choices {
+            let span = choice.span;
+            match &mut choice.item {
+                Choice::Expression(expression) => {
+                    let Some(simple_name) = as_name_mut(expression).and_then(as_simple_name_mut)
+                    else {
+                        diagnostics.add(
+                            span.pos(self.ctx),
+                            "Record aggregate choice must be a simple name",
+                            ErrorCode::MismatchedKinds,
+                        );
+                        return Err(EvalError::Unknown);
+                    };
+                    designators.push((choice.span, simple_name));
+                }
+                Choice::DiscreteRange(_) => {
+                    diagnostics.add(
+                        span.pos(self.ctx),
+                        "Record aggregate choice cannot be a range",
+                        ErrorCode::MismatchedKinds,
+                    );
+                    return Err(EvalError::Unknown);
+                }
+                Choice::Others => {
+                    diagnostics.add(
+                        span.pos(self.ctx),
+                        "'others' choice can only appear as single item",
+                        ErrorCode::MismatchedKinds,
+                    );
+                    return Err(EvalError::Unknown);
+                }
+            }
+        }
+
+        Ok(RecordChoices::Choices(designators))
+    }
+
+    fn analyze_record_choices<'b>(
+        &self,
+        choices: RecordChoices<'b>,
+        diagnostics: &mut dyn DiagnosticHandler,
+        elems: &RecordRegion<'a>,
+        associated: &mut RecordAssociations,
+        record_type: TypeEnt<'a>,
+        is_ok_so_far: &mut bool,
+    ) -> Option<BaseType<'a>> {
+        match choices {
+            RecordChoices::Others(span) => {
+                let remaining_types: FnvHashSet<_> = elems
+                    .iter()
+                    .filter_map(|elem| {
+                        if !associated.is_associated(elem) {
+                            Some(elem.type_mark().base())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                if remaining_types.len() > 1 {
+                    let mut diag = Diagnostic::new(
+                        span.pos(self.ctx),
+                        format!(
+                            "Other elements of record '{}' are not of the same type",
+                            record_type.designator()
+                        ),
+                        ErrorCode::TypeMismatch,
+                    );
+                    for elem in elems.iter() {
+                        if !associated.is_associated(elem) {
+                            if let Some(decl_pos) = elem.decl_pos() {
+                                diag.add_related(
+                                    decl_pos,
+                                    format!(
+                                        "Element '{}' has {}",
+                                        elem.designator(),
+                                        elem.type_mark().describe()
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    diagnostics.push(diag);
+                } else if remaining_types.is_empty() {
+                    diagnostics.push(
+                        Diagnostic::new(
+                            span.pos(self.ctx),
+                            format!(
+                                "All elements of record '{}' are already associated",
+                                record_type.designator()
+                            ),
+                            ErrorCode::AlreadyAssociated,
+                        )
+                        .opt_related(
+                            record_type.decl_pos(),
+                            format!("Record '{}' defined here", record_type.designator()),
+                        ),
+                    )
+                }
+
+                for elem in elems.iter() {
+                    if !associated.is_associated(elem) {
+                        associated.associate(self.ctx, elem, span, diagnostics);
+                    }
+                }
+
+                if remaining_types.len() == 1 {
+                    remaining_types.into_iter().next()
+                } else {
+                    None
+                }
+            }
+            RecordChoices::Choices(designators) => {
+                let mut common_type: Option<(TokenSpan, BaseType<'_>)> = None;
+                let mut typ_ok = true;
+                for (span, simple_name) in designators {
+                    if let Some(elem) = elems.lookup(&simple_name.item) {
+                        simple_name.set_unique_reference(&elem);
+                        associated.associate(self.ctx, elem, span, diagnostics);
+                        if let Some((previous_span, previous_type)) = common_type.as_ref() {
+                            if typ_ok && *previous_type != elem.type_mark().base() {
+                                typ_ok = false;
+                                *is_ok_so_far = false;
+                                diagnostics.push(
+                                    Diagnostic::new(
+                                        span.pos(self.ctx),
+                                        "The type of all aggregate elements does not match",
+                                        ErrorCode::TypeMismatch,
+                                    )
+                                    .related(
+                                        span.pos(self.ctx),
+                                        format!(
+                                            "This element has {}",
+                                            elem.type_mark().base().describe()
+                                        ),
+                                    )
+                                    .related(
+                                        previous_span.pos(self.ctx),
+                                        format!(
+                                            "Previous element has {}",
+                                            previous_type.describe()
+                                        ),
+                                    ),
+                                );
+                            }
+                        } else {
+                            common_type = Some((span, elem.type_mark().base()))
+                        }
+                    } else {
+                        *is_ok_so_far = false;
+                        diagnostics.push(Diagnostic::no_declaration_within(
+                            &record_type,
+                            &span.pos(self.ctx),
+                            &simple_name.item,
+                        ));
+                    }
+                }
+
+                if typ_ok {
+                    common_type.map(|(_, typ)| typ)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
     pub fn analyze_record_aggregate(
         &self,
         scope: &Scope<'a>,
@@ -1052,132 +1229,21 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
         for (idx, assoc) in assocs.iter_mut().enumerate() {
             match &mut assoc.item {
                 ElementAssociation::Named(ref mut choices, ref mut actual_expr) => {
-                    let typ = if choices.len() == 1 {
-                        let choice = choices.first_mut().unwrap();
-                        let choice_span = choice.span;
-                        match &mut choice.item {
-                            Choice::Expression(choice_expr) => {
-                                if let Some(simple_name) =
-                                    as_name_mut(choice_expr).and_then(as_simple_name_mut)
-                                {
-                                    if let Some(elem) = elems.lookup(&simple_name.item) {
-                                        simple_name.set_unique_reference(&elem);
-                                        associated.associate(
-                                            self.ctx,
-                                            elem,
-                                            choice.span,
-                                            diagnostics,
-                                        );
-                                        Some(elem.type_mark().base())
-                                    } else {
-                                        is_ok_so_far = false;
-                                        diagnostics.push(Diagnostic::no_declaration_within(
-                                            &record_type,
-                                            &choice_span.pos(self.ctx),
-                                            &simple_name.item,
-                                        ));
-                                        None
-                                    }
-                                } else {
-                                    is_ok_so_far = false;
-                                    diagnostics.add(
-                                        choice.pos(self.ctx),
-                                        "Record aggregate choice must be a simple name",
-                                        ErrorCode::MismatchedKinds,
-                                    );
-                                    None
-                                }
-                            }
-                            Choice::DiscreteRange(_) => {
-                                is_ok_so_far = false;
-                                diagnostics.add(
-                                    choice.pos(self.ctx),
-                                    "Record aggregate choice must be a simple name",
-                                    ErrorCode::MismatchedKinds,
-                                );
-                                None
-                            }
-                            Choice::Others => {
-                                // @TODO empty others
-                                let remaining_types: FnvHashSet<BaseType<'_>> = elems
-                                    .iter()
-                                    .filter_map(|elem| {
-                                        if !associated.is_associated(elem) {
-                                            Some(elem.type_mark().base())
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect();
-
-                                if remaining_types.len() > 1 {
-                                    let mut diag = Diagnostic::new(choice.pos(self.ctx), format!("Other elements of record '{}' are not of the same type", record_type.designator()), ErrorCode::TypeMismatch);
-                                    for elem in elems.iter() {
-                                        if !associated.is_associated(elem) {
-                                            if let Some(decl_pos) = elem.decl_pos() {
-                                                diag.add_related(
-                                                    decl_pos,
-                                                    format!(
-                                                        "Element '{}' has {}",
-                                                        elem.designator(),
-                                                        elem.type_mark().describe()
-                                                    ),
-                                                );
-                                            }
-                                        }
-                                    }
-                                    diagnostics.push(diag);
-                                } else if remaining_types.is_empty() {
-                                    diagnostics.push(
-                                        Diagnostic::new(
-                                            choice.pos(self.ctx),
-                                            format!(
-                                                "All elements of record '{}' are already associated",
-                                                record_type.designator()
-                                            ),
-                                            ErrorCode::AlreadyAssociated,
-                                        )
-                                            .opt_related(
-                                                record_type.decl_pos(),
-                                                format!(
-                                                    "Record '{}' defined here",
-                                                    record_type.designator()
-                                                ),
-                                            ),
-                                    )
-                                }
-
-                                for elem in elems.iter() {
-                                    if !associated.is_associated(elem) {
-                                        associated.associate(
-                                            self.ctx,
-                                            elem,
-                                            choice.span,
-                                            diagnostics,
-                                        );
-                                    }
-                                }
-
-                                if remaining_types.len() == 1 {
-                                    remaining_types.into_iter().next()
-                                } else {
-                                    None
-                                }
-                            }
-                        }
+                    let typ = if let Some(choices) =
+                        as_fatal(self.to_record_choices(choices, diagnostics))?
+                    {
+                        self.analyze_record_choices(
+                            choices,
+                            diagnostics,
+                            elems,
+                            &mut associated,
+                            record_type,
+                            &mut is_ok_so_far,
+                        )
                     } else {
-                        if let (Some(first), Some(last)) = (choices.first(), choices.last()) {
-                            is_ok_so_far = false;
-                            let pos = first.span.combine(last.span);
-                            diagnostics.add(
-                                pos.pos(self.ctx),
-                                "Record aggregate choice must be a simple name",
-                                ErrorCode::MismatchedKinds,
-                            );
-                        }
+                        is_ok_so_far = false;
                         None
                     };
-
                     if let Some(typ) = typ {
                         self.expr_pos_with_ttyp(
                             scope,
@@ -1404,6 +1470,11 @@ impl RecordAssociations {
     fn is_associated(&self, elem: RecordElement<'_>) -> bool {
         self.0.contains_key(&elem.id())
     }
+}
+
+enum RecordChoices<'a> {
+    Others(TokenSpan),
+    Choices(Vec<(TokenSpan, &'a mut WithRef<Designator>)>),
 }
 
 #[cfg(test)]

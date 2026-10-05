@@ -942,10 +942,10 @@ constant bad3 : rec_t := (field | 0 => 0);
             ),
             Diagnostic::mismatched_kinds(
                 code.s1("0 to 1"),
-                "Record aggregate choice must be a simple name",
+                "Record aggregate choice cannot be a range",
             ),
             Diagnostic::mismatched_kinds(
-                code.s1("field | 0"),
+                code.s1("field | 0").s1("0"),
                 "Record aggregate choice must be a simple name",
             ),
         ],
@@ -1054,6 +1054,80 @@ constant bad3 : rec_t := ('a', 0, 0, others => 3);
                 ErrorCode::AlreadyAssociated,
             )
             .related(code.s1("rec_t"), "Record 'rec_t' defined here"),
+        ],
+    );
+}
+
+#[test]
+fn record_aggregate_multiple_choices_of_same_type() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+type rec_t is record
+    f1 : character;
+    f2 : integer;
+    f3 : integer;
+end record;
+
+constant good1 : rec_t := (f1 => 'a', f2 | f3 => 0);
+constant good2 : rec_t := (f2 | f3 => 0, f1 => 'a');
+constant good3 : rec_t := (f3 | f2 => 0, others => 'a');
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn record_aggregate_multiple_choices_of_different_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+    f1 : character;
+    f2 : integer;
+    f3 : integer;
+end record;
+
+constant bad1 : rec_t := (f2 | f1 => 0, f3 => 0);
+constant bad2 : rec_t := (f1 => 'a', f2 | f3 => 'b');
+constant bad3 : rec_t := (f1 => 'a', f2 | missing => 0, f3 => 0);
+constant bad4 : rec_t := (f1 => 'a', f2 | others => 0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::new(
+                code.s1("f2 | f1").s1("f1"),
+                "The type of all aggregate elements does not match",
+                ErrorCode::TypeMismatch,
+            )
+            .related(
+                code.s1("f2 | f1").s1("f1"),
+                "This element has type 'CHARACTER'",
+            )
+            .related(
+                code.s1("f2 | f1").s1("f2"),
+                "Previous element has integer type 'INTEGER'",
+            ),
+            Diagnostic::new(
+                code.s1("'b'"),
+                "character literal does not match integer type 'INTEGER'",
+                ErrorCode::TypeMismatch,
+            ),
+            Diagnostic::new(
+                code.s1("missing"),
+                "No declaration of 'missing' within record type 'rec_t'",
+                ErrorCode::Unresolved,
+            ),
+            Diagnostic::mismatched_kinds(
+                code.s1("f2 | others").s1("others"),
+                "'others' choice can only appear as single item",
+            ),
         ],
     );
 }
