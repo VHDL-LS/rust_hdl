@@ -1408,7 +1408,91 @@ impl<'a> AnalyzeContext<'a, '_> {
         match resolved {
             ResolvedName::Overloaded(ref des, ref overloaded) => {
                 if let Suffix::CallOrIndexed(ref mut assocs) = suffix {
-                    // @TODO could be overloaded with no arguments that is indexed
+                    if !has_suffix && could_be_indexed_name(assocs) {
+                        // Probe both interpretations on copies so only the selected one
+                        // sets references in the actual associations.
+                        let mut candidates = Vec::new();
+                        for ent in overloaded.entities() {
+                            if ent.signature().can_be_called_without_actuals()
+                                && !ent.is_uninst_subprogram()
+                            {
+                                if let Some(return_type) = ent.return_type() {
+                                    let mut index_assocs = assocs.to_vec();
+                                    let mut index_diagnostics = Vec::new();
+                                    if let Some(Some(TypeOrMethod::Type(typ))) =
+                                        as_fatal(self.resolve_typed_suffix(
+                                            scope,
+                                            prefix.span,
+                                            span,
+                                            return_type,
+                                            &mut Suffix::CallOrIndexed(&mut index_assocs),
+                                            &mut index_diagnostics,
+                                        ))?
+                                    {
+                                        if index_diagnostics.is_empty() {
+                                            candidates.push((ent, typ, Some(index_assocs)));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if !candidates.is_empty() {
+                            for ent in overloaded.entities() {
+                                if ent.is_uninst_subprogram() {
+                                    continue;
+                                }
+                                if let Some(return_type) = ent.return_type() {
+                                    let mut call_diagnostics = Vec::new();
+                                    self.check_call(
+                                        scope,
+                                        &span.pos(self.ctx),
+                                        ent,
+                                        &mut assocs.to_vec(),
+                                        &mut call_diagnostics,
+                                    )?;
+                                    if call_diagnostics.is_empty() {
+                                        candidates.push((ent, return_type, None));
+                                    }
+                                }
+                            }
+
+                            if let Some(ttyp) = ttyp {
+                                if candidates
+                                    .iter()
+                                    .any(|(_, typ, _)| self.can_be_target_type(*typ, ttyp.base()))
+                                {
+                                    candidates.retain(|(_, typ, _)| {
+                                        self.can_be_target_type(*typ, ttyp.base())
+                                    });
+                                }
+                            }
+
+                            if candidates.iter().any(|(_, _, indexed)| indexed.is_some()) {
+                                if let [(ent, typ, Some(index_assocs))] = candidates.as_slice() {
+                                    prefix.set_unique_reference(ent);
+                                    assocs.clone_from_slice(index_assocs);
+                                    return Ok(ResolvedName::Expression(
+                                        DisambiguatedType::Unambiguous(*typ),
+                                    ));
+                                }
+
+                                if ttyp.is_some() {
+                                    diagnostics.push(Diagnostic::ambiguous_call(
+                                        self.ctx,
+                                        des,
+                                        candidates.iter().map(|(ent, _, _)| *ent),
+                                    ));
+                                }
+                                return Ok(ResolvedName::Expression(DisambiguatedType::Ambiguous(
+                                    candidates
+                                        .into_iter()
+                                        .map(|(_, typ, _)| typ.base())
+                                        .collect(),
+                                )));
+                            }
+                        }
+                    }
 
                     // @TODO lookup already set reference to get O(N) instead of O(N^2) when disambiguating deeply nested ambiguous calls
                     if let Some(id) = prefix.item.get_suffix_reference() {
