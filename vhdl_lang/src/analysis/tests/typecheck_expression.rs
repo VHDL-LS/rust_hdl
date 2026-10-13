@@ -514,7 +514,6 @@ constant good : natural := thefun(0)(0);
     check_no_diagnostics(&diagnostics);
 }
 
-#[ignore = "Does not work yet"]
 #[test]
 fn function_result_can_be_indexed_no_arg() {
     let mut builder = LibraryBuilder::new();
@@ -525,7 +524,30 @@ begin
    return (0, 1);
 end;
 
+function bits return bit_vector is
+begin
+    return \"10\";
+end;
+
+function defaulted(arg : natural := 0) return bit_vector is
+begin
+    return \"10\";
+end;
+
+function overloaded return bit_vector;
+function overloaded(arg : natural) return integer_vector;
+function element_arg(arg : bit := '0') return bit_vector;
+
 constant good : natural := thefun(0);
+constant first_bit : bit := bits(0);
+constant default_bit : bit := defaulted(0);
+constant called_vector : bit_vector := defaulted(0);
+constant overloaded_bit : bit := overloaded(0);
+constant overloaded_vector : integer_vector := overloaded(0);
+constant chained_bit : bit := element_arg('0')(0);
+constant chained_default : bit := defaulted(0)(0);
+constant compared : boolean := bits(0) = '1';
+constant compared_default : boolean := defaulted(0) = '1';
         ",
     );
 
