@@ -556,6 +556,84 @@ constant compared_default : boolean := defaulted(0) = '1';
 }
 
 #[test]
+fn function_result_index_or_call_reports_type_mismatch() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+function defaulted(arg : natural := 0) return bit_vector;
+
+constant c0 : integer := defaulted(0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("defaulted(0)"),
+            "Expression of array type 'BIT_VECTOR' does not match integer type 'INTEGER'",
+            ErrorCode::TypeMismatch,
+        )],
+    );
+}
+
+#[test]
+fn function_result_index_or_call_sets_references() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    function defaulted(arg : natural := 0) return bit_vector is
+    begin
+        return \"10\";
+    end function;
+begin
+    process
+        variable k : natural := 0;
+    begin
+        case defaulted(k) is
+            when others => null;
+        end case;
+        wait;
+    end process;
+end architecture;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    // Both the call and the indexed result are discrete or character arrays
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("defaulted(k)"),
+            "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
+            ErrorCode::AmbiguousExpression,
+        )],
+    );
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s("defaulted", 2).start()),
+        Some(code.s1("defaulted").pos())
+    );
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("(k)").s1("k").start()),
+        Some(code.s1("k").pos())
+    );
+    assert_eq!(
+        root.find_all_references_pos(&code.s1("defaulted").pos()),
+        vec![code.s("defaulted", 1).pos(), code.s("defaulted", 2).pos()]
+    );
+    assert_eq!(
+        root.find_all_references_pos(&code.s1("k").pos()),
+        vec![code.s("k", 1).pos(), code.s("k", 2).pos()]
+    );
+}
+
+#[test]
 fn test_type_conversion() {
     let mut builder = LibraryBuilder::new();
     builder.in_declarative_region(
