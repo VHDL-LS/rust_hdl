@@ -71,6 +71,49 @@ impl<'a> DeadCodeSearcher<'a> {
             self.references.insert(other);
         }
     }
+
+    /// When the enclosing entity/component of a port map cannot be resolved,
+    /// the analyzer does not assign references to the actual names. This
+    /// method tries to resolve the base designator of the actual name
+    /// manually by matching it against known declarations in the current
+    /// design unit. This is a conservative fallback to avoid false
+    /// "never assigned" (Uninitialized) diagnostics.
+    fn resolve_unresolved_actual(
+        &mut self,
+        name: &crate::ast::Name,
+        is_write: bool,
+        is_read: bool,
+    ) {
+        // Only attempt manual resolution if the name has no reference.
+        if name.get_suffix_reference_disregard_index().is_some() {
+            return;
+        }
+
+        // Extract the base designator (e.g. `LinkData_in` from `LinkData_in(0 to 3)`).
+        let Some(base_designator) = name.prefix() else {
+            return;
+        };
+
+        // Collect matching object entities from known declarations.
+        // Collect first to avoid borrow checker issues.
+        let matches: Vec<EntRef<'a>> = self
+            .declarations
+            .iter()
+            .filter(|&ent| {
+                ent.designator() == base_designator && ObjectEnt::from_any(ent).is_some()
+            })
+            .copied()
+            .collect();
+
+        for ent in matches {
+            if is_read {
+                self.add_reference(ent, false);
+            }
+            if is_write {
+                self.add_reference(ent, true);
+            }
+        }
+    }
 }
 
 impl Searcher for DeadCodeSearcher<'_> {
@@ -105,60 +148,96 @@ impl Searcher for DeadCodeSearcher<'_> {
         ctx: &dyn TokenAccess,
         assoc: &AssociationElement,
     ) -> SearchState {
-        // Determine whether the formal is an out/buffer/inout port.
-        // If so, the actual signal is written (driven) by the connected
-        // component through that port, and we must track it as a write
-        // to avoid false "never assigned" (Uninitialized) diagnostics.
-        let write_kind = assoc
-            .formal
-            .as_ref()
-            .and_then(|formal| formal.item.get_suffix_reference())
-            .map(|id| self.root.get_ent(id))
-            .and_then(ObjectEnt::from_any)
-            .and_then(|obj| {
-                if let Some(ObjectInterface::Port(mode)) = &obj.object().iface {
-                    match mode {
-                        InterfaceMode::Simple(Mode::Out) | InterfaceMode::Simple(Mode::Buffer) => {
-                            Some(false)
-                        } // write-only
-                        InterfaceMode::Simple(Mode::InOut) => Some(true), // read + write
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
-            });
-
-        let Some(is_inout) = write_kind else {
-            // Not an out/buffer/inout port — let the default search handle it.
-            return SearchState::NotFinished;
-        };
-
-        // Search the formal normally (counts as a reference to the port).
-        if let Some(formal) = &assoc.formal {
-            let _ = search_pos_name(&formal.pos(ctx), &formal.item, self, ctx);
+        // Classify the association based on the formal's kind and mode.
+        // This determines whether the actual signal is read, written, or both.
+        //
+        // - out/buffer port or parameter → actual is written (driven by the
+        //   connected component or subprogram)
+        // - inout port or parameter → actual is both read and written
+        // - in port/parameter, generic → actual is read (default search)
+        // - formal present but unresolved → conservative: treat as read+write
+        //   to avoid false "never assigned" diagnostics when the entity or
+        //   component cannot be resolved
+        enum WriteKind {
+            WriteOnly,
+            ReadWrite,
+            ReadOnly,
         }
 
-        // Search the actual.
-        if let ActualPart::Expression(expr) = &assoc.actual.item {
-            if is_inout {
-                // inout port: the actual is both read and written.
-                let _ = search_pos_conditional_expr(ctx, &assoc.actual.pos(ctx), expr, self);
-                if let ConditionalExpression::Simple(Expression::Name(name)) = expr {
-                    let _ = search_pos_name_target(&assoc.actual.pos(ctx), name, self, ctx);
+        let write_kind = if let Some(formal) = &assoc.formal {
+            match formal.item.get_suffix_reference() {
+                Some(id) => {
+                    let ent = self.root.get_ent(id);
+                    match ObjectEnt::from_any(ent).map(|obj| &obj.object().iface) {
+                        Some(Some(ObjectInterface::Port(mode)))
+                        | Some(Some(ObjectInterface::Parameter(mode))) => match mode {
+                            InterfaceMode::Simple(Mode::Out)
+                            | InterfaceMode::Simple(Mode::Buffer) => WriteKind::WriteOnly,
+                            InterfaceMode::Simple(Mode::InOut) => WriteKind::ReadWrite,
+                            _ => WriteKind::ReadOnly,
+                        },
+                        _ => WriteKind::ReadOnly,
+                    }
                 }
-            } else {
-                // out/buffer port: the actual is written (driven by the component).
-                if let ConditionalExpression::Simple(Expression::Name(name)) = expr {
-                    let _ = search_pos_name_target(&assoc.actual.pos(ctx), name, self, ctx);
-                } else {
-                    // Fallback for non-name actuals: search normally.
-                    let _ = search_pos_conditional_expr(ctx, &assoc.actual.pos(ctx), expr, self);
+                None => {
+                    // Formal is present but unresolved (e.g. the instantiated
+                    // entity or component could not be found). Be conservative
+                    // and treat the actual as both read and written to avoid
+                    // false positives.
+                    WriteKind::ReadWrite
                 }
             }
-        }
+        } else {
+            // No formal (positional association or index expression) —
+            // let the default search handle it.
+            WriteKind::ReadOnly
+        };
 
-        SearchState::Finished(SearchResult::NotFound)
+        match write_kind {
+            WriteKind::ReadOnly => {
+                // Let the default search handle it.
+                SearchState::NotFinished
+            }
+            WriteKind::WriteOnly => {
+                // Search the formal normally (counts as a reference to the port).
+                if let Some(formal) = &assoc.formal {
+                    let _ = search_pos_name(&formal.pos(ctx), &formal.item, self, ctx);
+                }
+                // The actual is written (driven by the component/subprogram).
+                if let ActualPart::Expression(expr) = &assoc.actual.item {
+                    if let ConditionalExpression::Simple(Expression::Name(name)) = expr {
+                        let _ = search_pos_name_target(&assoc.actual.pos(ctx), name, self, ctx);
+                        // If the actual's reference is unresolved (e.g. the
+                        // entity/component could not be analyzed), resolve
+                        // the base name manually against known declarations.
+                        self.resolve_unresolved_actual(name, true, false);
+                    } else {
+                        // Fallback for non-name actuals: search normally.
+                        let _ =
+                            search_pos_conditional_expr(ctx, &assoc.actual.pos(ctx), expr, self);
+                    }
+                }
+                SearchState::Finished(SearchResult::NotFound)
+            }
+            WriteKind::ReadWrite => {
+                // Search the formal normally.
+                if let Some(formal) = &assoc.formal {
+                    let _ = search_pos_name(&formal.pos(ctx), &formal.item, self, ctx);
+                }
+                // The actual is both read and written.
+                if let ActualPart::Expression(expr) = &assoc.actual.item {
+                    let _ = search_pos_conditional_expr(ctx, &assoc.actual.pos(ctx), expr, self);
+                    if let ConditionalExpression::Simple(Expression::Name(name)) = expr {
+                        let _ = search_pos_name_target(&assoc.actual.pos(ctx), name, self, ctx);
+                        // If the actual's reference is unresolved (e.g. the
+                        // entity/component could not be analyzed), resolve
+                        // the base name manually against known declarations.
+                        self.resolve_unresolved_actual(name, true, true);
+                    }
+                }
+                SearchState::Finished(SearchResult::NotFound)
+            }
+        }
     }
 
     fn search_decl(
@@ -1738,6 +1817,52 @@ end architecture;",
         check_issues(&issues, &[]);
     }
 
+    /// Signal driven by an out port with an indexed actual (e.g. `sig(i)`)
+    /// → the prefix signal is written, not Uninitialized
+    #[test]
+    fn signal_driven_by_out_port_indexed_actual() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity sub is
+  port (
+    data_out : out bit
+  );
+end entity;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal LinkData_in : bit_vector(7 downto 0);
+  constant link_i : integer := 0;
+begin
+  inst : entity work.sub
+    port map (
+      data_out => LinkData_in(link_i)
+    );
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // LinkData_in is written by the component through the out port (indexed actual)
+        // → not Uninitialized. It's never read → NeverRead.
+        check_issues(
+            &issues,
+            &[(
+                get_ent(&root, code.s1("LinkData_in")),
+                UnusedKind::NeverRead,
+            )],
+        );
+    }
+
     /// Signal connected to a component's in port → read, not written
     #[test]
     fn signal_connected_to_component_in_port() {
@@ -1859,5 +1984,91 @@ end architecture example;",
                 diags.iter().find(|(e, _)| *e == ent).map(|(_, c)| c)
             );
         }
+    }
+
+    /// Signal connected to an unresolved formal (e.g. instantiation of a
+    /// non-existent entity) should not be flagged as Uninitialized.
+    /// The formal cannot be resolved, so we conservatively treat the actual
+    /// as both read and written.
+    #[test]
+    fn signal_connected_to_unresolved_formal_not_uninitialized() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity ent is
+  port (
+    o : out bit
+  );
+end entity;
+
+architecture a of ent is
+  signal LinkData_in : bit_vector(7 downto 0);
+begin
+  -- The entity 'nonexistent' does not exist, so the formal
+  -- 'lpGBTdataToHost' cannot be resolved. The actual should still
+  -- not be flagged as Uninitialized.
+  inst : entity work.nonexistent
+    port map (
+      lpGBTdataToHost => LinkData_in(0 to 3)
+    );
+
+  -- Read LinkData_in so it is not flagged as NeverRead either
+  o <= LinkData_in(0);
+end architecture;",
+        );
+
+        let (root, _diagnostics) = builder.get_analyzed_root();
+        // Note: there will be diagnostics about the unresolved entity,
+        // but we only care about the lint issues here.
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // LinkData_in is conservatively treated as read+write through the
+        // unresolved formal, and also read via 'o <= LinkData_in(0)'
+        // → no issue
+        check_issues(&issues, &[]);
+    }
+
+    /// Signal connected to an undeclared component's formal should not be
+    /// flagged as Uninitialized. The component is implicitly declared and
+    /// the formal cannot be resolved to a port entity.
+    #[test]
+    fn signal_connected_to_undeclared_component_not_uninitialized() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity ent is
+  port (
+    o : out bit
+  );
+end entity;
+
+architecture a of ent is
+  signal LinkData_in : bit_vector(7 downto 0);
+begin
+  -- 'my_comp' is not declared as a component. The formal 'data_out'
+  -- cannot be resolved to a port entity, so the actual should be
+  -- treated conservatively as both read and written.
+  inst : my_comp
+    port map (
+      data_out => LinkData_in(0 to 3)
+    );
+
+  o <= LinkData_in(0);
+end architecture;",
+        );
+
+        let (root, _diagnostics) = builder.get_analyzed_root();
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // LinkData_in is conservatively treated as read+write → no issue
+        check_issues(&issues, &[]);
     }
 }
