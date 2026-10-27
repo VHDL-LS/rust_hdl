@@ -2245,4 +2245,97 @@ end architecture;",
         // and read (in port) → no issue
         check_issues(&issues, &[]);
     }
+
+    /// Matches the user's exact structure: nested generate loops, multiple
+    /// port map associations (some open, some literals), the out port actual
+    /// in the middle of the port map, and the signal also connected to an
+    /// in port of another instance (whole array, not indexed).
+    #[test]
+    fn signal_driven_by_out_port_nested_generate_multi_assoc() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  type data_array_t is array (natural range <>) of bit_vector(7 downto 0);
+end package;
+
+use work.pkg.all;
+
+entity emulator_ent is
+  port (
+    clk       : in  bit;
+    rst       : in  bit;
+    xoff      : in  bit;
+    data_out  : out bit_vector(7 downto 0);
+    valid_out : out bit
+  );
+end entity;
+
+use work.pkg.all;
+
+entity decoder_ent is
+  port (
+    clk     : in bit;
+    data_in : in data_array_t(0 to 1)
+  );
+end entity;
+
+entity tb is
+end entity;
+
+architecture arch of tb is
+  use work.pkg.all;
+  signal clk_sig   : bit;
+  signal rst_sig   : bit;
+  signal data_sig  : data_array_t(0 to 1);
+  signal valid_sig : bit;
+  signal other_sig : bit_vector(0 to 1);
+begin
+  clk_sig <= '0';
+  rst_sig <= '0';
+
+  g_link : for link_i in 0 to 1 generate
+    emu : entity work.emulator_ent
+      port map (
+        clk       => clk_sig,
+        rst       => rst_sig,
+        xoff      => '0',
+        data_out  => data_sig(link_i),
+        valid_out => valid_sig
+      );
+    g_inner : for stream_i in 0 to 0 generate
+      other_sig(link_i) <= clk_sig;
+    end generate;
+  end generate;
+
+  uut : entity work.decoder_ent
+    port map (
+      clk     => clk_sig,
+      data_in => data_sig
+    );
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "tb");
+
+        // data_sig is written (out port, indexed actual in generate loop)
+        // and read (in port, whole array) → no issue for data_sig
+        // valid_sig is written (out port) but never read → NeverRead
+        // other_sig is written (in nested generate) but never read → NeverRead
+        // clk_sig is written and read → no issue
+        // rst_sig is written and read → no issue
+        check_issues(
+            &issues,
+            &[
+                (get_ent(&root, code.s1("valid_sig")), UnusedKind::NeverRead),
+                (get_ent(&root, code.s1("other_sig")), UnusedKind::NeverRead),
+            ],
+        );
+    }
 }
