@@ -89,7 +89,7 @@ impl<'a> DeadCodeSearcher<'a> {
             return;
         }
 
-        // Extract the base designator (e.g. `LinkData_in` from `LinkData_in(0 to 3)`).
+        // Extract the base designator (e.g. `data_sig` from `data_sig(0 to 3)`).
         let Some(base_designator) = name.prefix() else {
             return;
         };
@@ -1836,12 +1836,12 @@ entity ent is
 end entity;
 
 architecture a of ent is
-  signal LinkData_in : bit_vector(7 downto 0);
+  signal data_sig : bit_vector(7 downto 0);
   constant link_i : integer := 0;
 begin
   inst : entity work.sub
     port map (
-      data_out => LinkData_in(link_i)
+      data_out => data_sig(link_i)
     );
 end architecture;",
         );
@@ -1852,14 +1852,11 @@ end architecture;",
         let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
         let issues = find_issues(&root, lib, "ent");
 
-        // LinkData_in is written by the component through the out port (indexed actual)
+        // data_sig is written by the component through the out port (indexed actual)
         // → not Uninitialized. It's never read → NeverRead.
         check_issues(
             &issues,
-            &[(
-                get_ent(&root, code.s1("LinkData_in")),
-                UnusedKind::NeverRead,
-            )],
+            &[(get_ent(&root, code.s1("data_sig")), UnusedKind::NeverRead)],
         );
     }
 
@@ -2004,18 +2001,18 @@ entity ent is
 end entity;
 
 architecture a of ent is
-  signal LinkData_in : bit_vector(7 downto 0);
+  signal data_sig : bit_vector(7 downto 0);
 begin
   -- The entity 'nonexistent' does not exist, so the formal
-  -- 'lpGBTdataToHost' cannot be resolved. The actual should still
+  -- 'data_out' cannot be resolved. The actual should still
   -- not be flagged as Uninitialized.
   inst : entity work.nonexistent
     port map (
-      lpGBTdataToHost => LinkData_in(0 to 3)
+      data_out => data_sig(0 to 3)
     );
 
-  -- Read LinkData_in so it is not flagged as NeverRead either
-  o <= LinkData_in(0);
+  -- Read data_sig so it is not flagged as NeverRead either
+  o <= data_sig(0);
 end architecture;",
         );
 
@@ -2026,8 +2023,8 @@ end architecture;",
         let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
         let issues = find_issues(&root, lib, "ent");
 
-        // LinkData_in is conservatively treated as read+write through the
-        // unresolved formal, and also read via 'o <= LinkData_in(0)'
+        // data_sig is conservatively treated as read+write through the
+        // unresolved formal, and also read via 'o <= data_sig(0)'
         // → no issue
         check_issues(&issues, &[]);
     }
@@ -2049,17 +2046,17 @@ entity ent is
 end entity;
 
 architecture a of ent is
-  signal LinkData_in : bit_vector(7 downto 0);
+  signal data_sig : bit_vector(7 downto 0);
 begin
   -- 'my_comp' is not declared as a component. The formal 'data_out'
   -- cannot be resolved to a port entity, so the actual should be
   -- treated conservatively as both read and written.
   inst : my_comp
     port map (
-      data_out => LinkData_in(0 to 3)
+      data_out => data_sig(0 to 3)
     );
 
-  o <= LinkData_in(0);
+  o <= data_sig(0);
 end architecture;",
         );
 
@@ -2068,7 +2065,184 @@ end architecture;",
         let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
         let issues = find_issues(&root, lib, "ent");
 
-        // LinkData_in is conservatively treated as read+write → no issue
+        // data_sig is conservatively treated as read+write → no issue
+        check_issues(&issues, &[]);
+    }
+
+    /// A signal array is driven by an out port of a directly-instantiated
+    /// entity inside a for-generate loop, using the generate index as the
+    /// array index. The signal is also read by an in port of another
+    /// instance. Should produce no Uninitialized diagnostic.
+    #[test]
+    fn signal_driven_by_out_port_in_generate_loop() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity emulator_ent is
+  port (
+    data_out : out bit_vector(7 downto 0)
+  );
+end entity;
+
+entity Decoder is
+  port (
+    data_in : in bit_vector(7 downto 0)
+  );
+end entity;
+
+entity tb is
+end entity;
+
+architecture arch of tb is
+  signal data_sig : bit_vector(7 downto 0) := (others => '0');
+begin
+  g_link : for link_i in 0 to 0 generate
+    emu : entity work.emulator_ent
+      port map (
+        data_out => data_sig
+      );
+  end generate;
+
+  uut : entity work.Decoder
+    port map (
+      data_in => data_sig
+    );
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "tb");
+
+        // data_sig is written (out port) and read (in port) → no issue
+        check_issues(&issues, &[]);
+    }
+
+    /// Same as above but with an indexed actual using the generate variable,
+    /// matching the pattern of an indexed actual with a generate variable:
+    /// data_sig(link_i)
+    #[test]
+    fn signal_driven_by_out_port_indexed_in_generate_loop() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity emulator_ent is
+  port (
+    data_out : out bit_vector(7 downto 0)
+  );
+end entity;
+
+entity Decoder is
+  port (
+    data_in : in bit_vector(7 downto 0)
+  );
+end entity;
+
+entity tb is
+end entity;
+
+architecture arch of tb is
+  type data_array is array (natural range <>) of bit_vector(7 downto 0);
+  signal data_sig : data_array(0 to 1);
+begin
+  g_link : for link_i in 0 to 1 generate
+    emu : entity work.emulator_ent
+      port map (
+        data_out => data_sig(link_i)
+      );
+  end generate;
+
+  uut : entity work.Decoder
+    port map (
+      data_in => data_sig(0)
+    );
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "tb");
+
+        // data_sig is written (out port, indexed actual in generate loop)
+        // and read (in port) → no issue
+        check_issues(&issues, &[]);
+    }
+
+    /// Types defined in a package, entities with generics, and the signal
+    /// connected to both an out port (indexed, in a generate loop) and an
+    /// in port (whole array).
+    #[test]
+    fn signal_driven_by_out_port_with_package_types_and_generics() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  type data_array_t is array (natural range <>) of bit_vector(223 downto 0);
+end package;
+
+entity emulator_ent is
+  generic (
+    WIDTH : integer := 32
+  );
+  port (
+    data_out : out bit_vector(223 downto 0)
+  );
+end entity;
+
+entity decoder_ent is
+  generic (
+    NUM_LINKS : integer := 2
+  );
+  port (
+    data_in : in bit_vector(223 downto 0)
+  );
+end entity;
+
+entity tb is
+end entity;
+
+architecture arch of tb is
+  use work.pkg.all;
+  signal data_sig : data_array_t(0 to 1);
+begin
+  g_link : for link_i in 0 to 1 generate
+    emu : entity work.emulator_ent
+      generic map (
+        WIDTH => 32
+      )
+      port map (
+        data_out => data_sig(link_i)
+      );
+  end generate;
+
+  uut : entity work.decoder_ent
+    generic map (
+      NUM_LINKS => 2
+    )
+    port map (
+      data_in => data_sig(0)
+    );
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "tb");
+
+        // data_sig is written (out port, indexed actual in generate loop)
+        // and read (in port) → no issue
         check_issues(&issues, &[]);
     }
 }
