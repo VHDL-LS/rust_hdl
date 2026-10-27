@@ -188,9 +188,21 @@ impl Searcher for DeadCodeSearcher<'_> {
                 }
             }
         } else {
-            // No formal (positional association or index expression) —
-            // let the default search handle it.
-            WriteKind::ReadOnly
+            // No formal (positional association or index expression).
+            // For positional subprogram call arguments (e.g.
+            // `std.textio.write(lineMT, arg)`), the parameter mode is
+            // unknown without resolving the subprogram. Be conservative:
+            // if the actual is a name, treat it as both read and written
+            // to avoid false "never assigned" diagnostics when the actual
+            // is passed to an out/inout parameter.
+            // For non-name actuals (e.g. literals in `sig(0)`), let the
+            // default search handle it.
+            match &assoc.actual.item {
+                ActualPart::Expression(ConditionalExpression::Simple(Expression::Name(_))) => {
+                    WriteKind::ReadWrite
+                }
+                _ => WriteKind::ReadOnly,
+            }
         };
 
         match write_kind {
@@ -2336,6 +2348,153 @@ end architecture;",
                 (get_ent(&root, code.s1("valid_sig")), UnusedKind::NeverRead),
                 (get_ent(&root, code.s1("other_sig")), UnusedKind::NeverRead),
             ],
+        );
+    }
+
+    /// Variable passed as a positional argument to a procedure with an
+    /// out/inout parameter should not be flagged as Uninitialized.
+    /// The parameter mode cannot be resolved from a positional association,
+    /// so we conservatively treat the actual as both read and written.
+    #[test]
+    fn variable_passed_to_procedure_out_param_positional() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity ent is
+end entity;
+
+architecture a of ent is
+  procedure fill_data(
+    variable data : out bit_vector(7 downto 0);
+    constant val : in bit_vector(7 downto 0)
+  ) is
+  begin
+    data := val;
+  end procedure;
+
+  signal readback : bit_vector(7 downto 0);
+begin
+  process
+    variable line_var : bit_vector(7 downto 0);
+    variable data_var : bit_vector(7 downto 0);
+  begin
+    -- Positional call: line_var is passed to an out parameter → written
+    fill_data(line_var, x\"42\");
+    -- line_var is also read here
+    readback <= line_var;
+
+    -- Positional call: data_var is passed to an out parameter → written
+    fill_data(data_var, x\"00\");
+    -- data_var is also read here
+    readback <= data_var;
+    wait;
+  end process;
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // line_var is written (out param, positional) and read → no issue
+        // data_var is written (out param, positional) and read → no issue
+        // readback is written but never read → NeverRead
+        check_issues(
+            &issues,
+            &[(get_ent(&root, code.s1("readback")), UnusedKind::NeverRead)],
+        );
+    }
+
+    /// Variable passed to std.textio.write (inout parameter) positionally
+    /// should not be flagged as Uninitialized. This matches the user's
+    /// scenario with `variable lineMT : line;` in a procedure.
+    #[test]
+    fn variable_passed_to_textio_write_inout_param() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+library std;
+use std.textio.all;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  process
+    procedure print_msg(arg : in string := \"\") is
+      variable line_var : line;
+    begin
+      -- Positional call: line_var is passed to an inout parameter → written
+      write(line_var, arg);
+      -- line_var is also read here
+      writeline(output, line_var);
+    end procedure;
+  begin
+    print_msg(\"hello\");
+    wait;
+  end process;
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // line_var is written (inout param, positional) and read → no issue
+        check_issues(&issues, &[]);
+    }
+
+    /// Named association in a procedure call with an out parameter
+    /// should mark the actual as written.
+    #[test]
+    fn variable_passed_to_procedure_out_param_named() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity ent is
+end entity;
+
+architecture a of ent is
+  procedure set_val(variable x : out integer; constant v : in integer) is
+  begin
+    x := v;
+  end procedure;
+
+  signal result : integer;
+begin
+  process
+    variable val_var : integer;
+  begin
+    -- Named association: x is an out parameter → val_var is written
+    set_val(x => val_var, v => 42);
+    result <= val_var;
+    wait;
+  end process;
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // val_var is written (out param) and read → no issue
+        // result is written but never read → NeverRead
+        check_issues(
+            &issues,
+            &[(get_ent(&root, code.s1("result")), UnusedKind::NeverRead)],
         );
     }
 }
