@@ -135,6 +135,25 @@ pub trait Searcher {
         self.search_target_ref(ctx, pos, &designator.reference)
     }
 
+    /// Search an association element (e.g. in a port map, generic map, or
+    /// subprogram call).
+    ///
+    /// This hook is called *before* the default search of the association
+    /// element. Returning [`SearchState::NotFinished`] lets the default
+    /// search proceed; returning [`SearchState::Finished`] stops the search
+    /// of this association element (the implementation is then responsible
+    /// for searching both the formal and the actual).
+    ///
+    /// The default implementation does nothing, letting the default search
+    /// handle the association element.
+    fn search_association(
+        &mut self,
+        _ctx: &dyn TokenAccess,
+        _assoc: &AssociationElement,
+    ) -> SearchState {
+        NotFinished
+    }
+
     /// Search a declaration of a named entity
     fn search_decl(&mut self, _ctx: &dyn TokenAccess, _decl: FoundDeclaration<'_>) -> SearchState {
         NotFinished
@@ -677,7 +696,7 @@ impl Search for WithToken<WithRef<Designator>> {
     }
 }
 
-fn search_pos_name(
+pub(crate) fn search_pos_name(
     pos: &SrcPos,
     name: &Name,
     searcher: &mut impl Searcher,
@@ -734,7 +753,7 @@ fn search_pos_name(
 ///
 /// This is used for the left-hand side of signal/variable assignments
 /// (e.g. `sig <= ...`, `var := ...`, `sig(i) <= ...`, `rec.field <= ...`).
-fn search_pos_name_target(
+pub(crate) fn search_pos_name_target(
     pos: &SrcPos,
     name: &Name,
     searcher: &mut impl Searcher,
@@ -1113,7 +1132,7 @@ fn search_pos_expr(
     }
 }
 
-fn search_pos_conditional_expr(
+pub(crate) fn search_pos_conditional_expr(
     ctx: &dyn TokenAccess,
     pos: &SrcPos,
     expr: &ConditionalExpression,
@@ -1159,6 +1178,11 @@ impl Search for QualifiedExpression {
 
 impl Search for AssociationElement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        // Give the searcher a chance to handle this association element
+        // (e.g. to classify port map actuals as reads or writes based on
+        // the formal's mode).
+        return_if_finished!(searcher.search_association(ctx, self));
+
         let AssociationElement { formal, actual } = self;
         if let Some(formal) = formal {
             return_if_found!(search_pos_name(

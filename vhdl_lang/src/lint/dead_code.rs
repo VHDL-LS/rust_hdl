@@ -7,15 +7,25 @@
 use crate::analysis::DesignRoot;
 use crate::analysis::Library;
 use crate::analysis::LockedUnit;
+use crate::ast::search::search_pos_conditional_expr;
+use crate::ast::search::search_pos_name;
+use crate::ast::search::search_pos_name_target;
 use crate::ast::search::Search;
+use crate::ast::search::SearchResult;
 use crate::ast::search::SearchState;
 use crate::ast::search::Searcher;
+use crate::ast::ActualPart;
+use crate::ast::AssociationElement;
+use crate::ast::ConditionalExpression;
+use crate::ast::Expression;
 use crate::ast::Mode;
 use crate::ast::UnitId;
 use crate::data::error_codes::ErrorCode;
 use crate::data::DiagnosticHandler;
 use crate::data::Symbol;
-use crate::named_entity::{HasEntityId, InterfaceMode, ObjectEnt, Reference, Related};
+use crate::named_entity::{
+    HasEntityId, InterfaceMode, ObjectEnt, ObjectInterface, Reference, Related,
+};
 use crate::syntax::TokenAccess;
 use crate::AnyEntKind;
 use crate::Config;
@@ -88,6 +98,67 @@ impl Searcher for DeadCodeSearcher<'_> {
             self.add_reference(ent, true);
         };
         SearchState::NotFinished
+    }
+
+    fn search_association(
+        &mut self,
+        ctx: &dyn TokenAccess,
+        assoc: &AssociationElement,
+    ) -> SearchState {
+        // Determine whether the formal is an out/buffer/inout port.
+        // If so, the actual signal is written (driven) by the connected
+        // component through that port, and we must track it as a write
+        // to avoid false "never assigned" (Uninitialized) diagnostics.
+        let write_kind = assoc
+            .formal
+            .as_ref()
+            .and_then(|formal| formal.item.get_suffix_reference())
+            .map(|id| self.root.get_ent(id))
+            .and_then(ObjectEnt::from_any)
+            .and_then(|obj| {
+                if let Some(ObjectInterface::Port(mode)) = &obj.object().iface {
+                    match mode {
+                        InterfaceMode::Simple(Mode::Out) | InterfaceMode::Simple(Mode::Buffer) => {
+                            Some(false)
+                        } // write-only
+                        InterfaceMode::Simple(Mode::InOut) => Some(true), // read + write
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            });
+
+        let Some(is_inout) = write_kind else {
+            // Not an out/buffer/inout port — let the default search handle it.
+            return SearchState::NotFinished;
+        };
+
+        // Search the formal normally (counts as a reference to the port).
+        if let Some(formal) = &assoc.formal {
+            let _ = search_pos_name(&formal.pos(ctx), &formal.item, self, ctx);
+        }
+
+        // Search the actual.
+        if let ActualPart::Expression(expr) = &assoc.actual.item {
+            if is_inout {
+                // inout port: the actual is both read and written.
+                let _ = search_pos_conditional_expr(ctx, &assoc.actual.pos(ctx), expr, self);
+                if let ConditionalExpression::Simple(Expression::Name(name)) = expr {
+                    let _ = search_pos_name_target(&assoc.actual.pos(ctx), name, self, ctx);
+                }
+            } else {
+                // out/buffer port: the actual is written (driven by the component).
+                if let ConditionalExpression::Simple(Expression::Name(name)) = expr {
+                    let _ = search_pos_name_target(&assoc.actual.pos(ctx), name, self, ctx);
+                } else {
+                    // Fallback for non-name actuals: search normally.
+                    let _ = search_pos_conditional_expr(ctx, &assoc.actual.pos(ctx), expr, self);
+                }
+            }
+        }
+
+        SearchState::Finished(SearchResult::NotFound)
     }
 
     fn search_decl(
@@ -1581,6 +1652,131 @@ end architecture;",
             &issues,
             &[(get_ent(&root, code.s1("internal")), UnusedKind::NeverRead)],
         );
+    }
+
+    /// Signal driven by a component's out port via port map → not Uninitialized
+    /// (regression test: the actual of an out port association is a write)
+    #[test]
+    fn signal_driven_by_component_out_port() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity sub is
+  port (
+    clk40 : out boolean
+  );
+end entity;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal driven : boolean;
+begin
+  inst : entity work.sub
+    port map (
+      clk40 => driven
+    );
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // driven is written by the component through the out port → not Uninitialized.
+        // driven is never read → NeverRead (the component drives it but nobody reads it).
+        check_issues(
+            &issues,
+            &[(get_ent(&root, code.s1("driven")), UnusedKind::NeverRead)],
+        );
+    }
+
+    /// Signal driven by a component's inout port via port map → not Uninitialized
+    #[test]
+    fn signal_connected_to_component_inout_port() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity sub is
+  port (
+    io : inout boolean
+  );
+end entity;
+
+entity ent is
+  port (
+    o : out boolean
+  );
+end entity;
+
+architecture a of ent is
+  signal data : boolean;
+begin
+  inst : entity work.sub
+    port map (
+      io => data
+    );
+  -- Read the signal so it's not NeverRead
+  o <= data;
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // data is both read and written (inout port) → no issue
+        check_issues(&issues, &[]);
+    }
+
+    /// Signal connected to a component's in port → read, not written
+    #[test]
+    fn signal_connected_to_component_in_port() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+entity sub is
+  port (
+    i : in boolean
+  );
+end entity;
+
+entity ent is
+  port (
+    o : out boolean
+  );
+end entity;
+
+architecture a of ent is
+  signal data : boolean := true;
+begin
+  inst : entity work.sub
+    port map (
+      i => data
+    );
+  o <= data;
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // data is read (in port + o <= data) and has a default → no issue
+        check_issues(&issues, &[]);
     }
 
     /// Issue #411 example: diagnostics via the linter produce correct error codes
