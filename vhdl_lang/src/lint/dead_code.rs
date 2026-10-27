@@ -2453,6 +2453,47 @@ end architecture;",
         check_issues(&issues, &[]);
     }
 
+    /// Same as above but with fully qualified std.textio names
+    /// (std.textio.write instead of write with use clause).
+    #[test]
+    fn variable_passed_to_textio_write_fully_qualified() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+library std;
+use std.textio.all;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  process
+    procedure print_msg(arg : in string := \"\") is
+      variable line_var : line;
+    begin
+      std.textio.write(line_var, arg);
+      std.textio.writeline(std.textio.output, line_var);
+    end procedure;
+  begin
+    print_msg(\"hello\");
+    wait;
+  end process;
+end architecture;",
+        );
+
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let lib = root.get_lib(&root.symbol_utf8("libname")).unwrap();
+        let issues = find_issues(&root, lib, "ent");
+
+        // line_var is written (inout param, positional) and read → no issue
+        check_issues(&issues, &[]);
+    }
+
     /// Named association in a procedure call with an out parameter
     /// should mark the actual as written.
     #[test]
