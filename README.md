@@ -224,13 +224,19 @@ architecture arch of ent is
 
     -- Space-separated form also works
     signal debug_sig5 : std_logic; -- vhdl_ls never_read
+
+    -- The vhdl_ls marker can appear anywhere in the comment;
+    -- surrounding text before and after the rule name(s) is ignored
+    signal debug_sig6 : std_logic; -- for debug purposes, vhdl_ls(never_read) so we keep it
+    signal debug_sig7 : std_logic; --vhdl_ls never_read this is fine
 begin
     -- ...
 end architecture;
 ```
 
-This works for any vhdl_ls diagnostic, not just lint rules. For example, it can suppress `never_read`, `unused`,
-`uninitialized`, or any other warning/error reported at that line.
+The `vhdl_ls` marker can appear anywhere within the comment — any text before or after the rule name(s) is
+ignored. This works for any vhdl_ls diagnostic, not just lint rules. For example, it can suppress `never_read`,
+`unused`, `uninitialized`, or any other warning/error reported at that line.
 
 The available lint rule names are:
 

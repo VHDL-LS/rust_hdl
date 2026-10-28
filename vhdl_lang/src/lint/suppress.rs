@@ -119,10 +119,14 @@ fn parse_suppression_comment(line: &str) -> Option<SuppressionRules> {
         return None;
     }
 
-    // Parse comma-separated rule names
+    // Parse comma-separated rule names. For each comma-separated part,
+    // only take the first whitespace-delimited word so that trailing
+    // comment text (e.g. `-- vhdl_ls never_read for debug purposes`)
+    // does not pollute the rule name.
     let rules: Vec<String> = rules_text
         .split(',')
-        .map(|s| s.trim().to_lowercase())
+        .filter_map(|s| s.split_whitespace().next())
+        .map(|s| s.to_lowercase())
         .filter(|s| !s.is_empty())
         .collect();
 
@@ -198,6 +202,50 @@ mod tests {
     fn with_trailing_text() {
         let rules = parse_suppression_comment("-- vhdl_ls(never_read) for debug purposes").unwrap();
         assert!(rules.matches(ErrorCode::NeverRead));
+    }
+
+    #[test]
+    fn trailing_text_after_space_separated_rule() {
+        // e.g. `--vhdl_ls never_read asdfasdfa`
+        let rules = parse_suppression_comment("--vhdl_ls never_read asdfasdfa").unwrap();
+        assert_eq!(rules.rules, vec!["never_read"]);
+        assert!(rules.matches(ErrorCode::NeverRead));
+    }
+
+    #[test]
+    fn trailing_text_after_multiple_space_separated_rules() {
+        // e.g. `-- vhdl_ls never_read, unused extra explanation`
+        let rules =
+            parse_suppression_comment("-- vhdl_ls never_read, unused extra explanation").unwrap();
+        assert!(rules.matches(ErrorCode::NeverRead));
+        assert!(rules.matches(ErrorCode::Unused));
+        assert!(!rules.matches(ErrorCode::Uninitialized));
+    }
+
+    #[test]
+    fn marker_in_middle_of_comment() {
+        // e.g. `--bladiebla, this signal is for debug, vhdl_ls(never_read) so debug`
+        let rules = parse_suppression_comment(
+            "-- some text, this signal is for debug, vhdl_ls(never_read) so debug",
+        )
+        .unwrap();
+        assert!(rules.matches(ErrorCode::NeverRead));
+    }
+
+    #[test]
+    fn marker_in_middle_of_comment_space_separated() {
+        // e.g. `-- debug signal, vhdl_ls never_read, used for testing`
+        let rules =
+            parse_suppression_comment("-- debug signal, vhdl_ls never_read, used for testing")
+                .unwrap();
+        assert!(rules.matches(ErrorCode::NeverRead));
+    }
+
+    #[test]
+    fn wildcard_with_trailing_text_no_parens() {
+        // e.g. `-- vhdl_ls * for debug`
+        let rules = parse_suppression_comment("-- vhdl_ls * for debug").unwrap();
+        assert!(rules.all);
     }
 
     /// Helper: create a diagnostic at a given line in a source.
