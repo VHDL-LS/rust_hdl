@@ -11,7 +11,7 @@ use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
 use fnv::FnvHashMap;
@@ -514,7 +514,7 @@ fn check_file_patterns(file_arr: &[Value], parent: &Path) -> Result<Vec<String>,
 
         let file = substitute_environment_variables(file, &subst::Env)?;
 
-        let path = parent.join(file);
+        let path = normalize_parent_components(&parent.join(file));
         let path = path
             .to_str()
             .ok_or_else(|| format!("Could not convert {path:?} to string"))?
@@ -522,6 +522,38 @@ fn check_file_patterns(file_arr: &[Value], parent: &Path) -> Result<Vec<String>,
         patterns.push(path);
     }
     Ok(patterns)
+}
+
+/// Remove `.` and `..` components from a path without touching the file system.
+///
+/// A configuration file in a subfolder names files next to it as `../src/file.vhd`.
+/// `Path::join` keeps the `..`, and on Unix so does `std::path::absolute`, so the file
+/// got a different path than the same file opened in an editor. Paths without such
+/// components are returned unchanged.
+fn normalize_parent_components(path: &Path) -> PathBuf {
+    if !path
+        .components()
+        .any(|c| matches!(c, Component::ParentDir | Component::CurDir))
+    {
+        return path.to_owned();
+    }
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => match normalized.components().next_back() {
+                Some(Component::Normal(_)) => {
+                    normalized.pop();
+                }
+                // `..` at the root stays at the root
+                Some(Component::RootDir) | Some(Component::Prefix(_)) => {}
+                // A relative path that starts with `..` keeps it
+                _ => normalized.push(component),
+            },
+            _ => normalized.push(component),
+        }
+    }
+    normalized
 }
 
 fn substitute_environment_variables<'a, M>(s: &str, map: &'a M) -> Result<String, String>
@@ -816,6 +848,48 @@ lib.files = [
                 "File {} does not exist",
                 parent.join("missing.vhd").to_str().unwrap()
             ))]
+        );
+    }
+
+    #[test]
+    fn test_parent_components_are_normalized() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = abspath(tempdir.path());
+        let config_folder = root.join("tools").join("config");
+        std::fs::create_dir_all(&config_folder).unwrap();
+        let file = touch(&root, "pkg.vhd");
+
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  '../../pkg.vhd',
+]
+",
+            &config_folder,
+        )
+        .unwrap();
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        assert_eq!(messages, vec![]);
+        // The same path an editor would use for the file, with no `..` left in it
+        assert_eq!(file_names, vec![file]);
+    }
+
+    #[test]
+    fn test_normalize_parent_components() {
+        assert_eq!(
+            normalize_parent_components(Path::new("a/b/../c/./d.vhd")),
+            Path::new("a/c/d.vhd")
+        );
+        assert_eq!(
+            normalize_parent_components(Path::new("../a.vhd")),
+            Path::new("../a.vhd")
+        );
+        assert_eq!(
+            normalize_parent_components(Path::new("a/b.vhd")),
+            Path::new("a/b.vhd")
         );
     }
 
