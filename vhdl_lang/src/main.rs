@@ -41,6 +41,12 @@ struct Args {
     #[arg(short = 'l', long)]
     libraries: Option<String>,
 
+    /// Do not load the user configuration: the `.vhdl_ls.toml` file in the home folder
+    /// and the file named by the `VHDL_LS_CONFIG` environment variable.
+    /// The standard libraries are still loaded.
+    #[arg(long, default_value_t = false)]
+    no_user_config: bool,
+
     #[clap(flatten)]
     group: Group,
 }
@@ -48,7 +54,12 @@ struct Args {
 fn main() {
     let args = Args::parse();
     if let Some(config_path) = args.group.config {
-        parse_and_analyze_project(&config_path, args.num_threads, args.libraries.as_ref());
+        parse_and_analyze_project(
+            &config_path,
+            args.num_threads,
+            args.libraries.as_ref(),
+            !args.no_user_config,
+        );
     } else if let Some(format) = args.group.format {
         format_file(format);
     }
@@ -106,6 +117,7 @@ fn parse_and_analyze_project(
     config_path: &str,
     num_threads: Option<usize>,
     libraries: Option<&String>,
+    user_config: bool,
 ) {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads.unwrap_or(0))
@@ -114,7 +126,7 @@ fn parse_and_analyze_project(
 
     let mut config = Config::default();
     let mut msg_printer = MessagePrinter::default();
-    config.load_external_config(&mut msg_printer, libraries.cloned());
+    config.load_external_config_with_user_config(&mut msg_printer, libraries.cloned(), user_config);
     config.append(
         &Config::read_file_path(Path::new(&config_path)).expect("Failed to read config file"),
         &mut msg_printer,

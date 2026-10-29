@@ -412,9 +412,29 @@ impl Config {
         messages: &mut dyn MessageHandler,
         standard_libraries_path: Option<String>,
     ) {
+        self.load_external_config_with_user_config(messages, standard_libraries_path, true);
+    }
+
+    /// Load external configuration, optionally skipping the user configuration.
+    ///
+    /// The installation configuration (the standard libraries) is always loaded.
+    /// When `user_config` is `true`, this is the same as [`Config::load_external_config`].
+    /// When it is `false`, the `.vhdl_ls.toml` file in the home folder and the file
+    /// named by the `VHDL_LS_CONFIG` environment variable are not loaded.
+    ///
+    /// This is meant for tools that generate a complete configuration themselves,
+    /// so that the result does not depend on the machine or the user that runs them.
+    pub fn load_external_config_with_user_config(
+        &mut self,
+        messages: &mut dyn MessageHandler,
+        standard_libraries_path: Option<String>,
+        user_config: bool,
+    ) {
         self.load_installed_config(messages, standard_libraries_path);
-        self.load_home_config(messages);
-        self.load_env_config("VHDL_LS_CONFIG", messages);
+        if user_config {
+            self.load_home_config(messages);
+            self.load_env_config("VHDL_LS_CONFIG", messages);
+        }
     }
 
     pub fn severities(&self) -> &SeverityMap {
@@ -711,6 +731,66 @@ lib3.files = [
         let mut merged_config = config0;
         merged_config.append(&config1, &mut Vec::new());
         assert_eq!(merged_config, expected_config);
+    }
+
+    /// Path to the installation configuration shipped in this repository
+    fn installed_libraries_path() -> String {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../vhdl_libraries")
+            .to_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    // Both cases share one test, because they set the same process-wide variable.
+    // No other test in this crate reads VHDL_LS_CONFIG.
+    #[test]
+    fn test_user_config_can_be_skipped() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let user_config = tempdir.path().join("user.toml");
+        std::fs::write(
+            &user_config,
+            "
+[libraries]
+user_lib.files = ['user.vhd']
+",
+        )
+        .unwrap();
+        env::set_var("VHDL_LS_CONFIG", &user_config);
+
+        let mut skipped = Config::default();
+        let mut skipped_messages: Vec<Message> = vec![];
+        skipped.load_external_config_with_user_config(
+            &mut skipped_messages,
+            Some(installed_libraries_path()),
+            false,
+        );
+
+        let mut loaded = Config::default();
+        let mut loaded_messages: Vec<Message> = vec![];
+        loaded.load_external_config_with_user_config(
+            &mut loaded_messages,
+            Some(installed_libraries_path()),
+            true,
+        );
+
+        env::remove_var("VHDL_LS_CONFIG");
+
+        // The standard libraries are loaded either way
+        assert!(skipped.get_library("std").is_some());
+        assert!(skipped.get_library("ieee").is_some());
+        assert!(loaded.get_library("std").is_some());
+
+        // The user configuration is loaded only when asked for
+        assert!(skipped.get_library("user_lib").is_none());
+        assert!(loaded.get_library("user_lib").is_some());
+        let mentions_env = |messages: &[Message]| {
+            messages
+                .iter()
+                .any(|message| message.message.contains("VHDL_LS_CONFIG"))
+        };
+        assert!(!mentions_env(&skipped_messages));
+        assert!(mentions_env(&loaded_messages));
     }
 
     #[test]
