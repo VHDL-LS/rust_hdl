@@ -10,6 +10,7 @@
 //! rather than `type CHARACTER is`, and some do. `StandardTypes::new` has to find those
 //! types whatever case they are written in, or analysis cannot start at all.
 
+use crate::analysis::tests::check_no_diagnostics;
 use crate::analysis::DesignRoot;
 use crate::data::*;
 use crate::syntax::test::CodeBuilder;
@@ -21,8 +22,10 @@ use std::path::Path;
 /// change the enumeration literals of `CHARACTER`, where `'A'` and `'a'` are two distinct
 /// literals, and the result would not be legal VHDL.
 fn lower_case_standard_package() -> Source {
-    let mut text =
-        Latin1String::new(include_bytes!("../../../../vhdl_libraries/std/standard.vhd")).to_string();
+    let mut text = Latin1String::new(include_bytes!(
+        "../../../../vhdl_libraries/std/standard.vhd"
+    ))
+    .to_string();
 
     for name in [
         "BOOLEAN",
@@ -55,8 +58,9 @@ fn std_source(file_name: &str, bytes: &[u8]) -> Source {
     Source::inline(Path::new(file_name), &Latin1String::new(bytes).to_string())
 }
 
-#[test]
-fn standard_package_type_names_are_case_insensitive() {
+/// A root whose library `std` is the real standard package with the required type names
+/// written in lower case, plus `code` in library `libname`.
+fn analyze_against_lower_case_standard(code: &str) -> Vec<Diagnostic> {
     let builder = CodeBuilder::new();
     let symbols = builder.symbols.clone();
     let mut root = DesignRoot::new(symbols.clone());
@@ -73,47 +77,60 @@ fn standard_package_type_names_are_case_insensitive() {
             include_bytes!("../../../../vhdl_libraries/std/env.vhd"),
         ),
     ] {
-        let code = builder.code_from_source(source);
-        root.add_design_file(std_sym.clone(), code.design_file());
+        root.add_design_file(
+            std_sym.clone(),
+            builder.code_from_source(source).design_file(),
+        );
     }
 
-    let lib_sym = symbols.symtab().insert_utf8("libname");
+    root.add_design_file(
+        symbols.symtab().insert_utf8("libname"),
+        builder.code(code).design_file(),
+    );
 
+    let mut diagnostics = Vec::new();
+    root.analyze(&mut diagnostics);
+    diagnostics
+}
+
+#[test]
+fn standard_package_type_names_are_case_insensitive() {
     // Every one of the required types has to have been found for this to analyze.
-    let uses_them = builder.code(
+    let diagnostics = analyze_against_lower_case_standard(
         "
 package uses_the_standard_types is
-  constant letter    : character       := 'a';
-  constant yes       : boolean         := true;
-  constant word      : string          := \"text\";
-  constant how_many  : natural         := 1;
-  constant pattern   : bit_vector(1 downto 0) := \"01\";
-  constant one_bit   : bit             := '1';
-  constant how_long  : time            := 1 ns;
-  constant how_much  : real            := 1.0;
-  constant how_bad   : severity_level  := note;
+  constant letter   : character                := 'a';
+  constant yes      : boolean                  := true;
+  constant word     : string                   := \"text\";
+  constant how_many : natural                  := 1;
+  constant pattern  : bit_vector(1 downto 0)   := \"01\";
+  constant one_bit  : bit                      := '1';
+  constant how_long : time                     := 1 ns;
+  constant how_much : real                     := 1.0;
+  constant how_bad  : severity_level           := note;
 end package;
 ",
     );
-    root.add_design_file(lib_sym.clone(), uses_them.design_file());
 
-    // And a positive control, so an empty diagnostic list cannot be read as success when
-    // analysis never actually ran.
-    let has_a_real_error = builder.code(
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn analysis_against_a_lower_case_standard_still_reports_real_errors() {
+    // Without this, the test above would also pass against a build that analyzed nothing at
+    // all, which is the failure it exists to catch.
+    let diagnostics = analyze_against_lower_case_standard(
         "
 package refers_to_nothing is
   constant bad : no_such_type := 0;
 end package;
 ",
     );
-    root.add_design_file(lib_sym, has_a_real_error.design_file());
 
-    let mut diagnostics = Vec::new();
-    root.analyze(&mut diagnostics);
-
-    let messages: Vec<&str> = diagnostics
-        .iter()
-        .map(|diagnostic| diagnostic.message.as_str())
-        .collect();
-    assert_eq!(messages, vec!["No declaration of 'no_such_type'"]);
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message == "No declaration of 'no_such_type'"),
+        "expected the undeclared type to be reported, got {diagnostics:?}"
+    );
 }
