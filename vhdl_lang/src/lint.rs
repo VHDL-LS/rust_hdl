@@ -6,3 +6,4 @@
 
 pub mod dead_code;
 pub mod sensitivity_list;
+pub mod suppress;

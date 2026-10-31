@@ -654,6 +654,32 @@ duplicate = false
     }
 
     #[test]
+    fn config_lint_severity_for_new_unused_codes() {
+        let parent = Path::new("parent_folder");
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  'pkg.vhd',
+]
+
+[lint]
+never_read = 'hint'
+uninitialized = 'error'
+unused = false
+",
+            parent,
+        )
+        .unwrap();
+
+        let mut expected_map = SeverityMap::default();
+        expected_map[ErrorCode::NeverRead] = Some(Severity::Hint);
+        expected_map[ErrorCode::Uninitialized] = Some(Severity::Error);
+        expected_map[ErrorCode::Unused] = None;
+        assert_eq!(config.severities, expected_map)
+    }
+
+    #[test]
     fn test_append_config() {
         let parent0 = Path::new("parent_folder0");
         let config0 = Config::from_str(

@@ -108,6 +108,52 @@ pub trait Searcher {
         self.search_pos_with_ref(ctx, ident.item.pos(ctx), &ident.reference)
     }
 
+    /// Search a position that is an assignment target, i.e. the referenced
+    /// entity is written to (e.g. the left-hand side of `<=` or `:=`).
+    ///
+    /// The default implementation delegates to [`Searcher::search_pos_with_ref`],
+    /// treating the reference the same as any other reference.
+    fn search_target_ref(
+        &mut self,
+        ctx: &dyn TokenAccess,
+        pos: &SrcPos,
+        reference: &Reference,
+    ) -> SearchState {
+        self.search_pos_with_ref(ctx, pos, reference)
+    }
+
+    /// Search a designator that is an assignment target, i.e. the referenced
+    /// entity is written to.
+    ///
+    /// The default implementation delegates to [`Searcher::search_target_ref`].
+    fn search_designator_target_ref(
+        &mut self,
+        ctx: &dyn TokenAccess,
+        pos: &SrcPos,
+        designator: &WithRef<Designator>,
+    ) -> SearchState {
+        self.search_target_ref(ctx, pos, &designator.reference)
+    }
+
+    /// Search an association element (e.g. in a port map, generic map, or
+    /// subprogram call).
+    ///
+    /// This hook is called *before* the default search of the association
+    /// element. Returning [`SearchState::NotFinished`] lets the default
+    /// search proceed; returning [`SearchState::Finished`] stops the search
+    /// of this association element (the implementation is then responsible
+    /// for searching both the formal and the actual).
+    ///
+    /// The default implementation does nothing, letting the default search
+    /// handle the association element.
+    fn search_association(
+        &mut self,
+        _ctx: &dyn TokenAccess,
+        _assoc: &AssociationElement,
+    ) -> SearchState {
+        NotFinished
+    }
+
     /// Search a declaration of a named entity
     fn search_decl(&mut self, _ctx: &dyn TokenAccess, _decl: FoundDeclaration<'_>) -> SearchState {
         NotFinished
@@ -299,7 +345,7 @@ impl Search for WithTokenSpan<ElementAssociation> {
 impl Search for WithTokenSpan<Target> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self.item {
-            Target::Name(ref name) => search_pos_name(&self.pos(ctx), name, searcher, ctx),
+            Target::Name(ref name) => search_pos_name_target(&self.pos(ctx), name, searcher, ctx),
             Target::Aggregate(ref assocs) => assocs.search(ctx, searcher),
         }
     }
@@ -650,7 +696,7 @@ impl Search for WithToken<WithRef<Designator>> {
     }
 }
 
-fn search_pos_name(
+pub(crate) fn search_pos_name(
     pos: &SrcPos,
     name: &Name,
     searcher: &mut impl Searcher,
@@ -681,6 +727,97 @@ fn search_pos_name(
                 name, expr, attr, ..
             } = attr.as_ref();
             return_if_found!(name.search(ctx, searcher));
+            if let AttributeDesignator::Ident(ref user_attr) = attr.item {
+                return_if_finished!(searcher.search_pos_with_ref(
+                    ctx,
+                    attr.pos(ctx),
+                    &user_attr.reference
+                ));
+            }
+            if let Some(expr) = expr {
+                return_if_found!(expr.search(ctx, searcher));
+            }
+            NotFound
+        }
+        Name::External(ref ename) => {
+            let ExternalName { subtype, .. } = ename.as_ref();
+            return_if_found!(subtype.search(ctx, searcher));
+            NotFound
+        }
+    }
+}
+
+/// Like [`search_pos_name`] but treats the *prefix* of the name as an assignment
+/// target (written to). Index expressions, attribute expressions and other
+/// sub-expressions are still searched as ordinary reads.
+///
+/// This is used for the left-hand side of signal/variable assignments
+/// (e.g. `sig <= ...`, `var := ...`, `sig(i) <= ...`, `rec.field <= ...`).
+pub(crate) fn search_pos_name_target(
+    pos: &SrcPos,
+    name: &Name,
+    searcher: &mut impl Searcher,
+    ctx: &dyn TokenAccess,
+) -> SearchResult {
+    match name {
+        Name::Designator(ref designator) => searcher
+            .search_designator_target_ref(ctx, pos, designator)
+            .or_not_found(),
+        Name::Selected(ref prefix, ref designator) => {
+            // The prefix (e.g. `rec` in `rec.field`) is the assignment target.
+            return_if_found!(search_pos_name_target(
+                &prefix.pos(ctx),
+                &prefix.item,
+                searcher,
+                ctx
+            ));
+            // The suffix is a record element, searched normally.
+            return_if_found!(designator.search(ctx, searcher));
+            NotFound
+        }
+        Name::SelectedAll(ref prefix) => {
+            return_if_found!(search_pos_name_target(
+                &prefix.pos(ctx),
+                &prefix.item,
+                searcher,
+                ctx
+            ));
+            NotFound
+        }
+        Name::Slice(ref prefix, ref dranges) => {
+            // The prefix (e.g. `sig` in `sig(i)`) is the assignment target.
+            return_if_found!(search_pos_name_target(
+                &prefix.pos(ctx),
+                &prefix.item,
+                searcher,
+                ctx
+            ));
+            // The discrete ranges (indices) are read.
+            return_if_found!(dranges.search(ctx, searcher));
+            NotFound
+        }
+        Name::CallOrIndexed(ref fcall) => {
+            // The name (e.g. `sig` in `sig(i)`) is the assignment target.
+            return_if_found!(search_pos_name_target(
+                &fcall.name.pos(ctx),
+                &fcall.name.item,
+                searcher,
+                ctx
+            ));
+            // The parameters (indices) are read.
+            return_if_found!(fcall.parameters.search(ctx, searcher));
+            NotFound
+        }
+        Name::Attribute(ref attr) => {
+            let AttributeName {
+                name, expr, attr, ..
+            } = attr.as_ref();
+            return_if_found!(search_pos_name_target(
+                &name.pos(ctx),
+                &name.item,
+                searcher,
+                ctx
+            ));
             if let AttributeDesignator::Ident(ref user_attr) = attr.item {
                 return_if_finished!(searcher.search_pos_with_ref(
                     ctx,
@@ -995,7 +1132,7 @@ fn search_pos_expr(
     }
 }
 
-fn search_pos_conditional_expr(
+pub(crate) fn search_pos_conditional_expr(
     ctx: &dyn TokenAccess,
     pos: &SrcPos,
     expr: &ConditionalExpression,
@@ -1041,6 +1178,11 @@ impl Search for QualifiedExpression {
 
 impl Search for AssociationElement {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        // Give the searcher a chance to handle this association element
+        // (e.g. to classify port map actuals as reads or writes based on
+        // the formal's mode).
+        return_if_finished!(searcher.search_association(ctx, self));
+
         let AssociationElement { formal, actual } = self;
         if let Some(formal) = formal {
             return_if_found!(search_pos_name(
