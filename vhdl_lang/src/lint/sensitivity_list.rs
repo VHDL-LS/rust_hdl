@@ -27,9 +27,9 @@ use crate::ast::token_range::WithTokenSpan;
 use crate::ast::{
     ActualPart, Allocator, AssignmentRightHand, AttributeDesignator, AttributeName,
     ConcurrentStatement, ConditionalExpression, Conditionals, Designator, DiscreteRange,
-    ElementAssociation, Expression, HasUnitId, IterationScheme, LabeledConcurrentStatement, Name,
-    ProcessStatement, Range, SensitivityList, SequentialStatement, SignalAttribute, UnitId,
-    UnitKey, Waveform, WithRef,
+    ElementAssociation, Expression, HasUnitId, IterationScheme, LabeledConcurrentStatement,
+    LabeledSequentialStatement, Name, ProcessStatement, Range, SensitivityList,
+    SequentialStatement, SignalAttribute, UnitId, UnitKey, Waveform, WithRef,
 };
 use crate::data::{DiagnosticHandler, ErrorCode, Symbol};
 use crate::{
@@ -583,23 +583,38 @@ fn get_likely_process_category(root: &DesignRoot, process: &ProcessStatement) ->
     //
     //     some_assignment <= xy;
     // end process;
-    let is_likely_clocked = process.statements.iter().any(|stmt| {
-        match &stmt.statement.item {
-            SequentialStatement::If(if_stmt) => {
-                // this is always guaranteed to be present
-                let first_conditional = &if_stmt.conds.conditionals[0];
-                is_likely_clocked(root, &first_conditional.condition.item)
-                    || (if_stmt.conds.conditionals.len() == 2
-                        && is_likely_clocked(root, &if_stmt.conds.conditionals[1].condition.item))
-            }
-            _ => false,
-        }
-    });
+    let is_likely_clocked = process
+        .statements
+        .iter()
+        .any(|stmt| is_likely_clocked_statement(root, stmt));
     if is_likely_clocked {
         ProcessCategory::Sequential
     } else {
         ProcessCategory::Combinational
     }
+}
+
+/// Returns whether a statement is likely a clocked `if` statement, i.e., one of
+/// ```vhdl
+/// if rising_edge(clk) then ... end if;
+/// if rst = '1' then ... elsif rising_edge(clk) then ... end if;
+/// if rst = '1' then ... else if rising_edge(clk) then ... end if; end if;
+/// ```
+/// The `else` branch is checked recursively, so nested forms of the last case are also recognized.
+fn is_likely_clocked_statement(root: &DesignRoot, stmt: &LabeledSequentialStatement) -> bool {
+    let SequentialStatement::If(if_stmt) = &stmt.statement.item else {
+        return false;
+    };
+    let conds = &if_stmt.conds;
+    // the first conditional is always guaranteed to be present
+    is_likely_clocked(root, &conds.conditionals[0].condition.item)
+        || (conds.conditionals.len() == 2
+            && is_likely_clocked(root, &conds.conditionals[1].condition.item))
+        || conds.else_item.as_ref().is_some_and(|(else_stmts, _)| {
+            else_stmts
+                .iter()
+                .any(|stmt| is_likely_clocked_statement(root, stmt))
+        })
 }
 
 /// Returns whether an expression is likely clocked depending on whether that expression contains
@@ -877,6 +892,26 @@ begin
         if rising_edge(sig_b) then
         end if;
     end process f_seq;
+
+    -- GitHub issue: 505
+    g_seq : process(sig_a, sig_b) is
+    begin
+        if sig_b = '1' then
+        else
+            if rising_edge(sig_a) then
+            end if;
+        end if;
+    end process g_seq;
+
+    h_seq : process(sig_a, sig_b, sig_c_sl) is
+    begin
+        if sig_b = '1' then
+        elsif sig_c_sl = '1' then
+        else
+            if sig_a'event and sig_a = '1' then
+            end if;
+        end if;
+    end process h_seq;
 end architecture;",
         );
 
@@ -903,7 +938,7 @@ end architecture;",
             idx.set(idx.get() + 1);
         });
         let _ = root.search(&mut searcher);
-        assert_eq!(idx.get(), 9);
+        assert_eq!(idx.get(), 11);
     }
 
     // GitHub issue: 378
@@ -942,6 +977,52 @@ end architecture;",
         );
 
         builder.add_std_logic_1164();
+        let (root, diagnostics) = builder.get_analyzed_root();
+        check_no_diagnostics(&diagnostics);
+
+        let num_of_searches = Cell::new(0);
+        let mut searcher = ProcessSearcher::new(|proc, ctx| {
+            num_of_searches.set(num_of_searches.get() + 1);
+            let diag = lint_sensitivity_list(&root, ctx, proc);
+            assert_eq!(diag, Vec::default());
+        });
+        let _ = root.search(&mut searcher);
+        assert_eq!(num_of_searches.get(), 1)
+    }
+
+    // GitHub issue: 505
+    #[test]
+    fn async_reset_with_nested_clocked_if_in_else_branch() {
+        let mut builder = LibraryBuilder::new();
+        builder.add_std_logic_1164();
+
+        builder.code(
+            "libname",
+            "
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity async_reset_else is
+    port (
+        clk, reset, xoff: in std_logic
+    );
+end entity;
+
+architecture a of async_reset_else is
+    signal xoff_sr: std_logic_vector(3 downto 0);
+begin
+    process (clk, reset) begin
+        if reset = '1' then
+            xoff_sr <= (others => '0');
+        else
+            if rising_edge(clk) then
+                xoff_sr <= xoff_sr(xoff_sr'left-1 downto 0) & xoff;
+            end if;
+        end if;
+    end process;
+end architecture;",
+        );
+
         let (root, diagnostics) = builder.get_analyzed_root();
         check_no_diagnostics(&diagnostics);
 
