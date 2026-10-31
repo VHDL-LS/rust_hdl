@@ -23,6 +23,12 @@ struct Args {
     /// This will silence all window/showMessage and only use window/logMessage
     #[arg(long, default_value_t = false)]
     silent: bool,
+
+    /// Do not load the user configuration: the `.vhdl_ls.toml` file in the home folder
+    /// and the file named by the `VHDL_LS_CONFIG` environment variable.
+    /// The standard libraries and the workspace `vhdl_ls.toml` are still loaded.
+    #[arg(long, default_value_t = false)]
+    no_user_config: bool,
 }
 
 fn main() {
@@ -34,6 +40,7 @@ fn main() {
         no_lint: args.no_lint,
         silent: args.silent,
         libraries_path: args.libraries,
+        no_user_config: args.no_user_config,
         ..Default::default()
     });
 }

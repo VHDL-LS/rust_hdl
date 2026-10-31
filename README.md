@@ -137,6 +137,11 @@ The language server needs to know your library mapping to perform full analysis 
 > [!NOTE]
 > Read the full documentation in [the wiki](https://github.com/VHDL-LS/rust_hdl/wiki/VHDL%E2%80%90LS-Configuration)
 
+Configuration is merged from the installation (the standard libraries), the `.vhdl_ls.toml` file in the home folder,
+the file named by the `VHDL_LS_CONFIG` environment variable, and finally the project configuration.
+Tools that generate a complete project configuration can pass `--no-user-config` to `vhdl_ls` or `vhdl_lang`
+to skip the home folder file and `VHDL_LS_CONFIG`. The standard libraries are still loaded.
+
 ### Example vhdl_ls.toml / Quickstart
 
 ```toml

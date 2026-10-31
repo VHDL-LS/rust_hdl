@@ -55,6 +55,8 @@ pub struct VHDLServerSettings {
     pub silent: bool,
     pub non_project_file_handling: NonProjectFileHandling,
     pub libraries_path: Option<String>,
+    /// Do not load the user configuration (home folder and `VHDL_LS_CONFIG`)
+    pub no_user_config: bool,
 }
 
 pub struct VHDLServer {
@@ -129,9 +131,10 @@ impl VHDLServer {
         let mut config = Config::default();
 
         if self.use_external_config {
-            config.load_external_config(
+            config.load_external_config_with_user_config(
                 &mut self.message_filter(),
                 self.settings.libraries_path.clone(),
+                !self.settings.no_user_config,
             );
         }
 
