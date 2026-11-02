@@ -26,6 +26,18 @@ const COLUMN_KIND: &str = "unicodeCodePoints";
 /// The hex digits used to percent-encode a path.
 const HEX: &[u8; 16] = b"0123456789ABCDEF";
 
+/// A severity as a SARIF level.
+///
+/// SARIF has no `info`, and `none` is its lowest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SarifLevel {
+    Error,
+    Warning,
+    Note,
+    None,
+}
+
 /// What the run did, beyond the diagnostics themselves.
 #[derive(Debug, Clone)]
 pub struct Invocation {
@@ -94,7 +106,7 @@ pub struct SarifRule {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SarifRuleConfiguration {
-    pub level: &'static str,
+    pub level: SarifLevel,
     /// Whether the rule is enabled by default.
     pub enabled: bool,
 }
@@ -113,7 +125,7 @@ pub struct SarifMessage {
 pub struct SarifResult {
     /// The code of the rule that produced this result.
     pub rule_id: String,
-    pub level: &'static str,
+    pub level: SarifLevel,
     pub message: SarifMessage,
     pub locations: Vec<SarifLocation>,
     /// The fixes that resolve this result, when the rule knows any.
@@ -214,7 +226,7 @@ pub struct SarifInvocation {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SarifNotification {
-    pub level: &'static str,
+    pub level: SarifLevel,
     pub message: SarifMessage,
 }
 
@@ -255,7 +267,7 @@ impl SarifLog {
                         .skipped
                         .iter()
                         .map(|skipped| SarifNotification {
-                            level: "warning",
+                            level: SarifLevel::Warning,
                             message: SarifMessage {
                                 text: skipped.clone(),
                                 markdown: None,
@@ -400,13 +412,13 @@ fn region(files: &FileStore, file: FileId, span: &std::ops::Range<usize>) -> Sar
     }
 }
 
-/// A severity as a SARIF level: SARIF has no `info`, and `note` is its lowest.
-fn level(severity: Severity) -> &'static str {
+/// A severity as a SARIF level.
+fn level(severity: Severity) -> SarifLevel {
     match severity {
-        Severity::Error => "error",
-        Severity::Warning => "warning",
-        Severity::Info => "note",
-        Severity::Note => "none",
+        Severity::Error => SarifLevel::Error,
+        Severity::Warning => SarifLevel::Warning,
+        Severity::Info => SarifLevel::Note,
+        Severity::Note => SarifLevel::None,
     }
 }
 
@@ -650,11 +662,22 @@ mod tests {
 
     #[test]
     fn every_severity_has_a_level() {
-        // SARIF has no `info`, and `note` is the lowest level still reported.
-        assert_eq!(level(Severity::Error), "error");
-        assert_eq!(level(Severity::Warning), "warning");
-        assert_eq!(level(Severity::Info), "note");
-        assert_eq!(level(Severity::Note), "none");
+        // SARIF has no `info`, and `none` is the lowest level still reported.
+        assert_eq!(level(Severity::Error), SarifLevel::Error);
+        assert_eq!(level(Severity::Warning), SarifLevel::Warning);
+        assert_eq!(level(Severity::Info), SarifLevel::Note);
+        assert_eq!(level(Severity::Note), SarifLevel::None);
+        // The levels are spelled the way SARIF spells them.
+        assert_eq!(
+            serde_json::to_string(&[
+                SarifLevel::Error,
+                SarifLevel::Warning,
+                SarifLevel::Note,
+                SarifLevel::None
+            ])
+            .unwrap(),
+            r#"["error","warning","note","none"]"#
+        );
     }
 
     #[test]
@@ -665,7 +688,7 @@ mod tests {
         assert_eq!(rules.len(), 1);
         assert_eq!(rules[0].id, "IDM002");
         assert_eq!(rules[0].name.as_deref(), Some("explicit-port-mode"));
-        assert_eq!(rules[0].default_configuration.level, "warning");
+        assert_eq!(rules[0].default_configuration.level, SarifLevel::Warning);
         assert!(rules[0].default_configuration.enabled);
     }
 }
