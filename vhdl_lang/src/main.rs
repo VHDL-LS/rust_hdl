@@ -10,8 +10,8 @@ use std::iter::zip;
 use std::path::{Path, PathBuf};
 use vhdl_lang::ast::DesignFile;
 use vhdl_lang::{
-    Config, Diagnostic, MessagePrinter, Project, Severity, SeverityMap, Source, VHDLFormatter,
-    VHDLParser, VHDLStandard,
+    Config, Diagnostic, ExternalConfig, MessagePrinter, Project, Severity, SeverityMap, Source,
+    VHDLFormatter, VHDLParser, VHDLStandard,
 };
 
 #[derive(Debug, clap::Args)]
@@ -58,7 +58,11 @@ fn main() {
             &config_path,
             args.num_threads,
             args.libraries.as_ref(),
-            !args.no_user_config,
+            if args.no_user_config {
+                ExternalConfig::InstalledOnly
+            } else {
+                ExternalConfig::All
+            },
         );
     } else if let Some(format) = args.group.format {
         format_file(format);
@@ -117,7 +121,7 @@ fn parse_and_analyze_project(
     config_path: &str,
     num_threads: Option<usize>,
     libraries: Option<&String>,
-    user_config: bool,
+    external: ExternalConfig,
 ) {
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads.unwrap_or(0))
@@ -126,7 +130,7 @@ fn parse_and_analyze_project(
 
     let mut config = Config::default();
     let mut msg_printer = MessagePrinter::default();
-    config.load_external_config_with_user_config(&mut msg_printer, libraries.cloned(), user_config);
+    config.load_external_config_from(&mut msg_printer, libraries.cloned(), external);
     config.append(
         &Config::read_file_path(Path::new(&config_path)).expect("Failed to read config file"),
         &mut msg_printer,

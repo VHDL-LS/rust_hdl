@@ -5,6 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use clap::Parser;
+use vhdl_lang::ExternalConfig;
 use vhdl_ls::VHDLServerSettings;
 
 #[derive(Parser)]
@@ -40,7 +41,11 @@ fn main() {
         no_lint: args.no_lint,
         silent: args.silent,
         libraries_path: args.libraries,
-        no_user_config: args.no_user_config,
+        external_config: if args.no_user_config {
+            ExternalConfig::InstalledOnly
+        } else {
+            ExternalConfig::All
+        },
         ..Default::default()
     });
 }
