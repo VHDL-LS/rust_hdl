@@ -316,7 +316,9 @@ impl Config {
             }
         }
         self.severities = config.severities;
-        self.preferred_case = config.preferred_case;
+        if config.preferred_case.is_some() {
+            self.preferred_case = config.preferred_case;
+        }
     }
 
     /// Load configuration file from installation folder
@@ -711,6 +713,24 @@ lib3.files = [
         let mut merged_config = config0;
         merged_config.append(&config1, &mut Vec::new());
         assert_eq!(merged_config, expected_config);
+    }
+
+    #[test]
+    fn test_append_preferred_case() {
+        let parent = Path::new("parent_folder");
+        let without_case = Config::from_str("[libraries]", parent).unwrap();
+        let lower = Config::from_str("preferred_case = 'lower'\n[libraries]", parent).unwrap();
+        let upper = Config::from_str("preferred_case = 'upper'\n[libraries]", parent).unwrap();
+
+        // A config that does not set the case keeps the one that is already there.
+        let mut merged_config = lower.clone();
+        merged_config.append(&without_case, &mut Vec::new());
+        assert_eq!(merged_config.preferred_case(), Some(Case::Lower));
+
+        // A config that does set the case overrides it.
+        let mut merged_config = lower;
+        merged_config.append(&upper, &mut Vec::new());
+        assert_eq!(merged_config.preferred_case(), Some(Case::Upper));
     }
 
     #[test]
