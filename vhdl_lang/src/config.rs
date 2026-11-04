@@ -27,7 +27,12 @@ use crate::standard::VHDLStandard;
 /// The project's own configuration is not part of this: callers append it themselves.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum ExternalConfig {
-    /// No external configuration at all.
+    /// No external configuration at all, not even the installation configuration.
+    ///
+    /// For applications that use this crate as a library and supply the complete
+    /// configuration themselves, including the `std` and `ieee` libraries. Nothing is read
+    /// from the machine or the user, and no installation folder needs to exist next to the
+    /// executable, which `InstalledOnly` and `All` require.
     None,
     /// Only the installation configuration, which defines the standard libraries.
     InstalledOnly,
@@ -453,6 +458,7 @@ impl Config {
     /// `ExternalConfig::All` is the same as [`Config::load_external_config`].
     /// `ExternalConfig::InstalledOnly` is meant for tools that generate a complete configuration
     /// themselves, so that the result does not depend on the machine or the user that runs them.
+    /// `ExternalConfig::None` loads nothing, for callers that also supply `std` and `ieee`.
     pub fn load_external_config_from(
         &mut self,
         messages: &mut dyn MessageHandler,
