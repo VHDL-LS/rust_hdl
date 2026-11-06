@@ -53,7 +53,7 @@ fn unused_function_gets_detected() -> Result<(), Box<dyn Error>> {
         .arg("--libraries")
         .arg("../vhdl_libraries");
     cmd.assert().failure().stdout(predicate::str::contains(
-        "error: Unused declaration of port 'baz' : inout",
+        "error[unused]: Unused declaration of port 'baz' : inout",
     ));
 
     Ok(())
