@@ -58,3 +58,21 @@ fn unused_function_gets_detected() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[test]
+fn invalid_config_is_an_error_not_a_panic() -> Result<(), Box<dyn Error>> {
+    let mut cmd = Command::new(cargo::cargo_bin!("vhdl_lang"));
+
+    cmd.arg("--config")
+        .arg("tests/invalid_lint_code/vhdl_ls.toml")
+        .arg("--libraries")
+        .arg("../vhdl_libraries");
+    cmd.assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "'no_such_code' is not a valid error code",
+        ))
+        .stderr(predicate::str::contains("panicked").not());
+
+    Ok(())
+}
