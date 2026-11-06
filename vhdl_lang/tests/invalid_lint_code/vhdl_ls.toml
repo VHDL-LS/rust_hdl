@@ -1,0 +1,6 @@
+[libraries]
+
+my_library.files = []
+
+[lint]
+no_such_code = false

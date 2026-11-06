@@ -115,10 +115,14 @@ fn parse_and_analyze_project(
     let mut config = Config::default();
     let mut msg_printer = MessagePrinter::default();
     config.load_external_config(&mut msg_printer, libraries.cloned());
-    config.append(
-        &Config::read_file_path(Path::new(&config_path)).expect("Failed to read config file"),
-        &mut msg_printer,
-    );
+    let project_config = match Config::read_file_path(Path::new(&config_path)) {
+        Ok(project_config) => project_config,
+        Err(err) => {
+            eprintln!("error: Failed to read config file '{config_path}': {err}");
+            std::process::exit(2);
+        }
+    };
+    config.append(&project_config, &mut msg_printer);
 
     let severity_map = *config.severities();
     let mut project = Project::from_config(config, &mut msg_printer);
