@@ -90,7 +90,11 @@ impl Diagnostic {
             result.push('\n');
         }
         let severity: &str = severity.into();
-        result.push_str(&self.pos.show(&format!("{}: {}", severity, self.message)));
+        result.push_str(
+            &self
+                .pos
+                .show(&format!("{}[{}]: {}", severity, self.code, self.message)),
+        );
         Some(result)
     }
 
@@ -167,7 +171,7 @@ mod tests {
         assert_eq!(
             Diagnostic::new(code.s1("world"), "Greetings", ErrorCode::Unused).show_default(),
             "\
-warning: Greetings
+warning[unused]: Greetings
   --> {unknown file}:2
    |
 1  |  hello
@@ -184,7 +188,7 @@ warning: Greetings
         assert_eq!(
             Diagnostic::new(code.s1("world"), "Greetings", ErrorCode::SyntaxError).show_default(),
             "\
-error: Greetings
+error[syntax_error]: Greetings
   --> {unknown file}:2
    |
 1  |  hello
@@ -213,7 +217,7 @@ related: From here
 2  |  world
 3  |  line
 
-error: Greetings
+error[syntax_error]: Greetings
   --> {unknown file}:3
    |
 1  |  hello
