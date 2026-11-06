@@ -168,7 +168,7 @@ mod tests {
             Diagnostic::new(code.s1("world"), "Greetings", ErrorCode::Unused).show_default(),
             "\
 warning: Greetings
-  --> {unknown file}:2
+  --> {unknown file}:2:1
    |
 1  |  hello
 2 --> world
@@ -185,7 +185,7 @@ warning: Greetings
             Diagnostic::new(code.s1("world"), "Greetings", ErrorCode::SyntaxError).show_default(),
             "\
 error: Greetings
-  --> {unknown file}:2
+  --> {unknown file}:2:1
    |
 1  |  hello
 2 --> world
@@ -206,7 +206,7 @@ error: Greetings
             err.show_default(),
             "\
 related: From here
-  --> {unknown file}:1
+  --> {unknown file}:1:1
    |
 1 --> hello
    |  ~~~~~
@@ -214,7 +214,7 @@ related: From here
 3  |  line
 
 error: Greetings
-  --> {unknown file}:3
+  --> {unknown file}:3:1
    |
 1  |  hello
 2  |  world

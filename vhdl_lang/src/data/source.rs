@@ -421,11 +421,14 @@ impl SrcPos {
         for _ in 0..lineno_len {
             result.push(' ');
         }
+        // The column is one-based, like the line. It counts UTF-16 code units, which
+        // equals the number of characters for any text outside the astral planes.
         writeln!(
             result,
-            " --> {}:{}",
+            " --> {}:{}:{}",
             file_name.to_string_lossy(),
-            lineno + 1
+            lineno + 1,
+            self.range.start.character + 1
         )
         .unwrap();
         for _ in 0..lineno_len {
@@ -771,7 +774,7 @@ line13",
                 format!(
                     "\
 Greetings
-  --> {}:2
+  --> {}:2:1
    |
 1  |  hello
 2 --> world
@@ -785,6 +788,20 @@ Greetings
     }
 
     #[test]
+    fn show_column() {
+        let code = Code::new(
+            "hello
+  world
+",
+        );
+        assert!(code.s1("world").pos().show("Greetings").contains(&format!(
+            " --> {}:2:3
+",
+            code.source().file_name().to_string_lossy()
+        )));
+    }
+
+    #[test]
     fn show_contents() {
         let code = Code::new("hello\nworld\nline\n");
         assert_eq!(
@@ -792,7 +809,7 @@ Greetings
             format!(
                 "\
 Greetings
-  --> {}:2
+  --> {}:2:1
    |
 1  |  hello
 2 --> world
