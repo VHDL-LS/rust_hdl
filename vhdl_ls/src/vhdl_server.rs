@@ -23,8 +23,8 @@ use std::io;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Case, Concurrent, Config, EntHierarchy, EntRef, Message, MessageHandler, Object,
-    Overloaded, Project, SeverityMap, SrcPos, Token, Type, VHDLStandard,
+    AnyEntKind, Case, Concurrent, Config, EntHierarchy, EntRef, ExternalConfig, Message,
+    MessageHandler, Object, Overloaded, Project, SeverityMap, SrcPos, Token, Type, VHDLStandard,
 };
 
 /// Defines how the language server handles files
@@ -55,13 +55,13 @@ pub struct VHDLServerSettings {
     pub silent: bool,
     pub non_project_file_handling: NonProjectFileHandling,
     pub libraries_path: Option<String>,
+    /// Which configuration files outside the workspace are loaded
+    pub external_config: ExternalConfig,
 }
 
 pub struct VHDLServer {
     rpc: SharedRpcChannel,
     settings: VHDLServerSettings,
-    // To have well defined unit tests that are not affected by environment
-    use_external_config: bool,
     project: Project,
     diagnostic_cache: FnvHashMap<Url, Vec<vhdl_lang::Diagnostic>>,
     semantic_token_cache: FnvHashMap<Url, Vec<semantic_tokens::CachedToken>>,
@@ -77,7 +77,6 @@ impl VHDLServer {
         VHDLServer {
             rpc,
             settings,
-            use_external_config: true,
             project: Project::new(VHDLStandard::default()),
             diagnostic_cache: FnvHashMap::default(),
             semantic_token_cache: FnvHashMap::default(),
@@ -90,11 +89,13 @@ impl VHDLServer {
     }
 
     #[cfg(test)]
-    fn new_external_config(rpc: SharedRpcChannel, use_external_config: bool) -> VHDLServer {
+    fn new_external_config(rpc: SharedRpcChannel, external_config: ExternalConfig) -> VHDLServer {
         VHDLServer {
             rpc,
-            settings: Default::default(),
-            use_external_config,
+            settings: VHDLServerSettings {
+                external_config,
+                ..Default::default()
+            },
             project: Project::new(VHDLStandard::default()),
             diagnostic_cache: Default::default(),
             semantic_token_cache: Default::default(),
@@ -128,12 +129,11 @@ impl VHDLServer {
     fn load_config(&self) -> Config {
         let mut config = Config::default();
 
-        if self.use_external_config {
-            config.load_external_config(
-                &mut self.message_filter(),
-                self.settings.libraries_path.clone(),
-            );
-        }
+        config.load_external_config_from(
+            &mut self.message_filter(),
+            self.settings.libraries_path.clone(),
+            self.settings.external_config,
+        );
 
         match self.load_root_uri_config() {
             Ok(root_config) => {
@@ -571,7 +571,10 @@ mod tests {
     /// Create RpcMock and VHDLServer
     pub(crate) fn setup_server() -> (Rc<RpcMock>, VHDLServer) {
         let mock = Rc::new(RpcMock::new());
-        let server = VHDLServer::new_external_config(SharedRpcChannel::new(mock.clone()), false);
+        let server = VHDLServer::new_external_config(
+            SharedRpcChannel::new(mock.clone()),
+            ExternalConfig::None,
+        );
         (mock, server)
     }
 
