@@ -27,6 +27,7 @@ use vhdl_lint::{
         selection::{RuleOverrides, RuleSelector},
         ErasedAstRule, RuleRegistry,
     },
+    sarif::{Invocation, SarifLog},
     serialize::RenderableDiagnostic,
     Encoding, File, FileId, FileStore, FixErrKind, FixOutcome,
 };
@@ -71,6 +72,9 @@ enum OutputFormat {
     #[default]
     Full,
     Json,
+    /// Static Analysis Results Interchange Format, read by GitHub code
+    /// scanning and other SARIF consumers.
+    Sarif,
 }
 
 #[derive(clap::Args)]
@@ -502,6 +506,19 @@ fn main() -> ExitCode {
 
     let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
 
+    // The exit code the run reports; the SARIF output carries it.
+    let exit_code = if !skipped.is_empty() {
+        EXIT_TOOL_FAILURE
+    } else if !errors.is_empty() {
+        if args.exit_zero {
+            0
+        } else {
+            EXIT_DIAGNOSTICS
+        }
+    } else {
+        0
+    };
+
     errors.sort_by_key(|diag| {
         let loc = diag.loc();
         (
@@ -525,6 +542,17 @@ fn main() -> ExitCode {
                 .collect::<Box<_>>();
             anstream::println!("{}", serde_json::to_string(&diagnostics).unwrap())
         }
+        OutputFormat::Sarif => {
+            let invocation = Invocation {
+                exit_code,
+                // Findings are not a failure. A file that could not be read is.
+                execution_successful: skipped.is_empty(),
+                skipped: skipped.clone(),
+                command_line: std::env::args().collect::<Vec<_>>().join(" "),
+            };
+            let log = SarifLog::new(&errors, &files, &registry, invocation, Some(&cwd));
+            anstream::println!("{}", serde_json::to_string(&log).unwrap());
+        }
     }
 
     if !skipped.is_empty() {
@@ -545,29 +573,19 @@ fn main() -> ExitCode {
         }
     }
 
-    if !skipped.is_empty() {
-        ExitCode::from(EXIT_TOOL_FAILURE)
-    } else if !errors.is_empty() {
-        if args.exit_zero {
-            ExitCode::SUCCESS
+    if skipped.is_empty() && errors.is_empty() && args.output_format == OutputFormat::Full {
+        let preamble = if total_fixes > 0 {
+            "No new issues"
         } else {
-            ExitCode::from(EXIT_DIAGNOSTICS)
-        }
-    } else {
-        if args.output_format == OutputFormat::Full {
-            let preamble = if total_fixes > 0 {
-                "No new issues"
-            } else {
-                "No issues"
-            };
-            anstream::println!(
-                "{preamble} found in {} file{}",
-                files.len(),
-                pluralize(files.len())
-            );
-        }
-        ExitCode::SUCCESS
+            "No issues"
+        };
+        anstream::println!(
+            "{preamble} found in {} file{}",
+            files.len(),
+            pluralize(files.len())
+        );
     }
+    ExitCode::from(exit_code)
 }
 
 fn explain(rule: &dyn ErasedAstRule) -> String {
