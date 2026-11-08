@@ -6,22 +6,14 @@ Print the format to stdout using `--output-format` in the CLI.
 ## SARIF
 
 `--output-format sarif` writes [SARIF 2.1.0](https://sarifweb.azurewebsites.net/),
-the interchange format for static analysis results.
-It is the format GitHub code scanning reads, so a run can annotate a pull
-request without any further conversion.
+the interchange format for static analysis results. GitHub code scanning and
+other CI services can use it to report findings.
 
 ```shell
 vhdl-lint --output-format sarif rtl/ > vhdl-lint.sarif
 ```
 
-The mapping is one to one. Every finding is a result, the rule code is the
-result's `ruleId`, and a rule's fix becomes a set of text replacements.
-Rules that produced no finding are not reported, and a rule's documentation
-becomes its `shortDescription` and `fullDescription`.
-
-The run's exit code is reported in `invocations[].exitCode`, and files that
-could not be analyzed are reported as `toolExecutionNotifications`, so a
-partial run does not read as a complete one.
+In GitHub Actions, upload the file with `github/codeql-action/upload-sarif`.
 
 ## Custom format
 

@@ -23,9 +23,6 @@ const INFORMATION_URI: &str = "https://vhdl-ls.github.io/rust_hdl/vhdl-lint/";
 /// vhdl-lint counts columns in UTF-32 code points; SARIF defaults to UTF-16.
 const COLUMN_KIND: &str = "unicodeCodePoints";
 
-/// The hex digits used to percent-encode a path.
-const HEX: &[u8; 16] = b"0123456789ABCDEF";
-
 /// A severity as a SARIF level.
 ///
 /// SARIF has no `info`, and `none` is its lowest.
@@ -382,21 +379,15 @@ fn artifact_uri(path: &Path, base: Option<&Path>) -> String {
         .unwrap_or(path);
     let text = relative.to_string_lossy().replace('\\', "/");
     let text = text.strip_prefix("./").unwrap_or(&text);
-    let mut uri = String::with_capacity(text.len());
-    for byte in text.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' => uri.push(byte as char),
-            // The unreserved characters, plus the legal sub-delimiters.
-            b'-' | b'.' | b'_' | b'~' | b'!' | b'$' | b'&' | b'\'' | b'(' | b')' | b'*' | b'+'
-            | b',' | b';' | b'=' | b':' | b'@' | b'/' => uri.push(byte as char),
-            _ => {
-                uri.push('%');
-                uri.push(char::from(HEX[(byte >> 4) as usize]));
-                uri.push(char::from(HEX[(byte & 0xF) as usize]));
-            }
-        }
+    let is_absolute = text.starts_with('/');
+    let mut uri = url::Url::parse("https://sarif.invalid/").expect("valid base URL");
+    uri.set_path(text);
+    let path = uri.path();
+    if is_absolute {
+        path.to_string()
+    } else {
+        path.strip_prefix('/').unwrap_or(path).to_string()
     }
-    uri
 }
 
 /// The region a span covers, in SARIF's 1-based, end-exclusive columns.
@@ -603,11 +594,13 @@ mod tests {
     #[test]
     fn a_clean_run_has_no_results_but_still_reports_the_invocation() {
         let (files, registry, diagnostics) = diagnose(b"entity demo is\nend entity demo;\n");
-        let log = SarifLog::new(&diagnostics, &files, &registry, invocation(), None);
+        let mut invocation = invocation();
+        invocation.exit_code = 0;
+        let log = SarifLog::new(&diagnostics, &files, &registry, invocation, None);
         assert!(log.runs[0].results.is_empty());
         // An empty result set and a linter that never ran must not look alike.
         assert!(log.runs[0].invocations[0].execution_successful);
-        assert_eq!(log.runs[0].invocations[0].exit_code, 1);
+        assert_eq!(log.runs[0].invocations[0].exit_code, 0);
     }
 
     #[test]
