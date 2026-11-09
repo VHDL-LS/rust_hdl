@@ -138,12 +138,6 @@ pub trait Searcher {
     /// Search an association element (e.g. in a port map, generic map, or
     /// subprogram call).
     ///
-    /// This hook is called *before* the default search of the association
-    /// element. Returning [`SearchState::NotFinished`] lets the default
-    /// search proceed; returning [`SearchState::Finished`] stops the search
-    /// of this association element (the implementation is then responsible
-    /// for searching both the formal and the actual).
-    ///
     /// The default implementation does nothing, letting the default search
     /// handle the association element.
     fn search_association(
