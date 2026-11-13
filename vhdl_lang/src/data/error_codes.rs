@@ -402,6 +402,29 @@ pub enum ErrorCode {
     /// A declaration that is unused
     Unused,
 
+    /// An object (signal, variable) is assigned but its value is never read.
+    /// This is dead code that will be optimized away during synthesis.
+    ///
+    /// # Example
+    /// ```vhdl
+    /// signal only_written : std_logic;
+    /// -- ...
+    /// only_written <= '1';  -- assigned but never read
+    /// ```
+    NeverRead,
+
+    /// An object (signal, variable, output port) is read but never assigned
+    /// or initialized in its declaration. Reading such an object yields
+    /// an uninitialized value (e.g. `'X'` for `std_logic`).
+    ///
+    /// # Example
+    /// ```vhdl
+    /// signal only_read : std_logic;
+    /// -- ...
+    /// result <= only_read;  -- read but never assigned
+    /// ```
+    Uninitialized,
+
     /// The declaration
     /// ```vhdl
     /// library work;
@@ -531,6 +554,8 @@ impl Default for SeverityMap {
             | MissingFullTypeDeclaration
             | InvalidCall => Some(Error),
             Unused
+            | NeverRead
+            | Uninitialized
             | UnnecessaryWorkLibrary
             | UnassociatedContext
             | MissingInSensitivityList
@@ -576,6 +601,11 @@ fn serialize_from_string() {
         ErrorCode::try_from("syntax_error"),
         Ok(ErrorCode::SyntaxError)
     );
+    assert_eq!(ErrorCode::try_from("never_read"), Ok(ErrorCode::NeverRead));
+    assert_eq!(
+        ErrorCode::try_from("uninitialized"),
+        Ok(ErrorCode::Uninitialized)
+    );
     assert_eq!(
         ErrorCode::try_from("not_an_error_code"),
         Err(strum::ParseError::VariantNotFound)
@@ -590,6 +620,8 @@ fn serialize_to_string() {
         "misplaced_attribute_spec"
     );
     assert_eq!(ErrorCode::SyntaxError.as_str(), "syntax_error");
+    assert_eq!(ErrorCode::NeverRead.as_str(), "never_read");
+    assert_eq!(ErrorCode::Uninitialized.as_str(), "uninitialized");
 }
 
 /// Specialized diagnostics with pre-defined messages and error codes

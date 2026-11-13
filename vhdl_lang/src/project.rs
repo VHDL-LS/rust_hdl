@@ -262,6 +262,9 @@ impl Project {
             lint.lint(&self.root, &self.config, &analyzed_units, &mut diagnostics);
         }
 
+        // Apply comment-based suppressions (e.g. `-- vhdl_ls(never_read)`)
+        crate::lint::suppress::apply_suppressions(&mut diagnostics);
+
         diagnostics
     }
 

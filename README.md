@@ -172,6 +172,8 @@ UNISIM.is_third_party = true
 
 [lint]
 unused = 'error' # Upgrade the 'unused' diagnostic to the 'error' severity
+never_read = 'warning' # Warn about signals/variables that are assigned but never read
+uninitialized = 'error' # Flag signals/variables/ports that are read but never assigned
 unnecessary_work_library = false # Disable linting for the 'library work;' statement
 ```
 
@@ -198,6 +200,54 @@ begin
     -- vhdl_ls on
 end architecture;
 ```
+
+## Suppressing individual warnings
+
+Individual diagnostics can be suppressed with a comment on the same line as the offending declaration, or on the
+line directly above it. The comment must contain `vhdl_ls` followed by the rule name(s) to suppress, either in
+parentheses or space-separated:
+
+```vhdl
+architecture arch of ent is
+    -- Trailing comment on the same line
+    signal debug_sig : std_logic; -- vhdl_ls(never_read)
+
+    -- Leading comment on the line above
+    -- vhdl_ls(never_read)
+    signal debug_sig2 : std_logic;
+
+    -- Multiple rules can be listed, separated by commas
+    signal debug_sig3 : std_logic; -- vhdl_ls(never_read, unused)
+
+    -- Use * or all to suppress all diagnostics for the declaration
+    signal debug_sig4 : std_logic; -- vhdl_ls(*)
+
+    -- Space-separated form also works
+    signal debug_sig5 : std_logic; -- vhdl_ls never_read
+
+    -- The vhdl_ls marker can appear anywhere in the comment;
+    -- surrounding text before and after the rule name(s) is ignored
+    signal debug_sig6 : std_logic; -- for debug purposes, vhdl_ls(never_read) so we keep it
+    signal debug_sig7 : std_logic; --vhdl_ls never_read this is fine
+begin
+    -- ...
+end architecture;
+```
+
+The `vhdl_ls` marker can appear anywhere within the comment — any text before or after the rule name(s) is
+ignored. This works for any vhdl_ls diagnostic, not just lint rules. For example, it can suppress `never_read`,
+`unused`, `uninitialized`, or any other warning/error reported at that line.
+
+The available lint rule names are:
+
+| Rule | Description |
+|------|-------------|
+| `unused` | Declaration is never used |
+| `never_read` | Signal/variable is assigned but never read |
+| `uninitialized` | Signal/variable/port is read but never assigned |
+| `unnecessary_work_library` | Unnecessary `library work;` statement |
+
+To suppress all diagnostics for a declaration, use `-- vhdl_ls(*)` or `-- vhdl_ls(all)`.
 
 ## As an LSP-client developer how should I integrate VHDL-LS?
 
