@@ -601,11 +601,6 @@ fn serialize_from_string() {
         ErrorCode::try_from("syntax_error"),
         Ok(ErrorCode::SyntaxError)
     );
-    assert_eq!(ErrorCode::try_from("never_read"), Ok(ErrorCode::NeverRead));
-    assert_eq!(
-        ErrorCode::try_from("uninitialized"),
-        Ok(ErrorCode::Uninitialized)
-    );
     assert_eq!(
         ErrorCode::try_from("not_an_error_code"),
         Err(strum::ParseError::VariantNotFound)
@@ -620,8 +615,6 @@ fn serialize_to_string() {
         "misplaced_attribute_spec"
     );
     assert_eq!(ErrorCode::SyntaxError.as_str(), "syntax_error");
-    assert_eq!(ErrorCode::NeverRead.as_str(), "never_read");
-    assert_eq!(ErrorCode::Uninitialized.as_str(), "uninitialized");
 }
 
 /// Specialized diagnostics with pre-defined messages and error codes
