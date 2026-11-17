@@ -252,6 +252,37 @@ impl Searcher for DeadCodeSearcher<'_> {
         }
     }
 
+    fn search_target_aggregate(
+        &mut self,
+        ctx: &dyn TokenAccess,
+        _pos: &SrcPos,
+        assocs: &[crate::ast::token_range::WithTokenSpan<crate::ast::ElementAssociation>],
+    ) -> SearchState {
+        use crate::ast::ElementAssociation;
+        for assoc in assocs {
+            match &assoc.item {
+                ElementAssociation::Positional(expr) => {
+                    if let Expression::Name(name) = &expr.item {
+                        let _ = search_pos_name_target(&expr.pos(ctx), name, self, ctx);
+                    } else {
+                        let _ = expr.search(ctx, self);
+                    }
+                }
+                ElementAssociation::Named(choices, expr) => {
+                    for choice in choices {
+                        let _ = choice.search(ctx, self);
+                    }
+                    if let Expression::Name(name) = &expr.item {
+                        let _ = search_pos_name_target(&expr.pos(ctx), name, self, ctx);
+                    } else {
+                        let _ = expr.search(ctx, self);
+                    }
+                }
+            }
+        }
+        SearchState::Finished(SearchResult::NotFound)
+    }
+
     fn search_decl(
         &mut self,
         _ctx: &dyn TokenAccess,
@@ -399,6 +430,13 @@ fn can_be_read_write_checked(ent: EntRef<'_>) -> bool {
 
     // Constants always have a value, only the `Unused` check applies.
     if obj.is_constant() {
+        return false;
+    }
+
+    // Shared variables are accessed through protected type methods,
+    // which the simple read/write tracking cannot model correctly.
+    // Exclude them from NeverRead / Uninitialized checks.
+    if obj.object().class == crate::ast::ObjectClass::SharedVariable {
         return false;
     }
 

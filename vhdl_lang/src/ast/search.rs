@@ -148,6 +148,21 @@ pub trait Searcher {
         NotFinished
     }
 
+    /// Search an aggregate assignment target (e.g. `(a, b, c)` in
+    /// `(a, b, c) <= (x, y, z);`). Each element association's expression
+    /// is a write target, not a read.
+    ///
+    /// The default implementation does nothing, letting the default search
+    /// handle the aggregate (which treats elements as reads).
+    fn search_target_aggregate(
+        &mut self,
+        _ctx: &dyn TokenAccess,
+        _pos: &SrcPos,
+        _assocs: &[WithTokenSpan<ElementAssociation>],
+    ) -> SearchState {
+        NotFinished
+    }
+
     /// Search a declaration of a named entity
     fn search_decl(&mut self, _ctx: &dyn TokenAccess, _decl: FoundDeclaration<'_>) -> SearchState {
         NotFinished
@@ -340,7 +355,12 @@ impl Search for WithTokenSpan<Target> {
     fn search(&self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         match self.item {
             Target::Name(ref name) => search_pos_name_target(&self.pos(ctx), name, searcher, ctx),
-            Target::Aggregate(ref assocs) => assocs.search(ctx, searcher),
+            Target::Aggregate(ref assocs) => {
+                match searcher.search_target_aggregate(ctx, &self.pos(ctx), assocs) {
+                    Finished(result) => result,
+                    NotFinished => assocs.search(ctx, searcher),
+                }
+            }
         }
     }
 }
