@@ -661,13 +661,22 @@ impl Latin1Str {
     }
 
     pub fn eq_ignore_case(&self, other: impl AsRef<Latin1Str>) -> bool {
-        // TODO: optimize this. No need to allocate for comparison only
-        self.to_lowercase() == other.as_ref().to_lowercase()
+        let other = other.as_ref();
+        // Branchless fold over fixed chunks so the compiler can vectorize it.
+        self.len() == other.len()
+            && self
+                .inner
+                .chunks(16)
+                .zip(other.inner.chunks(16))
+                .all(|(a, b)| {
+                    a.iter().zip(b).fold(true, |eq, (&a, &b)| {
+                        eq & (latin1_char_lowercased(a) == latin1_char_lowercased(b))
+                    })
+                })
     }
 
     pub fn neq_ignore_case(&self, other: impl AsRef<Latin1Str>) -> bool {
-        // TODO: optimize this. No need to allocate for comparison only
-        self.to_lowercase() != other.as_ref().to_lowercase()
+        !self.eq_ignore_case(other)
     }
 }
 
@@ -694,13 +703,13 @@ fn iso_8859_1_to_utf8(bytes: &[u8]) -> String {
 
 impl fmt::Debug for Latin1Str {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&iso_8859_1_to_utf8(&self.inner), f)
+        fmt::Debug::fmt(&*self.to_str(), f)
     }
 }
 
 impl fmt::Display for Latin1Str {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&iso_8859_1_to_utf8(&self.inner), f)
+        fmt::Display::fmt(&*self.to_str(), f)
     }
 }
 
@@ -740,13 +749,32 @@ impl std::ops::IndexMut<usize> for Latin1Str {
     }
 }
 
-// We cannot use `latin1 == str` since this is the code used to implement
-// this comparison, effectively creating an infinite recursion.
-// OPTIMIZATION: This is for simplicity only.
-// There is no need to allocate a string just for comparison.
-#[allow(clippy::cmp_owned)]
+// Compares against the UTF-8 encoding of each Latin-1 byte, without allocating.
+// Bytes >= 0x80 encode as two bytes: 0xC2/0xC3 followed by a continuation byte.
 fn cmp_latin1_to_str(latin1: &Latin1Str, str: &str) -> bool {
-    latin1.to_string() == str
+    let utf8 = str.as_bytes();
+    if utf8.len() < latin1.len() {
+        return false;
+    }
+    // Equal lengths can only match if both sides are pure ASCII.
+    if utf8.len() == latin1.len() {
+        return utf8 == &latin1.inner && utf8.is_ascii();
+    }
+    let mut i = 0;
+    for &byte in &latin1.inner {
+        if byte < 0x80 {
+            if utf8.get(i) != Some(&byte) {
+                return false;
+            }
+            i += 1;
+        } else {
+            if utf8.get(i..i + 2) != Some(&[0xC0 | (byte >> 6), 0x80 | (byte & 0x3F)]) {
+                return false;
+            }
+            i += 2;
+        }
+    }
+    i == utf8.len()
 }
 
 impl cmp::PartialEq<str> for Latin1Str {
@@ -906,5 +934,50 @@ mod tests {
         assert!(utf8.as_bytes() != latin1.as_bytes());
         // The string-value is still the same though
         assert!(latin1.as_latin1_str() == utf8);
+    }
+
+    #[test]
+    fn compare_latin1_to_utf8_all_bytes() {
+        for byte in 0..=255u8 {
+            let latin1 = Latin1String::from(byte);
+            let utf8 = (byte as char).to_string();
+            assert!(latin1 == *utf8.as_str());
+            assert!(*utf8.as_str() == latin1);
+            for other in 0..=255u8 {
+                if other != byte {
+                    assert!(latin1 != *(other as char).to_string().as_str());
+                }
+            }
+            // Prefixes and extensions must not match.
+            assert!(latin1 != *"");
+            assert!(latin1 != *format!("{utf8}a").as_str());
+            assert!(Latin1String::from_utf8("").unwrap() != *utf8.as_str());
+        }
+        // Same byte length, but the Latin-1 side decodes to "Ã©", not "é".
+        assert!(Latin1String::from([0xC3, 0xA9]) != *"\u{e9}");
+        let mixed = Latin1String::from_utf8("ab\u{e9}\u{ff}\u{80}z").unwrap();
+        assert!(mixed == *"ab\u{e9}\u{ff}\u{80}z");
+        assert!(mixed != *"ab\u{e9}\u{ff}\u{80}");
+        assert!(mixed != *"ab\u{e9}\u{fe}\u{80}z");
+    }
+
+    #[test]
+    fn eq_ignore_case_matches_lowercase() {
+        for a in 0..=255u8 {
+            for b in 0..=255u8 {
+                let la = Latin1String::from(a);
+                let lb = Latin1String::from(b);
+                let expected = la.to_lowercase() == lb.to_lowercase();
+                assert_eq!(la.eq_ignore_case(&lb), expected);
+                assert_eq!(la.neq_ignore_case(&lb), !expected);
+            }
+        }
+        let s = Latin1String::from_utf8("Std_Logic").unwrap();
+        assert!(s.eq_ignore_case(b"STD_LOGIC"));
+        assert!(!s.eq_ignore_case(b"STD_LOGI"));
+        assert!(!s.eq_ignore_case(b"STD_LOGICS"));
+        let long = Latin1String::from_utf8("a_rather_long_identifier_spanning_chunks").unwrap();
+        assert!(long.eq_ignore_case(b"A_RATHER_LONG_IDENTIFIER_SPANNING_CHUNKS"));
+        assert!(!long.eq_ignore_case(b"A_RATHER_LONG_IDENTIFIER_SPANNING_CHUNKZ"));
     }
 }
