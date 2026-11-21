@@ -87,12 +87,14 @@ impl Parser {
         });
     }
 
-    pub(crate) fn opt_label(&mut self) {
-        if self.next_is(Identifier) && self.next_nth_is(Colon, 1) {
+    pub(crate) fn opt_label(&mut self) -> bool {
+        let present = self.next_is(Identifier) && self.next_nth_is(Colon, 1);
+        if present {
             self.node(StmtLabel, |p| {
                 p.skip_n(2);
             });
         }
+        present
     }
 
     pub(crate) fn name_list(&mut self) -> CompletedMarker {

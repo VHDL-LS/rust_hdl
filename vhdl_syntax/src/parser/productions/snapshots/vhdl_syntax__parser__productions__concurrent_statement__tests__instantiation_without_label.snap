@@ -1,0 +1,54 @@
+---
+source: vhdl_syntax/src/parser/productions/concurrent_statement.rs
+expression: "$crate :: parser :: test_utils :: render_recovery(code, & tree, & diags)"
+---
+== source ==
+architecture a of e is
+begin
+  cmp port map (p => q);
+end architecture;
+
+== tree ==
+ArchitectureBody
+  ArchitecturePreamble
+    Keyword(Architecture)
+    Identifier 'a'
+    Keyword(Of)
+    Name
+      NameDesignatorPrefix
+        Identifier 'e'
+    Keyword(Is)
+  DeclarationStatementSeparator
+    Keyword(Begin)
+  ArchitectureStatementPart
+    ComponentInstantiationStatement
+      InstantiatedComponent
+        Name
+          NameDesignatorPrefix
+            Identifier 'cmp'
+      PortMapAspect
+        Keyword(Port)
+        Keyword(Map)
+        LeftPar
+        AssociationList
+          AssociationElement
+            Formal
+              Name
+                NameDesignatorPrefix
+                  Identifier 'p'
+              RightArrow
+            ActualPart
+              ActualPartExpression
+                NameExpression
+                  Name
+                    NameDesignatorPrefix
+                      Identifier 'q'
+        RightPar
+      SemiColon
+  ArchitectureEpilogue
+    Keyword(End)
+    Keyword(Architecture)
+    SemiColon
+
+== diagnostics ==
+3:6 expected StmtLabel
