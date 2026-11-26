@@ -334,6 +334,13 @@ impl<'a> Scope<'a> {
         self.into_inner().into_visibility()
     }
 
+    /// The explicitly declared entities of this region itself, in declaration order
+    pub fn immediates(&self) -> Vec<EntRef<'a>> {
+        let mut ents: Vec<_> = self.0.as_ref().borrow().region.immediates().collect();
+        ents.sort_by_key(|ent| ent.src_span.start_token);
+        ents
+    }
+
     pub fn lookup_immediate(&self, designator: &Designator) -> Option<NamedEntities<'a>> {
         let inner = self.0.as_ref().borrow();
         let names = inner.lookup_immediate(designator)?;

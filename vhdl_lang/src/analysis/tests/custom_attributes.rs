@@ -327,3 +327,112 @@ end architecture;
         )],
     );
 }
+
+#[test]
+fn attribute_specification_others_decorates_remaining_entities() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : string;
+    signal first, second : natural;
+    constant c : natural := 0;
+    attribute myattr of first : signal is \"one\";
+    attribute myattr of others : signal is \"other\";
+    constant c1 : string := first'myattr;
+    constant c2 : string := second'myattr;
+begin
+end architecture;
+        ",
+    );
+
+    check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+fn attribute_specification_all_decorates_every_entity_of_the_class() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    constant c1 : natural := 0;
+    constant c2 : natural := 1;
+    attribute myattr of all : constant is true;
+    constant c3 : boolean := c1'myattr and c2'myattr;
+begin
+end architecture;
+        ",
+    );
+
+    check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+fn attribute_specification_all_and_others_only_affect_the_given_class() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    signal sig : natural;
+    constant const : natural := 0;
+    attribute myattr of others : signal is true;
+    constant c1 : boolean := sig'myattr;
+    constant c2 : boolean := const'myattr;
+begin
+end architecture;
+        ",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s("myattr", 4),
+            "Unknown attribute 'myattr",
+            ErrorCode::Unresolved,
+        )],
+    );
+}
+
+#[test]
+fn attribute_specification_all_reports_duplicate_specification() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    signal sig : natural;
+    attribute myattr of sig : signal is true;
+    attribute myattr of all : signal is false;
+begin
+end architecture;
+        ",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s("myattr", 3),
+            "Duplicate specification of attribute 'myattr' for signal 'sig'",
+            ErrorCode::Duplicate,
+        )
+        .related(code.s("sig", 3), "Previously specified here")],
+    );
+}

@@ -770,6 +770,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             }
         };
 
+        let all = matches!(entity_name, EntityName::All);
         if let EntityName::Name(EntityTag {
             designator,
             signature,
@@ -879,6 +880,23 @@ impl<'a> AnalyzeContext<'a, '_> {
 
             if let Err(diagnostic) = res {
                 diagnostics.push(diagnostic);
+            }
+        } else {
+            // LRM 7.2: `all` / `others` decorate the entities of the class
+            // declared so far in this declarative part. `others` leaves out
+            // those already specified.
+            let pos = ident.item.pos(self.ctx);
+            for ent in scope.immediates() {
+                if ent.parent != Some(parent)
+                    || ent.id() != ent.as_actual().id()
+                    || get_entity_class(ent) != Some(*entity_class)
+                    || (!all && ent.get_attribute(attr_ent.name()).is_some())
+                {
+                    continue;
+                }
+                if let Err(diagnostic) = unsafe { self.arena.add_attr(ent.id(), pos, attr_ent) } {
+                    diagnostics.push(diagnostic);
+                }
             }
         }
 
