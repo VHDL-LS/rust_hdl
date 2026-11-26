@@ -371,11 +371,11 @@ const ATTRIBUTES_1993: &[AttributeDesignator] = &[
     AttributeDesignator::SimpleName,
     AttributeDesignator::InstanceName,
     AttributeDesignator::PathName,
-    // AttributeDesignator::Type(TypeAttribute::Base),
+    AttributeDesignator::Type(TypeAttribute::Base),
 ];
 
 const ATTRIBUTES_2008: &[AttributeDesignator] = &[
-    // AttributeDesignator::Type(TypeAttribute::Base),
+    AttributeDesignator::Type(TypeAttribute::Base),
     AttributeDesignator::Left,
     AttributeDesignator::Right,
     AttributeDesignator::High,
@@ -411,7 +411,7 @@ const ATTRIBUTES_2008: &[AttributeDesignator] = &[
 ];
 
 const ATTRIBUTES_2019: &[AttributeDesignator] = &[
-    // AttributeDesignator::Type(TypeAttribute::Base),
+    AttributeDesignator::Type(TypeAttribute::Base),
     AttributeDesignator::Left,
     AttributeDesignator::Right,
     AttributeDesignator::High,

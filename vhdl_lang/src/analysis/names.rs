@@ -1211,7 +1211,7 @@ impl<'a> AnalyzeContext<'a, '_> {
     ) -> EvalResult<TypeEnt<'a>> {
         let typ = match prefix {
             ResolvedName::Type(typ) => {
-                if *suffix == TypeAttribute::Element {
+                if *suffix != TypeAttribute::Subtype {
                     *typ
                 } else {
                     let diag = Diagnostic::illegal_attribute(
@@ -1225,7 +1225,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     bail!(diagnostics, diag);
                 }
             }
-            ResolvedName::ObjectName(obj) => obj.type_mark(),
+            ResolvedName::ObjectName(obj) if *suffix != TypeAttribute::Base => obj.type_mark(),
             other => {
                 let diag = Diagnostic::mismatched_kinds(
                     pos.pos(self.ctx),
@@ -1237,7 +1237,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         };
 
         match suffix {
-            TypeAttribute::Subtype => Ok(typ),
+            TypeAttribute::Subtype | TypeAttribute::Base => Ok(typ),
             TypeAttribute::Element => {
                 if let Some((elem_type, _)) = typ.array_type() {
                     Ok(elem_type)

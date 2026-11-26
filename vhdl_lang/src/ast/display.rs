@@ -155,6 +155,7 @@ impl Display for SignalAttribute {
 impl Display for TypeAttribute {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
+            TypeAttribute::Base => write!(f, "base"),
             TypeAttribute::Subtype => write!(f, "subtype"),
             TypeAttribute::Element => write!(f, "element"),
         }

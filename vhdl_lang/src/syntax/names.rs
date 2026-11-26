@@ -858,6 +858,28 @@ mod tests {
     }
 
     #[test]
+    fn test_attribute_name_base() {
+        let code = Code::new("prefix'base");
+        let prefix = WithTokenSpan {
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
+            span: code.s1("prefix").token_span(),
+        };
+        let attr = WithTokenSpan {
+            item: Name::Attribute(Box::new(AttributeName {
+                name: prefix,
+                attr: WithToken {
+                    item: AttributeDesignator::Type(TypeAttribute::Base),
+                    token: code.s1("base").token(),
+                },
+                signature: None,
+                expr: None,
+            })),
+            span: code.s1("prefix'base").token_span(),
+        };
+        assert_eq!(code.with_stream(parse_name), attr);
+    }
+
+    #[test]
     fn test_attribute_name_element() {
         let code = Code::new("prefix'element");
         let prefix = WithTokenSpan {
