@@ -781,6 +781,51 @@ subtype bad2_t is integer'element;
 }
 
 #[test]
+fn string_literal_as_sub_aggregate_of_multi_dimensional_array() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type bit2_t is array (0 to 1, 0 to 1) of bit;
+type bit3_t is array (0 to 1, 0 to 1, 0 to 1) of bit;
+constant good1 : bit2_t := (\"01\", \"10\"); -- ok
+constant good2 : bit2_t := (others => b\"01\"); -- ok
+constant good3 : bit3_t := ((\"01\", \"10\"), (\"01\", \"10\")); -- ok
+
+constant bad1 : bit2_t := (\"0x\", \"10\");
+constant bad2 : bit2_t := \"0110\";
+constant bad3 : bit3_t := (\"01\", \"10\");
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::new(
+                code.s1("\"0x\""),
+                "type 'BIT' does not define character 'x'",
+                ErrorCode::InvalidLiteral,
+            ),
+            Diagnostic::new(
+                code.s1("\"0110\""),
+                "string literal does not match array type 'bit2_t'",
+                ErrorCode::TypeMismatch,
+            ),
+            Diagnostic::new(
+                code.s1("bad3 : bit3_t := (\"01\", \"10\")").s1("\"01\""),
+                "Expected sub-aggregate for target array type 'bit3_t'",
+                ErrorCode::ExpectedSubAggregate,
+            ),
+            Diagnostic::new(
+                code.s1("bad3 : bit3_t := (\"01\", \"10\")").s1("\"10\""),
+                "Expected sub-aggregate for target array type 'bit3_t'",
+                ErrorCode::ExpectedSubAggregate,
+            ),
+        ],
+    );
+}
+
+#[test]
 fn qualified_expression_type_mark() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
