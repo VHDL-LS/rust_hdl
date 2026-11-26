@@ -95,6 +95,7 @@ pub struct AttributeName {
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
 pub enum TypeAttribute {
+    Base,
     Subtype,
     Element,
 }

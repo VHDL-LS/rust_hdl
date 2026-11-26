@@ -781,6 +781,37 @@ subtype bad2_t is integer'element;
 }
 
 #[test]
+fn test_base_attribute_resolves_to_base_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type small_t is range 0 to 3;
+subtype sub_t is small_t range 1 to 2;
+constant good1 : small_t := small_t'base'low; -- ok
+constant good2 : small_t := sub_t'base'high; -- ok
+constant bad1 : sub_t'base := false;
+constant bad2 : integer := good1'base'high;
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::new(
+                code.s1("false"),
+                "'false' does not match integer type 'small_t'",
+                ErrorCode::TypeMismatch,
+            ),
+            Diagnostic::mismatched_kinds(
+                code.s1("good1'base"),
+                "Expected type, got constant 'good1'",
+            )
+            .related(code.s1("good1"), "Defined here"),
+        ],
+    );
+}
+
+#[test]
 fn qualified_expression_type_mark() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
