@@ -172,6 +172,8 @@ UNISIM.is_third_party = true
 
 [lint]
 unused = 'error' # Upgrade the 'unused' diagnostic to the 'error' severity
+never_read = 'warning' # Warn about signals/variables that are assigned but never read
+uninitialized = 'error' # Flag signals/variables/ports that are read but never assigned
 unnecessary_work_library = false # Disable linting for the 'library work;' statement
 ```
 
