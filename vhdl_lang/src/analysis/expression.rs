@@ -875,9 +875,14 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
     ) -> FatalResult {
         let target_base = target_type.base_type();
         match expr {
-            Expression::Literal(ref mut lit) => {
-                self.analyze_literal_with_target_type(scope, target_type, span, lit, diagnostics)?
-            }
+            Expression::Literal(ref mut lit) => self.analyze_literal_with_target_type(
+                scope,
+                target_type,
+                span,
+                lit,
+                false,
+                diagnostics,
+            )?,
             Expression::Name(ref mut name) => self.expression_name_with_ttyp(
                 scope,
                 span,
@@ -1393,6 +1398,20 @@ impl<'a, 't> AnalyzeContext<'a, 't> {
                         diagnostics,
                     ))?;
                 }
+            } else if let (
+                2,
+                Expression::Literal(lit @ (Literal::String(_) | Literal::BitString(_))),
+            ) = (index_types.len(), &mut expr.item)
+            {
+                // A string literal is allowed as sub-aggregate for the last dimension
+                self.analyze_literal_with_target_type(
+                    scope,
+                    array_type,
+                    expr.span,
+                    lit,
+                    true,
+                    diagnostics,
+                )?;
             } else {
                 diagnostics.add(
                     expr.pos(self.ctx),
