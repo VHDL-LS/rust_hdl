@@ -208,8 +208,8 @@ impl Searcher for DeadCodeSearcher<'_> {
         match write_kind {
             WriteKind::ReadOnly => {
                 // Let the default search handle it.
-        SearchState::NotFinished
-    }
+                SearchState::NotFinished
+            }
             WriteKind::WriteOnly => {
                 // Search the formal normally (counts as a reference to the port).
                 if let Some(formal) = &assoc.formal {
@@ -584,11 +584,11 @@ fn find_unused_issues<'a>(
             continue;
         }
         let passes_filter = if let Related::DeclaredBy(other) = ent.related {
-                // If the subprogram header is found in the references
-                // but not the body. The body is considered to be used and we filter it away
+            // If the subprogram header is found in the references
+            // but not the body. The body is considered to be used and we filter it away
             !searcher.references.contains(&other)
-            } else {
-                true
+        } else {
+            true
         };
         if passes_filter && can_be_locally_unused(ent) {
             results.push(UnusedDeclaration {
@@ -596,7 +596,7 @@ fn find_unused_issues<'a>(
                 kind: UnusedKind::Unused,
             });
             flagged.insert(ent);
-            }
+        }
     }
 
     // 3. Referenced local objects with read/write issues → NeverRead / Uninitialized
