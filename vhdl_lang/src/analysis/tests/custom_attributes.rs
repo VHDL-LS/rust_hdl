@@ -367,7 +367,7 @@ architecture a of ent is
     constant c1 : natural := 0;
     constant c2 : natural := 1;
     attribute myattr of all : constant is true;
-    constant c3 : boolean := c1'myattr and c2'myattr;
+    signal s3 : boolean := c1'myattr and c2'myattr;
 begin
 end architecture;
         ",
@@ -435,4 +435,110 @@ end architecture;
         )
         .related(code.s("sig", 3), "Previously specified here")],
     );
+}
+
+#[test]
+fn attribute_specification_all_rejects_later_declaration_of_the_class() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    attribute myattr of all : signal is true;
+    signal z : bit;
+    attribute myattr of z : signal is false;
+begin
+end architecture;
+        ",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("z"),
+            "signal 'z' declared after an attribute specification with 'all' or 'others' for class signal",
+            ErrorCode::MisplacedAttributeSpec,
+        )
+        .related(code.s("myattr", 2), "Attribute specification is here")],
+    );
+}
+
+#[test]
+fn attribute_specification_others_rejects_later_declaration_of_the_class() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    signal x : bit;
+    attribute myattr of others : signal is true;
+    signal z : bit;
+begin
+end architecture;
+        ",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::new(
+            code.s1("z"),
+            "signal 'z' declared after an attribute specification with 'all' or 'others' for class signal",
+            ErrorCode::MisplacedAttributeSpec,
+        )
+        .related(code.s("myattr", 2), "Attribute specification is here")],
+    );
+}
+
+#[test]
+fn attribute_specification_all_allows_later_declaration_of_other_classes() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    attribute myattr of all : signal is true;
+    constant c : natural := 0;
+    attribute myattr of c : constant is false;
+begin
+end architecture;
+        ",
+    );
+
+    check_no_diagnostics(&builder.analyze());
+}
+
+#[test]
+fn attribute_specification_all_allows_declaration_in_nested_region() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    attribute myattr : boolean;
+    attribute myattr of all : signal is true;
+begin
+    blk : block is
+        signal z : bit;
+    begin
+    end block;
+end architecture;
+        ",
+    );
+
+    check_no_diagnostics(&builder.analyze());
 }
