@@ -145,8 +145,16 @@ impl<'a> AnalyzeContext<'a, '_> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let mut incomplete_types: FnvHashMap<Symbol, (EntRef<'a>, SrcPos)> = FnvHashMap::default();
+        // Entity classes covered by an `all` / `others` attribute specification so far
+        let mut covered_classes: Vec<(EntityClass, SrcPos)> = Vec::new();
 
         for i in 0..declarations.len() {
+            let num_declared = if covered_classes.is_empty() {
+                0
+            } else {
+                scope.immediates().len()
+            };
+
             let (WithTokenSpan { item: decl, span }, remaining) =
                 declarations[i..].split_first_mut().unwrap();
 
@@ -237,6 +245,39 @@ impl<'a> AnalyzeContext<'a, '_> {
                 },
                 _ => {
                     self.analyze_declaration(scope, parent, &mut declarations[i], diagnostics)?;
+                }
+            }
+
+            // LRM 7.2: It is an error if a named entity in the specified entity class is
+            // declared in a given declarative part following such an attribute specification.
+            if !covered_classes.is_empty() {
+                for ent in scope.immediates().get(num_declared..).unwrap_or_default() {
+                    for (class, spec_pos) in &covered_classes {
+                        if ent.parent == Some(parent) && get_entity_class(ent) == Some(*class) {
+                            if let Some(pos) = ent.decl_pos() {
+                                diagnostics.push(
+                                    Diagnostic::new(
+                                        pos,
+                                        format!(
+                                            "{} declared after an attribute specification with 'all' or 'others' for class {}",
+                                            ent.describe(),
+                                            class
+                                        ),
+                                        ErrorCode::MisplacedAttributeSpec,
+                                    )
+                                    .related(spec_pos, "Attribute specification is here"),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            if let Declaration::Attribute(ast::Attribute::Specification(spec)) =
+                &declarations[i].item
+            {
+                if matches!(spec.entity_name, EntityName::All | EntityName::Others) {
+                    covered_classes
+                        .push((spec.entity_class, spec.ident.item.pos(self.ctx).clone()));
                 }
             }
         }
@@ -770,6 +811,7 @@ impl<'a> AnalyzeContext<'a, '_> {
             }
         };
 
+        let all = matches!(entity_name, EntityName::All);
         if let EntityName::Name(EntityTag {
             designator,
             signature,
@@ -879,6 +921,25 @@ impl<'a> AnalyzeContext<'a, '_> {
 
             if let Err(diagnostic) = res {
                 diagnostics.push(diagnostic);
+            }
+        } else {
+            // LRM 7.2: `all` / `others` decorate the entities of the class
+            // declared so far in this declarative part. `others` leaves out
+            // those already specified. Declaring further entities of that class
+            // later in the same declarative part is an error, reported by
+            // `analyze_declarative_part`.
+            let pos = ident.item.pos(self.ctx);
+            for ent in scope.immediates() {
+                if ent.parent != Some(parent)
+                    || ent.id() != ent.as_actual().id()
+                    || get_entity_class(ent) != Some(*entity_class)
+                    || (!all && ent.get_attribute(attr_ent.name()).is_some())
+                {
+                    continue;
+                }
+                if let Err(diagnostic) = unsafe { self.arena.add_attr(ent.id(), pos, attr_ent) } {
+                    diagnostics.push(diagnostic);
+                }
             }
         }
 
