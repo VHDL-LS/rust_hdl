@@ -52,3 +52,7 @@ harness = false
 [[bench]]
 name = "tree_walk"
 harness = false
+
+[[bench]]
+name = "latin1_cmp"
+harness = false

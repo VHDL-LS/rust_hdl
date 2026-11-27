@@ -9,7 +9,7 @@ use crate::parser::marker::{CompletedMarker, Marker, Precede, UnknownMarker};
 use crate::parser::productions::declarations::is_start_of_declarative_part;
 use crate::parser::util::{choice_options, StallGuard};
 use crate::parser::Parser;
-use crate::syntax::child::ChildKind;
+use crate::syntax::child::{Child, ChildKind};
 use crate::syntax::meta::Layout;
 use crate::syntax::node_kind::NodeKind::*;
 use crate::syntax::{
@@ -231,7 +231,7 @@ impl Parser {
             }
             Identifier | LtLt | StringLiteral | CharacterLiteral => {
                 let unknown = self.start_unknown();
-                self.opt_label();
+                let has_label = self.opt_label();
                 self.opt_token(Keyword(Kw::Postponed));
                 let name = self.name();
                 let marker = match self.peek_token() {
@@ -241,6 +241,11 @@ impl Parser {
                         self.signal_assignment_after_lte(unknown)
                     }
                     Keyword(Kw::Port | Kw::Generic) => {
+                        if !has_label {
+                            self.push_err(SyntaxErrKind::Expected(Child::Node(Box::new([
+                                StmtLabel,
+                            ]))));
+                        }
                         name.precede(self, InstantiatedComponent).complete(self);
                         let marker = unknown.resolve(self, ComponentInstantiationStatement);
                         self.instantiation_statement_inner();
@@ -1052,6 +1057,18 @@ architecture a of e is
   begin
     use work.all;
   end architecture;",
+            Parser::architecture
+        );
+    }
+
+    #[test]
+    fn instantiation_without_label() {
+        assert_recovery_snapshot!(
+            "\
+architecture a of e is
+begin
+  cmp port map (p => q);
+end architecture;",
             Parser::architecture
         );
     }

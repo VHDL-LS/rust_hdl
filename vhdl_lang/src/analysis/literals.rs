@@ -22,9 +22,10 @@ impl<'a> AnalyzeContext<'a, '_> {
         string_lit: Latin1String,
         target_base: TypeEnt<'_>,
         target_type: TypeEnt<'_>,
+        is_subaggregate: bool,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        if let Some((elem_type, literals)) = as_single_index_enum_array(target_base) {
+        if let Some((elem_type, literals)) = as_enum_array(target_base, is_subaggregate) {
             for chr in string_lit.chars() {
                 let chr = Designator::Character(*chr);
                 if !literals.contains(&chr) {
@@ -53,6 +54,7 @@ impl<'a> AnalyzeContext<'a, '_> {
         target_type: TypeEnt<'a>,
         span: TokenSpan,
         literal: &mut Literal,
+        is_subaggregate: bool,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let target_base = target_type.base_type();
@@ -109,6 +111,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                     string_lit.to_owned(),
                     target_base,
                     target_type,
+                    is_subaggregate,
                     diagnostics,
                 );
             }
@@ -119,6 +122,7 @@ impl<'a> AnalyzeContext<'a, '_> {
                         string_lit,
                         target_base,
                         target_type,
+                        is_subaggregate,
                         diagnostics,
                     ),
                     Err(err) => {
@@ -212,13 +216,18 @@ impl<'a> AnalyzeContext<'a, '_> {
     }
 }
 
-/// Must be an array type with a single index of enum type
-fn as_single_index_enum_array(typ: TypeEnt<'_>) -> Option<(TypeEnt<'_>, &FnvHashSet<Designator>)> {
+/// Must be an array type with a single index of enum type.
+/// A string literal used as a sub-aggregate of a multi-dimensional array
+/// fills the last dimension, so any number of indexes is accepted then.
+fn as_enum_array(
+    typ: TypeEnt<'_>,
+    is_subaggregate: bool,
+) -> Option<(TypeEnt<'_>, &FnvHashSet<Designator>)> {
     if let Type::Array {
         indexes, elem_type, ..
     } = typ.kind()
     {
-        if indexes.len() == 1 {
+        if is_subaggregate || indexes.len() == 1 {
             if let Type::Enum(literals) = elem_type.base_type().kind() {
                 return Some((*elem_type, literals));
             }

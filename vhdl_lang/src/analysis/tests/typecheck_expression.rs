@@ -514,7 +514,6 @@ constant good : natural := thefun(0)(0);
     check_no_diagnostics(&diagnostics);
 }
 
-#[ignore = "Does not work yet"]
 #[test]
 fn function_result_can_be_indexed_no_arg() {
     let mut builder = LibraryBuilder::new();
@@ -525,12 +524,113 @@ begin
    return (0, 1);
 end;
 
+function bits return bit_vector is
+begin
+    return \"10\";
+end;
+
+function defaulted(arg : natural := 0) return bit_vector is
+begin
+    return \"10\";
+end;
+
+function overloaded return bit_vector;
+function overloaded(arg : natural) return integer_vector;
+function element_arg(arg : bit := '0') return bit_vector;
+
 constant good : natural := thefun(0);
+constant first_bit : bit := bits(0);
+constant default_bit : bit := defaulted(0);
+constant called_vector : bit_vector := defaulted(0);
+constant overloaded_bit : bit := overloaded(0);
+constant overloaded_vector : integer_vector := overloaded(0);
+constant chained_bit : bit := element_arg('0')(0);
+constant chained_default : bit := defaulted(0)(0);
+constant compared : boolean := bits(0) = '1';
+constant compared_default : boolean := defaulted(0) = '1';
         ",
     );
 
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn function_result_index_or_call_reports_type_mismatch() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+function defaulted(arg : natural := 0) return bit_vector;
+
+constant c0 : integer := defaulted(0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("defaulted(0)"),
+            "Expression of array type 'BIT_VECTOR' does not match integer type 'INTEGER'",
+            ErrorCode::TypeMismatch,
+        )],
+    );
+}
+
+#[test]
+fn function_result_index_or_call_sets_references() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    function defaulted(arg : natural := 0) return bit_vector is
+    begin
+        return \"10\";
+    end function;
+begin
+    process
+        variable k : natural := 0;
+    begin
+        case defaulted(k) is
+            when others => null;
+        end case;
+        wait;
+    end process;
+end architecture;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    // Both the call and the indexed result are discrete or character arrays
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::new(
+            code.s1("defaulted(k)"),
+            "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
+            ErrorCode::AmbiguousExpression,
+        )],
+    );
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s("defaulted", 2).start()),
+        Some(code.s1("defaulted").pos())
+    );
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("(k)").s1("k").start()),
+        Some(code.s1("k").pos())
+    );
+    assert_eq!(
+        root.find_all_references_pos(&code.s1("defaulted").pos()),
+        vec![code.s("defaulted", 1).pos(), code.s("defaulted", 2).pos()]
+    );
+    assert_eq!(
+        root.find_all_references_pos(&code.s1("k").pos()),
+        vec![code.s("k", 1).pos(), code.s("k", 2).pos()]
+    );
 }
 
 #[test]
@@ -675,6 +775,51 @@ subtype bad2_t is integer'element;
             Diagnostic::illegal_attribute(
                 code.s1("integer'element").s1("integer"),
                 "array type expected for 'element attribute",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn string_literal_as_sub_aggregate_of_multi_dimensional_array() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type bit2_t is array (0 to 1, 0 to 1) of bit;
+type bit3_t is array (0 to 1, 0 to 1, 0 to 1) of bit;
+constant good1 : bit2_t := (\"01\", \"10\"); -- ok
+constant good2 : bit2_t := (others => b\"01\"); -- ok
+constant good3 : bit3_t := ((\"01\", \"10\"), (\"01\", \"10\")); -- ok
+
+constant bad1 : bit2_t := (\"0x\", \"10\");
+constant bad2 : bit2_t := \"0110\";
+constant bad3 : bit3_t := (\"01\", \"10\");
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::new(
+                code.s1("\"0x\""),
+                "type 'BIT' does not define character 'x'",
+                ErrorCode::InvalidLiteral,
+            ),
+            Diagnostic::new(
+                code.s1("\"0110\""),
+                "string literal does not match array type 'bit2_t'",
+                ErrorCode::TypeMismatch,
+            ),
+            Diagnostic::new(
+                code.s1("bad3 : bit3_t := (\"01\", \"10\")").s1("\"01\""),
+                "Expected sub-aggregate for target array type 'bit3_t'",
+                ErrorCode::ExpectedSubAggregate,
+            ),
+            Diagnostic::new(
+                code.s1("bad3 : bit3_t := (\"01\", \"10\")").s1("\"10\""),
+                "Expected sub-aggregate for target array type 'bit3_t'",
+                ErrorCode::ExpectedSubAggregate,
             ),
         ],
     );

@@ -80,6 +80,7 @@ strum = { version = "0.28", features = ["derive"] }
 subst = "0.3.8"
 syn = { version = "3.0.2", features = ["full"] }
 toml = "0.8.23"
+url = "2.5.8"
 ungrammar = "1.16.1"
 globset = "0.4.20"
 hashify = "0.3.0"

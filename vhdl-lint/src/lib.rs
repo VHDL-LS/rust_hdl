@@ -6,6 +6,7 @@ pub mod diagnostic;
 pub mod error_code;
 pub mod fix;
 pub mod rule;
+pub mod sarif;
 pub mod serialize;
 pub mod severity;
 pub mod source_loc;

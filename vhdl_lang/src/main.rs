@@ -115,10 +115,14 @@ fn parse_and_analyze_project(
     let mut config = Config::default();
     let mut msg_printer = MessagePrinter::default();
     config.load_external_config(&mut msg_printer, libraries.cloned());
-    config.append(
-        &Config::read_file_path(Path::new(&config_path)).expect("Failed to read config file"),
-        &mut msg_printer,
-    );
+    let project_config = match Config::read_file_path(Path::new(&config_path)) {
+        Ok(project_config) => project_config,
+        Err(err) => {
+            eprintln!("error: Failed to read config file '{config_path}': {err}");
+            std::process::exit(2);
+        }
+    };
+    config.append(&project_config, &mut msg_printer);
 
     let severity_map = *config.severities();
     let mut project = Project::from_config(config, &mut msg_printer);
@@ -137,9 +141,23 @@ fn parse_and_analyze_project(
     }
 }
 
+/// Analysis runs in parallel, so diagnostics arrive in a different order on every run.
+/// Sort them by file, then position, then code and message, so the printed output is the
+/// same from run to run and can be compared or diffed.
+fn in_output_order(diagnostics: &[Diagnostic]) -> Vec<&Diagnostic> {
+    let mut sorted: Vec<&Diagnostic> = diagnostics.iter().collect();
+    sorted.sort_by(|a, b| {
+        a.pos
+            .cmp(&b.pos)
+            .then_with(|| <&'static str>::from(a.code).cmp(<&'static str>::from(b.code)))
+            .then_with(|| a.message.cmp(&b.message))
+    });
+    sorted
+}
+
 fn show_diagnostics(diagnostics: &[Diagnostic], severity_map: &SeverityMap) {
-    let diagnostics = diagnostics
-        .iter()
+    let diagnostics = in_output_order(diagnostics)
+        .into_iter()
         .filter_map(|diag| diag.show(severity_map))
         .collect_vec();
     for str in &diagnostics {
@@ -148,5 +166,54 @@ fn show_diagnostics(diagnostics: &[Diagnostic], severity_map: &SeverityMap) {
 
     if !diagnostics.is_empty() {
         println!("Found {} diagnostics", diagnostics.len());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_errors(file_name: &str, contents: &str) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+        VHDLParser::new(VHDLStandard::default()).parse_design_source(
+            &Source::inline(Path::new(file_name), contents),
+            &mut diagnostics,
+        );
+        diagnostics
+    }
+
+    #[test]
+    fn diagnostics_are_printed_by_file_then_position() {
+        // One syntax error on each line, in two files.
+        let mut diagnostics = parse_errors("b.vhd", "entity x is end entity y;\n");
+        diagnostics.extend(parse_errors(
+            "a.vhd",
+            "entity x is end entity y;\nentity z is end entity w;\n",
+        ));
+        assert_eq!(diagnostics.len(), 3);
+        // Reverse the order the analysis produced, as a parallel run may.
+        diagnostics.reverse();
+        let places: Vec<(String, u32)> = in_output_order(&diagnostics)
+            .iter()
+            .map(|d| {
+                (
+                    d.pos
+                        .file_name()
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .into_owned(),
+                    d.pos.range.start.line,
+                )
+            })
+            .collect();
+        assert_eq!(
+            places,
+            vec![
+                ("a.vhd".to_string(), 0),
+                ("a.vhd".to_string(), 1),
+                ("b.vhd".to_string(), 0)
+            ]
+        );
     }
 }

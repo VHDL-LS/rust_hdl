@@ -100,42 +100,48 @@ impl StandardTypes {
                         standard_pkg.source.clone(),
                     )
                     .id();
-                let name = type_decl.ident.tree.item.name();
+                // VHDL identifiers are case insensitive, and a `Symbol` keeps the case the
+                // source used, so these names must be folded before they are compared. Every
+                // standard library shipped with rust_hdl writes them in upper case, but a
+                // project may be pointed at a vendor's own `std.standard`, and some of those
+                // write them in lower case. Comparing the source bytes made the type simply not
+                // be found, which made `Self` below panic in `unwrap`.
+                let name = type_decl.ident.tree.item.name().to_lowercase();
                 match name.bytes.as_slice() {
-                    b"BOOLEAN" => {
+                    b"boolean" => {
                         boolean = Some(id);
                     }
-                    b"BIT" => {
+                    b"bit" => {
                         bit = Some(id);
                     }
-                    b"BIT_VECTOR" => {
+                    b"bit_vector" => {
                         bit_vector = Some(id);
                     }
-                    b"CHARACTER" => {
+                    b"character" => {
                         character = Some(id);
                     }
-                    b"STRING" => {
+                    b"string" => {
                         string = Some(id);
                     }
-                    b"INTEGER" => {
+                    b"integer" => {
                         integer = Some(id);
                     }
-                    b"NATURAL" => {
+                    b"natural" => {
                         natural = Some(id);
                     }
-                    b"REAL" => {
+                    b"real" => {
                         real = Some(id);
                     }
-                    b"TIME" => {
+                    b"time" => {
                         time = Some(id);
                     }
-                    b"FILE_OPEN_KIND" => {
+                    b"file_open_kind" => {
                         file_open_kind = Some(id);
                     }
-                    b"FILE_OPEN_STATUS" => {
+                    b"file_open_status" => {
                         file_open_status = Some(id);
                     }
-                    b"SEVERITY_LEVEL" => {
+                    b"severity_level" => {
                         severity_level = Some(id);
                     }
                     _ => {

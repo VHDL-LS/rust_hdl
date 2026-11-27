@@ -208,8 +208,8 @@ impl Searcher for DeadCodeSearcher<'_> {
         match write_kind {
             WriteKind::ReadOnly => {
                 // Let the default search handle it.
-                SearchState::NotFinished
-            }
+        SearchState::NotFinished
+    }
             WriteKind::WriteOnly => {
                 // Search the formal normally (counts as a reference to the port).
                 if let Some(formal) = &assoc.formal {
@@ -584,11 +584,11 @@ fn find_unused_issues<'a>(
             continue;
         }
         let passes_filter = if let Related::DeclaredBy(other) = ent.related {
-            // If the subprogram header is found in the references
-            // but not the body. The body is considered to be used and we filter it away
+                // If the subprogram header is found in the references
+                // but not the body. The body is considered to be used and we filter it away
             !searcher.references.contains(&other)
-        } else {
-            true
+            } else {
+                true
         };
         if passes_filter && can_be_locally_unused(ent) {
             results.push(UnusedDeclaration {
@@ -596,7 +596,7 @@ fn find_unused_issues<'a>(
                 kind: UnusedKind::Unused,
             });
             flagged.insert(ent);
-        }
+            }
     }
 
     // 3. Referenced local objects with read/write issues → NeverRead / Uninitialized
@@ -1224,7 +1224,7 @@ end package body;
                 .iter()
                 .any(|issue| issue.ent == *ent && issue.kind == *kind)
             {
-                println!("Expected {}", fmt_issue(*ent, *kind));
+                println!("Expected {}", fmt_issue(ent, *kind));
                 fail = true;
             }
         }
@@ -1333,7 +1333,7 @@ end architecture;",
     fn signal_read_but_never_assigned_with_init() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 entity ent is
@@ -1602,7 +1602,7 @@ end architecture example;",
     fn properly_used_signal_no_issue() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 entity ent is
@@ -1830,7 +1830,7 @@ end architecture;",
     fn signal_connected_to_component_inout_port() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 entity sub is
@@ -1915,7 +1915,7 @@ end architecture;",
     fn signal_connected_to_component_in_port() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 entity sub is
@@ -2041,7 +2041,7 @@ end architecture example;",
     fn signal_connected_to_unresolved_formal_not_uninitialized() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 entity ent is
@@ -2086,7 +2086,7 @@ end architecture;",
     fn signal_connected_to_undeclared_component_not_uninitialized() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 entity ent is
@@ -2127,7 +2127,7 @@ end architecture;",
     fn signal_driven_by_out_port_in_generate_loop() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 entity emulator_ent is
@@ -2179,7 +2179,7 @@ end architecture;",
     fn signal_driven_by_out_port_indexed_in_generate_loop() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 entity emulator_ent is
@@ -2233,7 +2233,7 @@ end architecture;",
     fn signal_driven_by_out_port_with_package_types_and_generics() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 package pkg is
@@ -2454,7 +2454,7 @@ end architecture;",
     fn variable_passed_to_textio_write_inout_param() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 library std;
@@ -2497,7 +2497,7 @@ end architecture;",
     fn variable_passed_to_textio_write_fully_qualified() {
         let mut builder = LibraryBuilder::new();
 
-        let code = builder.code(
+        builder.code(
             "libname",
             "
 library std;
